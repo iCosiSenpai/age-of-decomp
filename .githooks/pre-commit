@@ -1,0 +1,10 @@
+#!/bin/sh
+# Content guard before every commit. Enable once per clone: git config core.hooksPath .githooks
+# Tries python3, python and the Windows `py` launcher (python3 can be the Microsoft Store stub on Windows).
+for py in python3 python py; do
+  if "$py" -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)" >/dev/null 2>&1; then
+    exec "$py" tools/check_content.py --staged
+  fi
+done
+echo "pre-commit: Python 3.12+ not found, cannot run tools/check_content.py" >&2
+exit 1

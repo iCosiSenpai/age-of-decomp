@@ -1,0 +1,78 @@
+# ── Agent notebook: plans, task lists, logs, research. Never committed. ──
+/plan&activity/
+
+# ── Nintendo material: game dumps, keys, firmware, saves. NEVER commit any of it. ──
+/Hyrule Warriors Age of Imprisonment Switch 2 NUP Base Game/
+*.nup
+*.nsp
+*.nsz
+*.xci
+*.xcz
+*.nca
+*.ncz
+*.nso
+*.nro
+*.npdm
+*.keys
+prod.keys
+title.keys
+*.tik
+*.cert
+romfs/
+exefs/
+/game/
+/dump/
+save/
+saves/
+
+# ── Upstream checkouts, toolchains, build trees, generated code, staged output ──
+/refs/
+/.cache/
+/build/
+/out/
+/generated/
+/work/
+*.spv.cache
+shader_cache/
+*.pdb
+*.ilk
+*.obj
+*.o
+*.a
+*.lib
+*.exp
+
+# ── Local configuration and secrets ──
+config.local.toml
+*.local.json
+*.local.ini
+.env
+.env.*
+*.pfx
+*.p12
+
+# ── Launcher (Tauri / Svelte / Rust) ──
+node_modules/
+apps/launcher/dist/
+apps/launcher/.svelte-kit/
+target/
+apps/launcher/src-tauri/gen/schemas/
+
+# ── Python ──
+__pycache__/
+*.pyc
+.venv/
+.venv-*/
+
+# ── Editors / OS ──
+.vs/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and crash dumps (may contain game paths)
+*.log
+*.dmp
+logs/

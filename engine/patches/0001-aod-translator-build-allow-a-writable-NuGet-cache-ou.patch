@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Mon, 16 Nov 2026 18:01:52 +0100
+Subject: [PATCH] aod: translator build: allow a writable NuGet cache outside
+ the .NET folder
+
+HWAOI_NUGET_CACHE sets the NuGet package/HTTP/plugin cache. A system-wide .NET SDK
+under Program Files is read-only, so the default cache beside it cannot be created.
+The .NET folder's nuget fallback feed is used only when it exists.
+---
+ tools/build_xlate_hwaoi.py | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/tools/build_xlate_hwaoi.py b/tools/build_xlate_hwaoi.py
+index 513c21b1f0d8d6898737eaf433493d91ac416643..b591b1f0b9374a345c39b9bb84aae98bc0f3445c 100644
+--- a/tools/build_xlate_hwaoi.py
++++ b/tools/build_xlate_hwaoi.py
+@@ -199,8 +199,10 @@ def build(args):
+     output = target_path(args.out, ROOT / "work/build/hwaoi196608")
+     require(output.name.startswith("xlate"), "translator deployment folder must start with xlate")
+     # Windows: beside the .NET folder (HWAOI_TOOLS, default F:/). Linux: the system dotnet's folder is not writable.
+-    cache = dotnet.parent.parent / "NuGet" if WINDOWS else ROOT / "work/toolchain/NuGet"
+-    fallback = dotnet.parent / "nuget" if WINDOWS else cache / "empty-feed"
++    # HWAOI_NUGET_CACHE moves it anywhere writable (a system-wide SDK under Program Files is read-only).
++    override = os.environ.get("HWAOI_NUGET_CACHE")
++    cache = Path(override) if override else dotnet.parent.parent / "NuGet" if WINDOWS else ROOT / "work/toolchain/NuGet"
++    fallback = dotnet.parent / "nuget" if WINDOWS and (dotnet.parent / "nuget").is_dir() else cache / "empty-feed"
+     for folder in (cache / "packages", cache / "http", cache / "plugins", cache / "cli-home", cache / "empty-feed"):
+         folder.mkdir(parents=True, exist_ok=True)
+     env = dict(os.environ)

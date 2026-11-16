@@ -1,0 +1,53 @@
+/* "Seal of the Imprisoned": dark carved stone, parchment text, one cool accent for focus and one warm accent for the
+   primary action. Colours carry state, never decoration: blue = focus/selected, gold = primary action, green = ready,
+   amber = needs attention, red = error. */
+@font-face {
+  font-family: 'Cinzel';
+  src: url('../assets/fonts/Cinzel-Variable.ttf') format('truetype');
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --bg: #0b0d11;
+  --surface-1: #0f1115;
+  --surface-2: #171a21;
+  --surface-3: #20242e;
+  --surface-4: #2a2f3b;
+  --line: #2e3442;
+  --line-strong: #3d4556;
+
+  --text: #efe6d2;
+  --text-dim: #b9b09d;
+  --text-faint: #8a8476;
+
+  --focus: #3fc6ff;
+  --focus-soft: rgba(63, 198, 255, 0.16);
+  --gold: #e7b75a;
+  --gold-strong: #f4cc77;
+  --gold-soft: rgba(231, 183, 90, 0.14);
+  --ok: #4fd18b;
+  --ok-soft: rgba(79, 209, 139, 0.14);
+  --warn: #ffb547;
+  --warn-soft: rgba(255, 181, 71, 0.14);
+  --err: #ff5a4f;
+  --err-soft: rgba(255, 90, 79, 0.14);
+
+  --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --font-text: 'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 16px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --rail-w: 232px;
+  --titlebar-h: 40px;
+  --hintbar-h: 44px;
+}

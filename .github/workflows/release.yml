@@ -1,0 +1,51 @@
+name: release
+
+# Builds the Windows release on a v* tag and attaches it to a DRAFT release (publishing stays a manual decision).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Engine toolchain, checkout, translator, bundle
+        run: |
+          python tools/engine.py toolchain
+          python tools/engine.py fetch
+          python tools/engine.py translator
+          python tools/engine.py stage
+      - name: Launcher
+        working-directory: apps/launcher
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm tauri build --no-bundle
+      - name: Release folder and zip
+        run: python tools/release.py windows --zip
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --prerelease --title "Age of Decomp $tag" --notes "Draft: see the README for what is tested."
+          gh release upload "$tag" out/release/*.zip out/release/SHA256SUMS.txt --clobber

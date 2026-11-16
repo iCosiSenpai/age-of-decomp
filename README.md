@@ -1,0 +1,81 @@
+<p align="center">
+  <img src="docs/assets/icon.png" alt="Age of Decomp icon" width="160">
+</p>
+
+<h1 align="center">Age of Decomp</h1>
+
+<p align="center">
+  <b>Hyrule Warriors: Age of Imprisonment</b>, recompiled into a native Windows and Linux game from <b>your own</b> copy.<br>
+  Easy step-by-step setup · complete graphics settings · native Xbox, PlayStation, Switch and Switch 2 controllers ·
+  <a href="https://github.com/elripalda/RecompLauncher">RecompLauncher</a> ready
+</p>
+
+<p align="center">
+  <img alt="Windows and Linux" src="https://img.shields.io/badge/windows%20%7C%20linux-x86--64-efe6d2?style=for-the-badge&labelColor=0f1115">
+  <a href="LICENSE"><img alt="GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-4fd18b?style=for-the-badge&labelColor=0f1115"></a>
+  <img alt="Vulkan" src="https://img.shields.io/badge/Vulkan-1.3-3fc6ff?style=for-the-badge&labelColor=0f1115">
+  <img alt="English and Italian" src="https://img.shields.io/badge/UI-English%20%7C%20Italiano-e7b75a?style=for-the-badge&labelColor=0f1115">
+</p>
+
+> [!IMPORTANT]
+> **Bring your own game.** Age of Decomp contains nothing from Nintendo or Koei Tecmo and never downloads game files,
+> keys or firmware. You need your own dump of the game as a **`.nup` file with the base game and update 3.0.0
+> (NCM 196608)**. The game is built **on your PC**; the result is for your own use and must not be shared.
+
+## What it is
+
+The game's ARM64 code is translated to C ahead of time and compiled for your processor, with a runtime that provides
+the Switch 2's system services and draws through Vulkan (NVN 2 → Vulkan, Ampere shaders → SPIR-V). The engine is
+[HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp) (built on [DKB Recomp](https://github.com/Lucas-blip-png/dkb-pc-recomp)),
+pinned and patched here; Age of Decomp adds the launcher, the setup, the settings, native controller support,
+packaging for Windows and Linux, and RecompLauncher integration.
+
+| | |
+|---|---|
+| 🧭 **Five-step setup** | Pick your `.nup` (it is also found automatically), see every check pass, choose a folder, press *Build*: one progress bar, a list of stages, time left. Stop any time; continuing reuses everything already done. About **7 minutes** on a Core Ultra 7 265K. |
+| 🖥️ **Every setting** | Resolution (720p–4K), window, V-Sync mode, frame rate, 3D resolution, FSR upscaling and sharpness, aspect, field of view, colour (presets or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume, players, controller type, button layout, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
+| 🎮 **Controllers, natively** | Through SDL 3's own drivers: Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro Controller, Joy-Con (single or pair), **Switch 2 Pro Controller, Joy-Con 2**, GameCube — wired or Bluetooth, with rumble and motion. A live tester shows every button, stick, trigger and the gyro. The whole launcher works with a controller. |
+| 🚀 **RecompLauncher ready** | Each release carries `recomplauncher.json`: one-click setup from your `.nup` (recognised by its build ID), the settings on the game's page, Big Picture mode, save backups. |
+| 🌐 **English and Italian** | Follows your system; switch any time. |
+
+## Status
+
+Early. The game builds, boots, plays its opening and reaches exploration and combat at 1080p / 60 FPS on tested PCs
+(engine status: [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp#current-status)). Known limits inherited from
+the engine: 90/120 FPS also speed the game up; 1440p and 4K are experimental; a full playthrough is not verified yet.
+Linux builds are in progress.
+
+## Requirements
+
+Windows 10/11 x64 (Linux x86-64 coming), a CPU with **AVX2**, a **Vulkan 1.3** GPU with `VK_EXT_external_memory_host`
+(recent NVIDIA, AMD, Intel drivers), 16 GB RAM (32 GB recommended), about **25 GB** free for the build.
+
+## Quick start
+
+1. Download `AgeOfDecomp-v<version>-Windows-x64.zip` from [Releases](../../releases) and unpack it anywhere.
+2. Run **AgeOfDecomp.exe** and follow *Setup*. Keep your `.nup` where it is: the game reads its resources from it.
+3. Press **Play**. In game: **Esc** settings, **F10** performance overlay, **F11** fullscreen.
+
+With **RecompLauncher**: find *Age of Decomp* in Discover (or add the release folder as a local build with its
+developer tools), drop in your `.nup`, press Play.
+
+## Building from source
+
+```powershell
+py tools/engine.py toolchain     # pinned toolchain into .cache/ (llvm-mingw, SDL 3, Python, …)
+py tools/engine.py fetch         # engine at engine/upstream.json + engine/patches
+py tools/engine.py translator    # shader translator (.NET 10 SDK)
+py tools/engine.py stage         # portable engine bundle → out/engine/windows
+cd apps/launcher; pnpm install; pnpm tauri build --no-bundle
+py tools/release.py windows --zip
+```
+
+Details: [AGENTS.md](AGENTS.md) (also the rules for AI agents working on this repository).
+
+## Credits and licence
+
+GPL-3.0-or-later. Built on HWAoI Recomp (Alano6678, LibertyPrime27, fgabe and contributors), DKB Recomp, Ryujinx,
+Eglantine, SDL and more: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Age of Decomp is an independent, non-commercial fan project, not affiliated with or endorsed by Nintendo or
+Koei Tecmo. *Hyrule Warriors*, *The Legend of Zelda* and *Nintendo Switch 2* are trademarks of Nintendo.

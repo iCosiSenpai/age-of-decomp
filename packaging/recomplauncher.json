@@ -1,0 +1,1245 @@
+{
+  "$schema": "https://recomplauncher.com/schema/recomplauncher.json",
+  "format": 1,
+  "name": "Age of Decomp",
+  "repo": "iCosiSenpai/age-of-decomp",
+  "game": {
+    "kind": "iso_or_folder",
+    "label": "Your Hyrule Warriors: Age of Imprisonment (Nintendo Switch 2) dump as one .nup file with the base game and update 3.0.0 (NCM 196608).",
+    "check": {
+      "nup_build_id": "659cb288b5c5b2b49853add616c0d5bf4ea4e1ba"
+    }
+  },
+  "inputs": [
+    {
+      "id": "dlc",
+      "label": "Your DLC dump (.nup), if you have it",
+      "role": "dlc",
+      "optional": true,
+      "formats": [
+        {
+          "type": "file",
+          "extensions": [
+            "nup"
+          ]
+        }
+      ]
+    }
+  ],
+  "prepare": {
+    "program": [
+      "aod-cli.exe",
+      "AgeOfDecomp-x86_64.AppImage"
+    ],
+    "args": [
+      "cli",
+      "prepare",
+      "--game",
+      "{game}",
+      "--out",
+      "{install}/game",
+      "--dlc={input:dlc}"
+    ],
+    "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
+    "timeout": 14400,
+    "version": "1",
+    "done": [
+      "{install}/game/aod-ready.json"
+    ]
+  },
+  "start": {
+    "program": [
+      "AgeOfDecomp.exe",
+      "AgeOfDecomp-x86_64.AppImage"
+    ],
+    "args": [
+      "--play",
+      "--game-dir",
+      "{install}/game"
+    ]
+  },
+  "config": [
+    {
+      "id": "main",
+      "format": "ini",
+      "file": [
+        {
+          "path": "{install}/game/work/build/hwaoi196608/hwaoi.ini"
+        }
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "id": "output_res",
+      "label": "Resolution",
+      "help": "What the game draws at. 1080p is the tested baseline; 1440p and 4K are experimental (menus and movies may not scale yet).",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "720p",
+          "set": {
+            "output_res": "1280x720"
+          }
+        },
+        {
+          "label": "1080p",
+          "set": {
+            "output_res": "1920x1080"
+          }
+        },
+        {
+          "label": "1440p (experimental)",
+          "set": {
+            "output_res": "2560x1440"
+          }
+        },
+        {
+          "label": "4K (experimental)",
+          "set": {
+            "output_res": "3840x2160"
+          }
+        }
+      ],
+      "defaults": {
+        "output_res": "1920x1080"
+      }
+    },
+    {
+      "id": "fullscreen",
+      "label": "Fullscreen",
+      "help": "Fill the screen. F11 switches it while you play.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "fullscreen": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "fullscreen": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "fullscreen": "0"
+      }
+    },
+    {
+      "id": "window_size",
+      "label": "Window size",
+      "help": "The size of the window when not in fullscreen.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "1280 × 720",
+          "set": {
+            "window_size": "1280x720"
+          }
+        },
+        {
+          "label": "1600 × 900",
+          "set": {
+            "window_size": "1600x900"
+          }
+        },
+        {
+          "label": "1920 × 1080",
+          "set": {
+            "window_size": "1920x1080"
+          }
+        },
+        {
+          "label": "2560 × 1440",
+          "set": {
+            "window_size": "2560x1440"
+          }
+        }
+      ],
+      "defaults": {
+        "window_size": "1280x720",
+        "fullscreen": "0"
+      },
+      "when": {
+        "fullscreen": "0"
+      }
+    },
+    {
+      "id": "fps_limit",
+      "label": "Frame rate",
+      "help": "60 is the game's own speed. 30 saves power. 90 and 120 also speed the game up (gameplay advances one step per frame): for smoother motion keep 60 and use frame generation.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "30 FPS",
+          "set": {
+            "fps_limit": "30"
+          }
+        },
+        {
+          "label": "60 FPS",
+          "set": {
+            "fps_limit": "60"
+          }
+        },
+        {
+          "label": "90 FPS (faster game)",
+          "set": {
+            "fps_limit": "90"
+          }
+        },
+        {
+          "label": "120 FPS (faster game)",
+          "set": {
+            "fps_limit": "120"
+          }
+        }
+      ],
+      "defaults": {
+        "fps_limit": "60"
+      }
+    },
+    {
+      "id": "vk_present",
+      "label": "V-Sync",
+      "help": "Mailbox shows the newest frame without tearing. V-Sync waits for the screen. Immediate has the lowest latency but can tear.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Mailbox",
+          "set": {
+            "vk_present": "mailbox"
+          }
+        },
+        {
+          "label": "V-Sync",
+          "set": {
+            "vk_present": "fifo"
+          }
+        },
+        {
+          "label": "Off (tearing)",
+          "set": {
+            "vk_present": "immediate"
+          }
+        }
+      ],
+      "defaults": {
+        "vk_present": "mailbox"
+      }
+    },
+    {
+      "id": "render_scale",
+      "label": "3D resolution",
+      "help": "Native draws the 3D scene at the full resolution. Dynamic lets the game lower it in busy scenes, as on the console.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Native",
+          "set": {
+            "render_scale": "100"
+          }
+        },
+        {
+          "label": "Dynamic",
+          "set": {
+            "render_scale": "game"
+          }
+        }
+      ],
+      "defaults": {
+        "render_scale": "100"
+      }
+    },
+    {
+      "id": "upscaler",
+      "label": "Upscaling",
+      "help": "How the picture is fitted to your screen. AMD FSR keeps it sharp on any graphics card.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "AMD FSR 1",
+          "set": {
+            "upscaler": "fsr"
+          }
+        },
+        {
+          "label": "Bilinear",
+          "set": {
+            "upscaler": "bilinear"
+          }
+        }
+      ],
+      "defaults": {
+        "upscaler": "fsr"
+      }
+    },
+    {
+      "id": "sharpness",
+      "label": "Sharpness",
+      "help": "FSR sharpening. 0 is soft, 100 is crisp.",
+      "group": "Display",
+      "slider": {
+        "key": "sharpness",
+        "min": 0,
+        "max": 100,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "sharpness": "80",
+        "upscaler": "fsr"
+      },
+      "when": {
+        "upscaler": "fsr"
+      }
+    },
+    {
+      "id": "aspect",
+      "label": "Aspect ratio",
+      "help": "Keep 16:9 adds borders on other screens. Stretch fills them.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Keep 16:9",
+          "set": {
+            "aspect": "fit"
+          }
+        },
+        {
+          "label": "Stretch",
+          "set": {
+            "aspect": "stretch"
+          }
+        }
+      ],
+      "defaults": {
+        "aspect": "fit"
+      }
+    },
+    {
+      "id": "fov",
+      "label": "Field of view",
+      "help": "Camera field of view compared with the console (100 %).",
+      "group": "Display",
+      "slider": {
+        "key": "fov",
+        "min": 70,
+        "max": 140,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "fov": "100"
+      }
+    },
+    {
+      "id": "perf_overlay",
+      "label": "Performance overlay",
+      "help": "Frame rate and timings in a corner of the game. F10 cycles it while you play.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "perf_overlay": "off"
+          }
+        },
+        {
+          "label": "FPS",
+          "set": {
+            "perf_overlay": "fps"
+          }
+        },
+        {
+          "label": "Full",
+          "set": {
+            "perf_overlay": "full"
+          }
+        }
+      ],
+      "defaults": {
+        "perf_overlay": "off"
+      }
+    },
+    {
+      "id": "device_profile",
+      "label": "Device profile",
+      "help": "Steam Deck uses lighter defaults for handheld PCs.",
+      "group": "Display",
+      "advanced": true,
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "device_profile": "auto"
+          }
+        },
+        {
+          "label": "Desktop",
+          "set": {
+            "device_profile": "desktop"
+          }
+        },
+        {
+          "label": "Steam Deck",
+          "set": {
+            "device_profile": "deck"
+          }
+        }
+      ],
+      "defaults": {
+        "device_profile": "auto"
+      }
+    },
+    {
+      "id": "color_preset",
+      "label": "Colour",
+      "help": "Game's own colours, a more vivid look, extra clarity, or your own values below.",
+      "group": "Picture",
+      "choices": [
+        {
+          "label": "Game's own",
+          "set": {
+            "color_preset": "default"
+          }
+        },
+        {
+          "label": "Vivid",
+          "set": {
+            "color_preset": "vivid"
+          }
+        },
+        {
+          "label": "Clarity",
+          "set": {
+            "color_preset": "clarity"
+          }
+        },
+        {
+          "label": "Custom",
+          "set": {
+            "color_preset": "custom"
+          }
+        }
+      ],
+      "defaults": {
+        "color_preset": "default"
+      }
+    },
+    {
+      "id": "color_brightness",
+      "label": "Brightness",
+      "help": "Lighter or darker picture.",
+      "group": "Picture",
+      "slider": {
+        "key": "color_brightness",
+        "min": -30,
+        "max": 30,
+        "step": 1,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "color_brightness": "0",
+        "color_preset": "default"
+      },
+      "when": {
+        "color_preset": "custom"
+      }
+    },
+    {
+      "id": "color_contrast",
+      "label": "Contrast",
+      "help": "Difference between light and dark.",
+      "group": "Picture",
+      "slider": {
+        "key": "color_contrast",
+        "min": 70,
+        "max": 150,
+        "step": 1,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "color_contrast": "100",
+        "color_preset": "default"
+      },
+      "when": {
+        "color_preset": "custom"
+      }
+    },
+    {
+      "id": "color_saturation",
+      "label": "Saturation",
+      "help": "Colour strength.",
+      "group": "Picture",
+      "slider": {
+        "key": "color_saturation",
+        "min": 50,
+        "max": 200,
+        "step": 1,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "color_saturation": "100",
+        "color_preset": "default"
+      },
+      "when": {
+        "color_preset": "custom"
+      }
+    },
+    {
+      "id": "color_gamma",
+      "label": "Gamma",
+      "help": "Mid-tone brightness.",
+      "group": "Picture",
+      "slider": {
+        "key": "color_gamma",
+        "min": 0.8,
+        "max": 1.2,
+        "step": 0.01,
+        "format": "%.2f"
+      },
+      "defaults": {
+        "color_gamma": "1",
+        "color_preset": "default"
+      },
+      "when": {
+        "color_preset": "custom"
+      }
+    },
+    {
+      "id": "lang",
+      "label": "Game language",
+      "help": "The language of the game's text and voices menu. Automatic follows your system.",
+      "group": "Game",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "lang": ""
+          }
+        },
+        {
+          "label": "English (US)",
+          "set": {
+            "lang": "en-US"
+          }
+        },
+        {
+          "label": "English (UK)",
+          "set": {
+            "lang": "en-GB"
+          }
+        },
+        {
+          "label": "Italiano",
+          "set": {
+            "lang": "it"
+          }
+        },
+        {
+          "label": "Français",
+          "set": {
+            "lang": "fr"
+          }
+        },
+        {
+          "label": "Français (Canada)",
+          "set": {
+            "lang": "fr-CA"
+          }
+        },
+        {
+          "label": "Deutsch",
+          "set": {
+            "lang": "de"
+          }
+        },
+        {
+          "label": "Español",
+          "set": {
+            "lang": "es"
+          }
+        },
+        {
+          "label": "Español (Latinoamérica)",
+          "set": {
+            "lang": "es-419"
+          }
+        },
+        {
+          "label": "Nederlands",
+          "set": {
+            "lang": "nl"
+          }
+        },
+        {
+          "label": "Português",
+          "set": {
+            "lang": "pt"
+          }
+        },
+        {
+          "label": "Português (Brasil)",
+          "set": {
+            "lang": "pt-BR"
+          }
+        },
+        {
+          "label": "Русский",
+          "set": {
+            "lang": "ru"
+          }
+        },
+        {
+          "label": "日本語",
+          "set": {
+            "lang": "ja"
+          }
+        },
+        {
+          "label": "한국어",
+          "set": {
+            "lang": "ko"
+          }
+        },
+        {
+          "label": "简体中文",
+          "set": {
+            "lang": "zh-Hans"
+          }
+        },
+        {
+          "label": "繁體中文",
+          "set": {
+            "lang": "zh-Hant"
+          }
+        }
+      ],
+      "defaults": {
+        "lang": ""
+      }
+    },
+    {
+      "id": "operation_mode",
+      "label": "Console mode",
+      "help": "Docked is the TV mode. Handheld uses the console's portable settings, lighter on slower PCs.",
+      "group": "Game",
+      "choices": [
+        {
+          "label": "Docked",
+          "set": {
+            "operation_mode": "docked"
+          }
+        },
+        {
+          "label": "Handheld",
+          "set": {
+            "operation_mode": "handheld"
+          }
+        }
+      ],
+      "defaults": {
+        "operation_mode": "docked"
+      }
+    },
+    {
+      "id": "assume_focus",
+      "label": "Keep running in the background",
+      "help": "Off pauses the game when you switch to another window.",
+      "group": "Game",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "assume_focus": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "assume_focus": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "assume_focus": "1"
+      }
+    },
+    {
+      "id": "volume",
+      "label": "Master volume",
+      "help": "Above 100 % boosts quiet speakers.",
+      "group": "Audio",
+      "slider": {
+        "key": "volume",
+        "min": 0,
+        "max": 200,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "volume": "100"
+      }
+    },
+    {
+      "id": "player1_type",
+      "label": "Player 1 controller",
+      "help": "What the game sees: one Pro Controller, or a pair of Joy-Con.",
+      "group": "Controls",
+      "choices": [
+        {
+          "label": "Pro Controller",
+          "set": {
+            "player1_type": "pro"
+          }
+        },
+        {
+          "label": "Joy-Con pair",
+          "set": {
+            "player1_type": "dual"
+          }
+        }
+      ],
+      "defaults": {
+        "player1_type": "pro"
+      }
+    },
+    {
+      "id": "player2_type",
+      "label": "Player 2 controller",
+      "help": "What the game sees for player 2.",
+      "group": "Controls",
+      "choices": [
+        {
+          "label": "Pro Controller",
+          "set": {
+            "player2_type": "pro"
+          }
+        },
+        {
+          "label": "Joy-Con pair",
+          "set": {
+            "player2_type": "dual"
+          }
+        }
+      ],
+      "defaults": {
+        "player2_type": "pro"
+      }
+    },
+    {
+      "id": "pad_layout",
+      "label": "Button layout",
+      "help": "Nintendo keeps A on the right. Xbox puts A at the bottom. Xbox labels makes the button marked A confirm on any pad.",
+      "group": "Controls",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "pad_layout": "auto"
+          }
+        },
+        {
+          "label": "Nintendo",
+          "set": {
+            "pad_layout": "nintendo"
+          }
+        },
+        {
+          "label": "Xbox positions",
+          "set": {
+            "pad_layout": "xbox"
+          }
+        },
+        {
+          "label": "Xbox labels",
+          "set": {
+            "pad_layout": "xbox_prompts"
+          }
+        }
+      ],
+      "defaults": {
+        "pad_layout": "auto"
+      }
+    },
+    {
+      "id": "stick_deadzone",
+      "label": "Stick dead zone",
+      "help": "Raise it if the camera or character drifts on its own.",
+      "group": "Controls",
+      "slider": {
+        "key": "stick_deadzone",
+        "min": 0,
+        "max": 50,
+        "step": 1,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "stick_deadzone": "8"
+      }
+    },
+    {
+      "id": "motion",
+      "label": "Motion controls",
+      "help": "Gyro and accelerometer from controllers that have them (Switch, Switch 2, DualSense, DualShock 4).",
+      "group": "Controls",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "motion": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "motion": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "motion": "1"
+      }
+    },
+    {
+      "id": "rumble_strength",
+      "label": "Rumble strength",
+      "help": "0 turns rumble off.",
+      "group": "Controls",
+      "slider": {
+        "key": "rumble_strength",
+        "min": 0,
+        "max": 300,
+        "step": 10,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "rumble_strength": "130"
+      }
+    },
+    {
+      "id": "rumble_curve",
+      "label": "Rumble curve",
+      "help": "Lower values make light rumble stronger; 1 is linear.",
+      "group": "Controls",
+      "advanced": true,
+      "slider": {
+        "key": "rumble_curve",
+        "min": 0.2,
+        "max": 1.5,
+        "step": 0.05,
+        "format": "%.2f"
+      },
+      "defaults": {
+        "rumble_curve": "0.6"
+      }
+    },
+    {
+      "id": "rumble_triggers",
+      "label": "Trigger rumble",
+      "help": "Impulse triggers on Xbox One and Series controllers.",
+      "group": "Controls",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "rumble_triggers": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "rumble_triggers": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "rumble_triggers": "0"
+      }
+    },
+    {
+      "id": "mouse_sens",
+      "label": "Mouse sensitivity",
+      "help": "Camera speed with the mouse.",
+      "group": "Controls",
+      "slider": {
+        "key": "mouse_sens",
+        "min": 0.1,
+        "max": 10,
+        "step": 0.1,
+        "format": "%.1f"
+      },
+      "defaults": {
+        "mouse_sens": "1"
+      }
+    },
+    {
+      "id": "replay_async",
+      "label": "Asynchronous GPU replay",
+      "help": "Experimental: about 15 % more FPS in tests, not yet checked in every scene.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "replay_async": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "replay_async": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "replay_async": "0"
+      }
+    },
+    {
+      "id": "async_preempt",
+      "label": "Thread preemption",
+      "help": "How the game's threads share your CPU. Leave on unless told otherwise.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "async_preempt": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "async_preempt": "1"
+          }
+        },
+        {
+          "label": "Aggressive",
+          "set": {
+            "async_preempt": "2"
+          }
+        }
+      ],
+      "defaults": {
+        "async_preempt": "1"
+      }
+    },
+    {
+      "id": "free_cores",
+      "label": "Leave cores free",
+      "help": "Keeps some CPU cores free for streaming or recording.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "free_cores": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "free_cores": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "free_cores": "0"
+      }
+    },
+    {
+      "id": "timer_1ms",
+      "label": "Precise timer",
+      "help": "1 ms system timer for steadier frame pacing.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "timer_1ms": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "timer_1ms": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "timer_1ms": "1"
+      }
+    },
+    {
+      "id": "lazy_heap",
+      "label": "Memory on demand",
+      "help": "Windows: commit game memory only when used. Helps PCs with 16 GB of RAM. Automatic turns it on when memory is short.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "lazy_heap": "auto"
+          }
+        },
+        {
+          "label": "Off",
+          "set": {
+            "lazy_heap": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "lazy_heap": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "lazy_heap": "auto"
+      }
+    },
+    {
+      "id": "small_memory_pools",
+      "label": "Small memory pools",
+      "help": "Smaller GPU upload blocks: less RAM, same speed.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "small_memory_pools": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "small_memory_pools": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "small_memory_pools": "1"
+      }
+    },
+    {
+      "id": "source_compress",
+      "label": "Compress shader sources",
+      "help": "Saves about 160 MB of RAM.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "source_compress": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "source_compress": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "source_compress": "1"
+      }
+    },
+    {
+      "id": "pipe_prebuild",
+      "label": "Prepare shaders early",
+      "help": "Builds pipelines in the background to reduce stutter.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "pipe_prebuild": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "pipe_prebuild": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "pipe_prebuild": "1"
+      }
+    },
+    {
+      "id": "xlate_prefetch",
+      "label": "Translate compute shaders early",
+      "help": "Less stutter the first time an effect appears.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "xlate_prefetch": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "xlate_prefetch": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "xlate_prefetch": "1"
+      }
+    },
+    {
+      "id": "astc",
+      "label": "Texture decoding",
+      "help": "Where the game's compressed textures are decoded.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "astc": "auto"
+          }
+        },
+        {
+          "label": "GPU",
+          "set": {
+            "astc": "gpu"
+          }
+        },
+        {
+          "label": "Native",
+          "set": {
+            "astc": "native"
+          }
+        },
+        {
+          "label": "CPU",
+          "set": {
+            "astc": "cpu"
+          }
+        }
+      ],
+      "defaults": {
+        "astc": "auto"
+      }
+    },
+    {
+      "id": "tex_vram_pressure",
+      "label": "VRAM budget",
+      "help": "How much of your graphics memory textures may use before older ones are released.",
+      "group": "Performance",
+      "slider": {
+        "key": "tex_vram_pressure",
+        "min": 50,
+        "max": 100,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "tex_vram_pressure": "90"
+      }
+    },
+    {
+      "id": "vk_validation",
+      "label": "Vulkan validation",
+      "help": "For bug reports only: much slower. Needs the Vulkan SDK.",
+      "group": "Diagnostics",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "vk_validation": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "vk_validation": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "vk_validation": "0"
+      }
+    },
+    {
+      "id": "flight",
+      "label": "Flight recorder",
+      "help": "Records timing spikes into the log for bug reports.",
+      "group": "Diagnostics",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "flight": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "flight": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "flight": "0"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "Performance",
+      "advanced": true
+    },
+    {
+      "id": "Diagnostics",
+      "advanced": true
+    }
+  ],
+  "saves": [
+    "{install}/game/work/saves/hwaoi196608"
+  ],
+  "folders": {
+    "saves": [
+      {
+        "path": "{install}/game/work/saves/hwaoi196608"
+      }
+    ],
+    "logs": [
+      {
+        "path": "{install}/game/logs"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "id": "saves",
+      "label": "Saves",
+      "help": "Your save data.",
+      "open": "saves"
+    },
+    {
+      "id": "logs",
+      "label": "Logs",
+      "help": "The game's logs, for bug reports.",
+      "open": "logs"
+    }
+  ],
+  "exit_codes": {
+    "0": "ok",
+    "64": "The game is not built yet, or the build is incomplete. Press Set Up Again.",
+    "65": "Your .nup file has moved or changed since the build. Put it back where it was, or set up again."
+  },
+  "looks": {
+    "allowed": false,
+    "reason": "Age of Decomp has its own picture settings and AMD FSR; ReShade's Vulkan layer is not tested with its renderer yet."
+  }
+}

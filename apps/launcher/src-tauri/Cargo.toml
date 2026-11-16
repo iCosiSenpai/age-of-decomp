@@ -1,0 +1,39 @@
+[package]
+name = "age-of-decomp"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "Age of Decomp launcher: setup, settings and controllers for a native PC build of your own Hyrule Warriors: Age of Imprisonment"
+publish = false
+default-run = "age-of-decomp"
+
+[lib]
+name = "aod_launcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "age-of-decomp"
+path = "src/main.rs"
+
+[[bin]]
+name = "aod-cli"
+path = "src/bin/aod-cli.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+tauri-plugin-dialog = "2.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+aod-nup = { path = "../../../crates/aod-nup" }
+libloading = "0.8"
+ash = { version = "0.38", default-features = false, features = ["loaded", "debug", "std"] }
+sysinfo = "0.37"
+sys-locale = "0.3"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = true
