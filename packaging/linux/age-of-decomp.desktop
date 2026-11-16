@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Age of Decomp
+Comment=Native PC build of your own Hyrule Warriors: Age of Imprisonment
+Exec=AgeOfDecomp
+Icon=age-of-decomp
+Categories=Game;
+Terminal=false
+StartupWMClass=AgeOfDecomp

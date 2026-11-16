@@ -11,6 +11,11 @@
 
 Every download is pinned by URL and SHA-256 (pins shared with iCosiSenpai/totk-pc-recomp tools/make_release.py, MIT).
 Nothing is installed system-wide. No game content is ever written outside ignored folders.
+
+Linux: clang, lld, ninja, the .NET SDK and the SDL3/Opus/libvpx/zstd/Vulkan/zlib headers come from the distribution
+(`toolchain` checks them and prints the packages to install); Python is a pinned relocatable CPython
+(python-build-standalone) with the generator's packages, so the staged bundle carries its own interpreter.
+AOD_CACHE_DIR moves .cache elsewhere, e.g. a separate engine checkout for WSL when the folder is shared with Windows.
 """
 from __future__ import annotations
 
@@ -24,6 +29,7 @@ import sys
 import tarfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -31,7 +37,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WIN = os.name == "nt"
 OSNAME = "windows" if WIN else "linux"
-CACHE = ROOT / ".cache"
+CACHE = Path(os.environ.get("AOD_CACHE_DIR") or ROOT / ".cache").expanduser().resolve()
 DL = CACHE / "downloads"
 TC = CACHE / "toolchain" / OSNAME
 UNPACK = CACHE / "unpacked"
@@ -40,7 +46,9 @@ STAGE = ROOT / "out" / "engine" / OSNAME
 UPSTREAM = ROOT / "engine" / "upstream.json"
 PATCHES = ROOT / "engine" / "patches"
 OWN_SRC = ROOT / "engine" / "src" / "aod"
-XLATE_OUT = ENGINE / "work" / "build" / "hwaoi196608" / "xlate-managed-irbanks"  # build_xlate_hwaoi.py requires this parent
+# build_xlate_hwaoi.py requires this parent; one folder per OS, so a checkout shared by Windows and WSL keeps both
+XLATE_OUT = ENGINE / "work" / "build" / "hwaoi196608" / ("xlate-managed-irbanks" if WIN else "xlate-linux-x64")
+XLATE_EXE = "totk_xlate.exe" if WIN else "totk_xlate"
 
 MSYS2 = "https://repo.msys2.org/mingw/ucrt64/"
 SDL_VERSION = "3.4.20"
@@ -73,13 +81,26 @@ PINS = {  # name: (url, sha256)
              "172541cf5e2391a402f092104988699b0163129d22be1d6b4b201bfb84af6fcf"),
     "libusb": (MSYS2 + "mingw-w64-ucrt-x86_64-libusb-1.0.30-1-any.pkg.tar.zst",
                "20106e6ff31b4581bb111b28a68b6b79a50dc3e5fc3033944e1c4b3ff8cd812e"),
+    # Linux: relocatable CPython (astral-sh/python-build-standalone, stripped install_only build)
+    "python-linux": ("https://github.com/astral-sh/python-build-standalone/releases/download/20261110/"
+                     "cpython-3.14.10%2B20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+                     "c2ff2e97422f5d3896a16e0317fd212ba977bbf2688d93a6f7a03d817506bd30"),
+    # Linux release packaging (tools/release.py linux --appimage): the AppImage type 2 runtime the squashfs follows
+    "appimage-runtime": ("https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64",
+                         "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d"),
 }
 # The Python packages the engine's generator and NUP tools need (upstream tools/requirements-hwaoi.txt).
 PY_PACKAGES = ["numpy==2.5.4", "lz4==4.4.5", "zstandard==0.25.0", "capstone==5.0.7"]
 # llvm-mingw: only the x86_64 Windows target is needed.
 LLVM_SKIP_TOP = {"aarch64-w64-mingw32", "armv7-w64-mingw32", "i686-w64-mingw32", "busybox", "python", "share"}
-LINUX_PACKAGES = ["clang", "lld", "ninja-build", "libsdl3-dev", "libopus-dev", "libvpx-dev", "libzstd-dev",
-                  "libvulkan-dev", "libvulkan-memory-allocator-dev", "zlib1g-dev", "python3-venv", "dotnet-sdk-10.0", "git"]
+# Linux build requirements, checked by `toolchain`: program -> Debian/Ubuntu package, and header + library -> package
+# (each one compiled and linked once with clang and lld). vk_mem_alloc.h is optional: build_game.py fetches its pinned
+# VMA header when the system has none.
+LINUX_TOOLS = {"clang": "clang", "ld.lld": "lld", "ninja": "ninja-build", "dotnet": "dotnet-sdk-10.0", "git": "git"}
+LINUX_LIBS = {"SDL3/SDL.h": ("SDL3", "libsdl3-dev"), "opus/opus.h": ("opus", "libopus-dev"),
+              "vpx/vpx_decoder.h": ("vpx", "libvpx-dev"), "zstd.h": ("zstd", "libzstd-dev"),
+              "vulkan/vulkan.h": ("vulkan", "libvulkan-dev"), "zlib.h": ("z", "zlib1g-dev")}
+LINUX_PACKAGES = sorted({*LINUX_TOOLS.values(), *(pkg for _, pkg in LINUX_LIBS.values())})
 
 
 # ── small helpers ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -117,7 +138,7 @@ def fetch(name: str) -> Path:
     """Pinned download into .cache/downloads (resumable), verified against its SHA-256."""
     url, want = PINS[name]
     DL.mkdir(parents=True, exist_ok=True)
-    path = DL / url.rsplit("/", 1)[1].replace("%7E", "~")
+    path = DL / urllib.parse.unquote(url.rsplit("/", 1)[1])
     if path.is_file() and sha256(path) == want:
         return path
     if path.is_file():
@@ -166,14 +187,20 @@ def unpack(name: str) -> Path:
 
 
 def copy_tree(src: Path, dst: Path, skip=lambda rel: False) -> int:
+    """Copy the files of src (symlinks stay symlinks, as in python-build-standalone's bin/)."""
     n = 0
     for p in sorted(src.rglob("*")):
         rel = p.relative_to(src).as_posix()
-        if p.is_dir() or skip(rel):
+        if skip(rel) or p.is_dir() and not p.is_symlink():
             continue
         out = dst / rel
         out.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(p, out)
+        if p.is_symlink():
+            if out.is_symlink() or out.exists():
+                out.unlink()
+            out.symlink_to(os.readlink(p))
+        else:
+            shutil.copy2(p, out)
         n += 1
     return n
 
@@ -264,15 +291,54 @@ def toolchain_windows() -> None:
     log(f"toolchain ready in {TC}")
 
 
+def linux_missing() -> list[str]:
+    """Debian/Ubuntu packages the Linux build still needs: each program on PATH, then each header and library through
+    one clang + lld compile and link."""
+    need = [pkg for tool, pkg in LINUX_TOOLS.items() if not shutil.which(tool)]
+    clang = shutil.which("clang")
+    if not clang:
+        return need + [pkg for _, pkg in LINUX_LIBS.values()]
+    linker = ["-fuse-ld=lld"] if shutil.which("ld.lld") else []   # without lld (already listed) the system linker
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="aod-probe-") as tmp:
+        for header, (lib, pkg) in LINUX_LIBS.items():
+            src = Path(tmp) / "probe.c"
+            src.write_text(f"#include <{header}>\nint main(void) {{ return 0; }}\n", encoding="ascii")
+            r = subprocess.run([clang, *linker, str(src), f"-l{lib}", "-o", str(Path(tmp) / "probe")],
+                               capture_output=True, text=True)
+            if r.returncode:
+                need.append(pkg)
+    if shutil.which("dotnet") and "dotnet-sdk-10.0" not in need:
+        sdks = subprocess.run(["dotnet", "--list-sdks"], capture_output=True, text=True).stdout
+        if not any(line.startswith("10.") for line in sdks.splitlines()):
+            need.append("dotnet-sdk-10.0")
+    return need
+
+
 def toolchain_linux() -> None:
-    missing = [p for p in ("clang", "ld.lld", "ninja", "dotnet", "git") if not shutil.which(p)]
+    TC.mkdir(parents=True, exist_ok=True)
+    # Python: relocatable CPython + the generator's packages (the staged bundle and the AppImage carry it)
+    py = TC / "python"
+    exe = py / "bin" / "python3"
+    if not exe.is_file():
+        shutil.rmtree(py, ignore_errors=True)
+        n = copy_tree(unpack("python-linux") / "python", py)
+        log(f"python-build-standalone: {n} files")
+    if subprocess.run([exe, "-I", "-c", "import numpy, lz4.block, zstandard, capstone"], capture_output=True).returncode:
+        if subprocess.run([exe, "-I", "-m", "pip", "--version"], capture_output=True).returncode:
+            run([exe, "-I", "-m", "ensurepip"])
+        run([exe, "-I", "-m", "pip", "install", "--disable-pip-version-check", "--no-warn-script-location",
+             "--only-binary", ":all:", *PY_PACKAGES])
+    check = run([exe, "-I", "-c", "import sys, numpy, lz4.block, zstandard, capstone; "
+                 "print('python', sys.version.split()[0], 'numpy', numpy.__version__)"], capture=True)
+    log(check.stdout.strip())
+    # The compiler, Ninja, .NET and the libraries the game links come from the distribution
+    missing = linux_missing()
     if missing:
-        die("missing tools: " + ", ".join(missing) + "\n  Ubuntu/Debian: sudo apt install " + " ".join(LINUX_PACKAGES))
-    venv = TC / "venv"
-    if not (venv / "bin" / "python").is_file():
-        run([sys.executable, "-m", "venv", venv])
-    run([venv / "bin" / "python", "-m", "pip", "install", "--only-binary", ":all:", *PY_PACKAGES])
-    log(f"toolchain ready in {TC} (system clang/ninja/SDL3/Vulkan; Python venv)")
+        die("missing system packages: " + " ".join(missing) + "\n  Debian/Ubuntu: sudo apt install " +
+            " ".join(missing) + "\n  (Arch: see docs/hwaoi/linux.md of the engine)")
+    clang = run(["clang", "--version"], capture=True).stdout.splitlines()[0]
+    log(f"toolchain ready in {TC} ({clang}; system lld, ninja, SDL3, Vulkan, .NET)")
 
 
 def cmd_toolchain(_args) -> None:
@@ -334,7 +400,7 @@ def cmd_translator(args) -> None:
     if not ENGINE.is_dir():
         die("run `engine.py fetch` first")
     dotnet = TC / "DotNet" / "dotnet.exe" if WIN else Path(shutil.which("dotnet") or "dotnet")
-    python = TC / "python" / "python.exe" if WIN else TC / "venv" / "bin" / "python"
+    python = TC / "python" / ("python.exe" if WIN else "bin/python3")
     env = dict(os.environ, PYTHONUTF8="1", HWAOI_NUGET_CACHE=str(TC / "NuGet"))  # engine patch 0001
     env.pop("HWAOI_TOOLS", None)
     if XLATE_OUT.exists():
@@ -355,10 +421,29 @@ def source_files():
             yield name
 
 
+def bundle_python(root: Path) -> Path:
+    return root / "python" / ("python.exe" if WIN else "bin/python3")
+
+
+def linux_python_skip(rel: str) -> bool:
+    """Parts of python-build-standalone the engine never uses: Tcl/Tk, IDLE, pip, the test suite, headers, and share/
+    (terminfo names that differ only in case turn into symlink loops on a case-insensitive drive, e.g. under WSL)."""
+    parts = rel.split("/")
+    if parts[0] in ("share", "include") or rel.startswith(("bin/idle", "bin/pip", "lib/tcl", "lib/tk", "lib/itcl",
+                                                            "lib/thread", "lib/libtcl", "lib/libtk", "lib/pkgconfig")):
+        return True
+    if len(parts) > 2 and parts[0] == "lib" and parts[1].startswith("python3."):
+        if parts[2] in ("test", "idlelib", "tkinter", "turtledemo", "ensurepip") or rel.split("/")[-1].startswith("_tkinter"):
+            return True
+        return parts[2] == "site-packages" and len(parts) > 3 and (parts[3] == "pip" or parts[3].startswith("pip-"))
+    return False
+
+
 def cmd_stage(args) -> None:
-    if not WIN:
-        die("Linux staging is done by tools/release.py --linux (AppImage); not implemented yet (TASKS X-3)")
-    for need in (TC / "llvm" / "bin" / "clang.exe", TC / "python" / "python.exe", XLATE_OUT / "totk_xlate.exe"):
+    """Windows: the full portable compiler (Python, llvm-mingw, deps, Ninja). Linux: sources, Python and the translator;
+    clang, lld, Ninja and the libraries are the system's (`toolchain` checks them)."""
+    needs = [bundle_python(TC), XLATE_OUT / XLATE_EXE] + ([TC / "llvm" / "bin" / "clang.exe"] if WIN else [])
+    for need in needs:
         if not need.is_file():
             die(f"missing {need}: run toolchain / translator first")
     if STAGE.exists():
@@ -371,14 +456,20 @@ def cmd_stage(args) -> None:
         shutil.copy2(ENGINE / rel, dst)
         n += 1
     log(f"source: {n} files")
-    copy_tree(TC / "python", STAGE / "python", lambda rel: "__pycache__" in rel or rel.endswith(".pyc"))
-    copy_tree(TC / "llvm", STAGE / "llvm")
-    copy_tree(TC / "deps", STAGE / "deps")
+    copy_tree(TC / "python", STAGE / "python", lambda rel: "__pycache__" in rel or rel.endswith(".pyc") or
+              (not WIN and linux_python_skip(rel)))
     copy_tree(XLATE_OUT, STAGE / "translator", lambda rel: rel.endswith("build-report.json") or rel.endswith(".pdb"))
-    (STAGE / "bin").mkdir()
-    shutil.copy2(TC / "bin" / "ninja.exe", STAGE / "bin" / "ninja.exe")
-    shutil.copy2(TC / "bin" / "zlib1.dll", STAGE / "bin" / "zlib1.dll")
-    copy_tree(TC / "licenses", STAGE / "licenses")
+    if WIN:
+        copy_tree(TC / "llvm", STAGE / "llvm")
+        copy_tree(TC / "deps", STAGE / "deps")
+        (STAGE / "bin").mkdir()
+        shutil.copy2(TC / "bin" / "ninja.exe", STAGE / "bin" / "ninja.exe")
+        shutil.copy2(TC / "bin" / "zlib1.dll", STAGE / "bin" / "zlib1.dll")
+        copy_tree(TC / "licenses", STAGE / "licenses")
+    else:
+        (STAGE / "licenses").mkdir()
+        for lic in sorted((TC / "python" / "lib").glob("python3.*/LICENSE.txt"))[:1]:
+            shutil.copy2(lic, STAGE / "licenses" / "python-LICENSE.txt")
     revision = git("rev-parse", "HEAD").stdout.strip()
     files = {p.relative_to(STAGE).as_posix(): sha256(p) for p in sorted(STAGE.rglob("*")) if p.is_file()}
     version = (ROOT / "VERSION").read_text().strip() if (ROOT / "VERSION").is_file() else "0.0.0-dev"
@@ -387,8 +478,9 @@ def cmd_stage(args) -> None:
     (STAGE / "bundle.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     size = sum((STAGE / p).stat().st_size for p in files)
     log(f"staged {len(files)} files, {size / 2**20:.0f} MiB in {STAGE}")
-    run([STAGE / "python" / "python.exe", "-E", "-s", STAGE / "source" / "compiler" / "backend.py", "check",
-         "--bundle", STAGE], cwd=STAGE)
+    # Linux: -B, so the check writes no __pycache__ into the bundle it has just hashed
+    run([bundle_python(STAGE), *([] if WIN else ["-B"]), "-E", "-s", STAGE / "source" / "compiler" / "backend.py",
+         "check", "--bundle", STAGE], cwd=STAGE)
 
 
 # ── developer game build ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -396,7 +488,7 @@ def cmd_stage(args) -> None:
 def cmd_game(args) -> None:
     nup = Path(args.nup).resolve(strict=True)
     out = Path(args.out).resolve()
-    python = STAGE / "python" / "python.exe"
+    python = bundle_python(STAGE)
     if not python.is_file():
         die("run `engine.py stage` first")
     cmd = [python, "-E", "-s", STAGE / "source" / "compiler" / "backend.py", "build", "--bundle", STAGE,
@@ -409,10 +501,10 @@ def cmd_game(args) -> None:
 def cmd_status(_args) -> None:
     up = upstream()
     rows = [("pin", f"{up['repository']} @ {up['commit'][:12]}"),
-            ("toolchain", "ok" if (TC / ("llvm/bin/clang.exe" if WIN else "venv/bin/python")).exists() else "missing"),
+            ("toolchain", "ok" if (TC / "llvm/bin/clang.exe" if WIN else bundle_python(TC)).exists() else "missing"),
             ("engine checkout", git("rev-parse", "--short", "HEAD").stdout.strip() if ENGINE.is_dir() else "missing"),
             ("patches", str(len(list(PATCHES.glob("*.patch"))))),
-            ("translator", "ok" if (XLATE_OUT / ("totk_xlate.exe" if WIN else "totk_xlate")).is_file() else "missing"),
+            ("translator", "ok" if (XLATE_OUT / XLATE_EXE).is_file() else "missing"),
             ("bundle", "ok" if (STAGE / "bundle.json").is_file() else "missing")]
     for k, v in rows:
         print(f"{k:16s} {v}")
@@ -429,7 +521,7 @@ def main() -> None:
     sub.add_parser("stage")
     g = sub.add_parser("game")
     g.add_argument("--nup", required=True)
-    g.add_argument("--out", default=str(ROOT / "work" / "game"))
+    g.add_argument("--out", default=str(ROOT / "work" / ("game" if WIN else "game-linux")))
     g.add_argument("--jobs", type=int, default=0)
     g.add_argument("--resolution", default="1920x1080", choices=("1280x720", "1920x1080", "2560x1440", "3840x2160"))
     sub.add_parser("status")

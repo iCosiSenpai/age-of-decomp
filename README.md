@@ -43,18 +43,28 @@ packaging for Windows and Linux, and RecompLauncher integration.
 Early. The game builds, boots, plays its opening and reaches exploration and combat at 1080p / 60 FPS on tested PCs
 (engine status: [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp#current-status)). Known limits inherited from
 the engine: 90/120 FPS also speed the game up; 1440p and 4K are experimental; a full playthrough is not verified yet.
-Linux builds are in progress.
+Linux: the AppImage builds the game from your `.nup` and boots it to its first menu (tested under WSL with a software
+renderer); speed on real Linux PCs and on the Steam Deck is not tested yet.
 
 ## Requirements
 
-Windows 10/11 x64 (Linux x86-64 coming), a CPU with **AVX2**, a **Vulkan 1.3** GPU with `VK_EXT_external_memory_host`
+Windows 10/11 x64 or Linux x86-64, a CPU with **AVX2**, a **Vulkan 1.3** GPU with `VK_EXT_external_memory_host`
 (recent NVIDIA, AMD, Intel drivers), 16 GB RAM (32 GB recommended), about **25 GB** free for the build.
+On Linux also: kernel 6.7 or later (older ones work, slower), glibc 2.39+ and WebKitGTK 4.1 for the launcher window,
+and to build the game clang, lld, Ninja and the SDL3, Opus, libvpx, zstd, Vulkan and zlib development packages.
 
 ## Quick start
 
 1. Download `AgeOfDecomp-v<version>-Windows-x64.zip` from [Releases](../../releases) and unpack it anywhere.
 2. Run **AgeOfDecomp.exe** and follow *Setup*. Keep your `.nup` where it is: the game reads its resources from it.
 3. Press **Play**. In game: **Esc** settings, **F10** performance overlay, **F11** fullscreen.
+
+Linux: download `AgeOfDecomp-v<version>-Linux-x64.AppImage`, make it executable and run it; the same Setup and Play
+follow. On Debian/Ubuntu install the build packages first:
+
+```bash
+sudo apt install clang lld ninja-build libsdl3-dev libopus-dev libvpx-dev libzstd-dev libvulkan-dev zlib1g-dev
+```
 
 With **RecompLauncher**: find *Age of Decomp* in Discover (or add the release folder as a local build with its
 developer tools), drop in your `.nup`, press Play.
@@ -68,6 +78,16 @@ py tools/engine.py translator    # shader translator (.NET 10 SDK)
 py tools/engine.py stage         # portable engine bundle → out/engine/windows
 cd apps/launcher; pnpm install; pnpm tauri build --no-bundle
 py tools/release.py windows --zip
+```
+
+Linux (the same steps with `python3`; `toolchain` checks the system packages and prints what is missing):
+
+```bash
+python3 tools/engine.py toolchain && python3 tools/engine.py fetch
+python3 tools/engine.py translator && python3 tools/engine.py stage    # → out/engine/linux
+(cd apps/launcher && pnpm install && pnpm build)
+(cd apps/launcher/src-tauri && cargo build --release --locked --features tauri/custom-protocol)
+python3 tools/release.py linux --appimage
 ```
 
 Details: [AGENTS.md](AGENTS.md) (also the rules for AI agents working on this repository).

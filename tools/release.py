@@ -4,17 +4,25 @@
   py tools/release.py manifest            write packaging/recomplauncher.json from the settings catalogue
   py tools/release.py docs                write docs/SETTINGS.md from the settings catalogue
   py tools/release.py windows [--zip]     stage out/release/AgeOfDecomp-v<ver>-Windows-x64/ (+ .zip, SHA256SUMS.txt)
-  py tools/release.py check <folder>      refuse any game material in a folder (also run by `windows`)
+  python3 tools/release.py linux [--appimage] [--bin-dir D] [--dest D]
+                                          stage the AppDir AgeOfDecomp-v<ver>-Linux-x64.AppDir (+ .AppImage, SHA256SUMS)
+  py tools/release.py check <folder>      refuse any game material in a folder (also run by `windows` and `linux`)
 
-The release holds the launcher, aod-cli, the engine bundle (out/engine/windows: toolchain + engine sources + shader
-translator) and recomplauncher.json. It never holds anything from the game: the game is built on the player's PC.
+The release holds the launcher, aod-cli, the engine bundle (out/engine/<os>: engine sources + shader translator +
+Python, on Windows also the compiler) and recomplauncher.json. It never holds anything from the game: the game is built
+on the player's PC. Linux: the launcher binaries come from `cargo build --release --features tauri/custom-protocol`
+(frontend built first with `pnpm build`), the AppImage from mksquashfs (squashfs-tools) + the pinned AppImage type 2
+runtime (tools/engine.py PINS); on Linux the player needs clang, lld, Ninja and the SDL3/Opus/libvpx/zstd/Vulkan/zlib
+development packages.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import shutil
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -204,6 +212,84 @@ def cmd_windows(a) -> None:
         print(f"zip {z.relative_to(ROOT)} ({z.stat().st_size / 2**20:.0f} MiB), {sums.name}")
 
 
+def cmd_linux(a) -> None:
+    """The AppImage's AppDir: AppRun (a leading `cli` goes to aod-cli, anything else to the launcher), the launcher,
+    aod-cli, engine/ (out/engine/linux), recomplauncher.json, the .desktop file and icon, licences."""
+    ver = version()
+    name = f"AgeOfDecomp-v{ver}-Linux-x64"
+    dest = Path(a.dest).expanduser().resolve() if a.dest else ROOT / "out/release"
+    out = dest / f"{name}.AppDir"
+    engine = ROOT / "out/engine/linux"
+    bins = Path(a.bin_dir).expanduser() if a.bin_dir else TAURI / "target/release"
+    exe = next((p for p in (bins / "AgeOfDecomp", bins / "age-of-decomp") if p.is_file()), bins / "AgeOfDecomp")
+    cli = bins / "aod-cli"
+    for need in (engine / "bundle.json", exe, cli):
+        if not need.is_file():
+            sys.exit(f"missing {need}: run tools/engine.py stage and build the launcher on Linux first "
+                     "(pnpm build; cargo build --release --features tauri/custom-protocol)")
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    linux = ROOT / "packaging/linux"
+    for src, dst in ((exe, "AgeOfDecomp"), (cli, "aod-cli"), (linux / "AppRun", "AppRun")):
+        shutil.copyfile(src, out / dst)
+        os.chmod(out / dst, 0o755)
+    shutil.copytree(engine, out / "engine", symlinks=True)
+    shutil.copyfile(linux / "age-of-decomp.desktop", out / "age-of-decomp.desktop")
+    shutil.copyfile(TAURI / "icons/128x128@2x.png", out / "age-of-decomp.png")   # 256x256
+    (out / ".DirIcon").symlink_to("age-of-decomp.png")
+    cmd_manifest(a)
+    shutil.copy2(MANIFEST, out / "recomplauncher.json")
+    shutil.copy2(ROOT / "LICENSE", out / "LICENSE.txt")
+    lic = out / "licenses"
+    lic.mkdir()
+    shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md", lic / "THIRD_PARTY_NOTICES.md")
+    for f in (ROOT / "apps/launcher/src/assets/fonts").glob("OFL-*.txt"):
+        shutil.copy2(f, lic / f.name)
+    (out / "README.txt").write_text(
+        f"Age of Decomp {ver} (Linux x86-64 AppImage)\n\n"
+        "A native PC build of your own Hyrule Warriors: Age of Imprisonment (Nintendo Switch 2). This package contains\n"
+        "no game code or data: the game is built on this PC from your own .nup dump (base game + update 3.0.0).\n\n"
+        "Needs Linux 6.7 or later (older kernels work, slower), a Vulkan 1.3 driver with VK_EXT_external_memory_host,\n"
+        "WebKitGTK 4.1 for the launcher window, and to build the game: clang, lld, Ninja and the SDL3, Opus, libvpx,\n"
+        "zstd, Vulkan and zlib development packages. Debian/Ubuntu:\n"
+        "  sudo apt install clang lld ninja-build libsdl3-dev libopus-dev libvpx-dev libzstd-dev libvulkan-dev zlib1g-dev\n\n"
+        "1. Run the AppImage and follow Setup: pick your .nup, check it, choose a folder (25 GB free), Build.\n"
+        "2. Press Play. Settings: in the launcher, or in game with Esc. F10 performance overlay, F11 fullscreen.\n\n"
+        "Command line: `AgeOfDecomp-…AppImage cli prepare|play|verify …` runs aod-cli (RecompLauncher uses it).\n"
+        "Licences: LICENSE.txt, licenses/ and engine/licenses/. Not affiliated with Nintendo or Koei Tecmo.\n",
+        encoding="utf-8")
+    bad = check(out)
+    if bad:
+        sys.exit("release contains forbidden files:\n" + "\n".join(bad))
+    size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file() and not p.is_symlink())
+    print(f"staged {out} ({size / 2**20:.0f} MiB)")
+    if a.appimage:
+        # An AppImage (type 2) is the runtime ELF followed by a squashfs of the AppDir, which is all appimagetool does
+        # without update information or signatures: mksquashfs (squashfs-tools) + the pinned runtime.
+        if not shutil.which("mksquashfs"):
+            sys.exit("mksquashfs not found: install squashfs-tools")
+        sys.path.insert(0, str(ROOT / "tools"))
+        import engine as eng   # the pinned downloads (tools/engine.py PINS)
+        runtime = eng.fetch("appimage-runtime")
+        image = dest / f"{name}.AppImage"
+        squash = dest / f"{name}.squashfs"
+        for old in (image, squash):
+            if old.exists():
+                old.unlink()
+        subprocess.run(["mksquashfs", str(out), str(squash), "-root-owned", "-noappend", "-quiet",
+                        "-comp", "zstd", "-Xcompression-level", "19", "-b", "1M"], check=True)
+        with image.open("wb") as f:
+            f.write(runtime.read_bytes())
+            with squash.open("rb") as s:
+                shutil.copyfileobj(s, f, 1 << 20)
+        squash.unlink()
+        os.chmod(image, 0o755)
+        sums = dest / "SHA256SUMS-Linux.txt"
+        sums.write_text(f"{sha256(image)}  {image.name}\n", encoding="ascii")
+        print(f"AppImage {image} ({image.stat().st_size / 2**20:.0f} MiB), {sums.name}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -211,6 +297,10 @@ def main() -> None:
     sub.add_parser("docs")
     w = sub.add_parser("windows")
     w.add_argument("--zip", action="store_true")
+    li = sub.add_parser("linux")
+    li.add_argument("--appimage", action="store_true", help="also pack the AppImage (mksquashfs + pinned runtime)")
+    li.add_argument("--bin-dir", help="folder with the Linux launcher binaries (default src-tauri/target/release)")
+    li.add_argument("--dest", help="output folder (default out/release; under WSL use the Linux file system)")
     c = sub.add_parser("check")
     c.add_argument("folder", type=Path)
     a = ap.parse_args()
@@ -220,6 +310,8 @@ def main() -> None:
         cmd_docs(a)
     elif a.cmd == "windows":
         cmd_windows(a)
+    elif a.cmd == "linux":
+        cmd_linux(a)
     else:
         bad = check(a.folder)
         print("\n".join(bad) or "clean")

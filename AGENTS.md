@@ -16,7 +16,7 @@ C/C++ runtime (Horizon services, NVN2 on Vulkan, Ampere shaders → SPIR-V).
 | Launcher | `apps/launcher/` | Tauri 2 app: Rust backend (`src-tauri/`) + Svelte 5 / TypeScript UI (`src/`). Setup wizard with steps and progress bar, Play, full Graphics / Controls / Audio / System settings, controller-navigable UI. Also the headless CLI `aod-cli` used by RecompLauncher's `prepare`. |
 | NUP crate | `crates/aod-nup/` | Rust reader of the NUP container (spec: `refs/nup/SPEC.md`): superblock, TOC, meta TLVs, zstd extraction, build ID, profile verification. |
 | Packaging | `packaging/` | `recomplauncher.json`, Windows zip layout, Linux AppImage AppDir. |
-| Tools | `tools/` | `engine.py` (toolchain/fetch/export-patches/translator/stage/game/status), `release.py` (manifest/docs/windows/check), `fetch_refs.py`, `check_content.py`. Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
+| Tools | `tools/` | `engine.py` (toolchain/fetch/export-patches/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check), `fetch_refs.py`, `check_content.py`. Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
 
 ## ⚠️ The notebook: `plan&activity/` (gitignored) — mandatory
 
@@ -68,7 +68,7 @@ apps/launcher/     Tauri 2 launcher (pnpm). src/ = Svelte 5 UI (settings catalog
                    src-tauri/ = Rust backend (paths config ini settings prepare game system gamepad lib) + bin/aod-cli
 crates/aod-nup/    NUP reader crate (+ `aod-nup info|check|build-id` CLI)
 engine/            upstream.json (pin), patches/ (our queue), src/aod/ (our runtime C, empty so far), profile/ (game profile)
-packaging/         recomplauncher.json (generated), later linux/ (AppDir, AppRun, .desktop)
+packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` → aod-cli, else launcher; .desktop)
 tools/             engine.py, release.py, fetch_refs.py, check_content.py
 docs/              SETTINGS.md (generated: `release.py docs`), CONTROLLERS.md; assets/icon.svg (source of all app icons)
 plan&activity/     agent notebook (gitignored) — see above
@@ -88,7 +88,9 @@ The engine tree lives in `.cache/engine/hwaoi-recomp` (git clone, branch `aod` o
 4. New upstream revision: bump `engine/upstream.json` (full SHA), copy its `config/games/*.json` to `engine/profile/`,
    `py tools/engine.py fetch --force`, fix conflicts, re-export, record it in `plan&activity/DECISIONS.md`.
 
-Current patches: `0001` `HWAOI_NUGET_CACHE` (translator build with a read-only system-wide .NET SDK).
+Current patches: `0001` `HWAOI_NUGET_CACHE` (translator build with a read-only system-wide .NET SDK), `0002` Linux
+x86-64 in `compiler/backend.py build` (system clang/lld/Ninja/libraries, probe of the dev packages, flock lock),
+`0003` `tools/hostmem.py` free memory on Linux (generator and compile workers).
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
 llvm-mingw 20261020, Ninja 1.13.2, Python 3.14.9 (NuGet layout) + `numpy lz4 zstandard capstone`, SDL 3.4.20 mingw
@@ -96,6 +98,12 @@ devel, MSYS2 UCRT64 opus/libvpx/vulkan/VMA/zstd/zlib, all pinned by URL + SHA-25
 to the system .NET 10 SDK. Upstream scripts default to `F:\…` (`HWAOI_TOOLS`): always pass explicit paths.
 Full Windows sequence: `toolchain → fetch → translator → stage → game --nup <nup>` (the last one is a developer build
 into `work/game`: 6.6 min on the user's PC).
+Linux (`python3 tools/engine.py …`): `toolchain` installs the pinned python-build-standalone 3.14.10 + the packages into
+`.cache/toolchain/linux/python` and checks the system's clang, lld, Ninja, .NET 10 and the SDL3/Opus/libvpx/zstd/
+Vulkan/zlib dev packages (one compile + link each; prints the exact `apt install` line); then the same sequence
+(`game` defaults to `work/game-linux`). WSL on this PC: `AOD_CACHE_DIR=/mnt/f/dev/age-of-decomp/.cache/wsl` (an engine
+checkout of its own; `.cache/wsl/toolchain` and `unpacked` are symlinks into `~/aod-cache` on ext4, because NTFS is
+case-insensitive) and build outputs on ext4 (`~/aod-cache/work`). Release: `python3 tools/release.py linux --appimage`.
 
 Pipeline (upstream `compiler/backend.py`, wrapped by our builder): **1** verify bundle + NUP identity → **2** extract
 and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the NUP) + DLC → **4** ARM64→C generation

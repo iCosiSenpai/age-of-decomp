@@ -119,8 +119,11 @@ fn overall(stage: u32, sub: f64) -> f64 {
 /// Runs the build and calls `sink` with progress, log lines and the final result. Blocking.
 pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut(Event) + Send) -> Result<(), String> {
     let engine = paths.engine.clone().ok_or("The engine is missing: reinstall Age of Decomp")?;
-    if !cfg!(windows) {
-        return Err("Building on Linux is not available in this version yet (see docs/BUILDING.md).".into());
+    // The bundle's own Python (Windows: NuGet CPython, Linux: python-build-standalone); on Linux the compiler, Ninja
+    // and the libraries are the system's, which the engine checks before it starts.
+    let python = if cfg!(windows) { engine.join("python").join("python.exe") } else { engine.join("python/bin/python3") };
+    if !python.is_file() {
+        return Err(format!("The engine is incomplete ({} is missing): reinstall Age of Decomp", python.display()));
     }
     if !job.nup.is_file() {
         return Err(format!("Game file not found: {}", job.nup.display()));
@@ -129,7 +132,6 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     let log_path = paths.logs().join(format!("prepare-{}.log", paths::stamp()));
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).map_err(|e| e.to_string())?));
 
-    let python = engine.join("python").join("python.exe");
     let mut cmd = Command::new(&python);
     cmd.arg("-E").arg("-s").arg(engine.join("source/compiler/backend.py")).arg("build");
     cmd.arg("--bundle").arg(&engine).arg("--nup").arg(&job.nup).arg("--output").arg(&job.output);
@@ -149,6 +151,11 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0); // a group of its own, so `cancel` stops Python, Ninja and clang together
     }
     let mut child = cmd.spawn().map_err(|e| format!("Could not start the engine: {e}"))?;
     control.pid.store(child.id(), Ordering::SeqCst);
@@ -245,7 +252,8 @@ pub fn cancel(control: &Control) {
     }
     #[cfg(not(windows))]
     {
-        let _ = Command::new("kill").args(["-TERM", &pid.to_string()]).status();
+        // The build runs in its own process group (see `run`): signal the group, not only Python.
+        let _ = Command::new("kill").args(["-TERM", "--", &format!("-{pid}")]).status();
     }
 }
 

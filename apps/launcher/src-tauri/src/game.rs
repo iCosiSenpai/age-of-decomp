@@ -84,6 +84,17 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched,
     ];
     if cfg!(windows) {
         env.push(("HWAOI_ZLIB_DLL", p(&bin.join("zlib1.dll"))));
+    } else {
+        // The native inflate loads the system zlib by absolute path; without one the game decompresses as on Switch.
+        match system_zlib() {
+            Some(z) => env.push(("HWAOI_ZLIB_DLL", p(&z))),
+            None => env.push(("HWAOI_NATIVE_INFLATE", "0".into())),
+        }
+        // As upstream's tools/linux/play.sh: XWayland, since native Wayland on NVIDIA ended the game when the window
+        // size changed. A value the player set wins.
+        if std::env::var_os("SDL_VIDEODRIVER").is_none() && std::env::var_os("DISPLAY").is_some() {
+            env.push(("SDL_VIDEODRIVER", "x11".into()));
+        }
     }
     if bigpicture {
         env.push(("HWAOI_FULLSCREEN", "1".into()));
@@ -99,6 +110,22 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched,
     }
     let child = cmd.spawn().map_err(|e| format!("Could not start the game: {e}"))?;
     Ok(Launched { child, log: log_path })
+}
+
+/// Linux: the 64-bit system zlib (`libz.so.1`), from the usual library folders (multiarch first, so a 32-bit copy in
+/// /usr/lib on Fedora is never picked), else from the loader cache.
+fn system_zlib() -> Option<std::path::PathBuf> {
+    for dir in ["/usr/lib/x86_64-linux-gnu", "/lib/x86_64-linux-gnu", "/usr/lib64", "/lib64", "/usr/lib", "/lib"] {
+        let lib = Path::new(dir).join("libz.so.1");
+        if lib.is_file() {
+            return Some(lib);
+        }
+    }
+    let out = Command::new("ldconfig").arg("-p").output().or_else(|_| Command::new("/sbin/ldconfig").arg("-p").output()).ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let line = text.lines().find(|l| l.trim_start().starts_with("libz.so.1 ") && l.contains("x86-64"))?;
+    let lib = std::path::PathBuf::from(line.rsplit("=> ").next()?.trim());
+    lib.is_file().then_some(lib)
 }
 
 /// The mean FPS the runtime reports when it exits ("frametime: exit: … mean 59.9 fps"), if any.

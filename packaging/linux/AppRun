@@ -1,0 +1,10 @@
+#!/bin/sh
+# Age of Decomp AppImage entry point (AppDir layout: tools/release.py linux).
+#   AgeOfDecomp-…AppImage cli <command> …   -> aod-cli <command> …  (RecompLauncher's prepare, scripts)
+#   AgeOfDecomp-…AppImage [arguments]       -> the launcher (Setup, Play, settings; --play starts the game)
+HERE=$(dirname "$(readlink -f "$0")")
+if [ "$1" = "cli" ]; then
+    shift
+    exec "$HERE/aod-cli" "$@"
+fi
+exec "$HERE/AgeOfDecomp" "$@"

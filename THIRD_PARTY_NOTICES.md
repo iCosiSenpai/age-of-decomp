@@ -11,7 +11,7 @@ in `licenses/` of a release and in the engine bundle's `source/THIRD_PARTY_NOTIC
 | [Eglantine](https://github.com/Eglantine-Community/Eglantine) | Ampere shader frontend (vendored by the engine) | GPL-3.0 |
 | [SDL 3](https://libsdl.org) | Input, window, audio (game and launcher controllers) | zlib |
 | [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | C/C++ toolchain shipped to build the game on the player's PC | Apache-2.0 with LLVM exception, mingw-w64 licences |
-| [Python](https://www.python.org) + numpy, lz4, zstandard, capstone | Generator runtime | PSF, BSD, BSD, BSD, BSD |
+| [Python](https://www.python.org) + numpy, lz4, zstandard, capstone | Generator runtime (Linux: the relocatable [python-build-standalone](https://github.com/astral-sh/python-build-standalone) build; CPython licence in `engine/licenses/python-LICENSE.txt`, the libraries it links in, such as OpenSSL, SQLite and libffi, are listed by that project) | PSF, BSD, BSD, BSD, BSD |
 | [Ninja](https://ninja-build.org) | Build tool | Apache-2.0 |
 | [Opus](https://opus-codec.org), [libvpx](https://chromium.googlesource.com/webm/libvpx), [Zstandard](https://github.com/facebook/zstd), [zlib](https://zlib.net) | Audio, movies, decompression | BSD / BSD / BSD / zlib |
 | [Vulkan headers and loader](https://github.com/KhronosGroup), [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) | Graphics | Apache-2.0 / MIT |
@@ -19,6 +19,7 @@ in `licenses/` of a release and in the engine bundle's `source/THIRD_PARTY_NOTIC
 | [Dear ImGui](https://github.com/ocornut/imgui) | In-game menu (in the engine) | MIT |
 | [Tauri](https://tauri.app), [Svelte](https://svelte.dev), [ash](https://github.com/ash-rs/ash), [libloading](https://github.com/nagisa/rust_libloading), [sysinfo](https://github.com/GuillaumeGomez/sysinfo), [ruzstd](https://github.com/KillingSpark/zstd-rs), [serde](https://serde.rs) | Launcher | MIT / Apache-2.0 |
 | [NUP format](https://github.com/a55uka/nup) by a55uka | Container spec read by `crates/aod-nup` (own implementation) | MIT |
+| [AppImage type 2 runtime](https://github.com/AppImage/type2-runtime) | Start-up code of the Linux AppImage | MIT |
 | [Cinzel](https://github.com/NDISCOVER/Cinzel), [Inter](https://github.com/rsms/inter) | Launcher fonts | SIL OFL 1.1 |
 | Launcher navigation, i18n pattern and engine-pin workflow | From the maintainer's own [Deluxe8](https://github.com/iCosiSenpai/Deluxe8) | GPL-3.0-or-later |
 | Toolchain pins (`tools/engine.py`) | From the maintainer's own [totk-pc-recomp](https://github.com/iCosiSenpai/totk-pc-recomp) | MIT |
