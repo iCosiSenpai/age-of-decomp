@@ -69,7 +69,8 @@ apps/launcher/     Tauri 2 launcher (pnpm). src/ = Svelte 5 UI (settings catalog
 crates/aod-nup/    NUP reader crate (+ `aod-nup info|check|build-id` CLI)
 engine/            upstream.json (pin), patches/ (our queue), src/aod/ (our runtime C, empty so far), profile/ (game profile)
 packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` → aod-cli, else launcher; .desktop)
-tools/             engine.py, release.py, fetch_refs.py, check_content.py
+tools/             engine.py, release.py, fetch_refs.py, check_content.py, capture_window.ps1,
+                   recomplauncher_check.py (+ .rs harness)
 docs/              SETTINGS.md (generated: `release.py docs`), CONTROLLERS.md; assets/icon.svg (source of all app icons)
 plan&activity/     agent notebook (gitignored) — see above
 refs/              read-only upstream checkouts (gitignored, `py tools/fetch_refs.py` recreates them)
@@ -134,6 +135,12 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
 `{install}/game/work/build/hwaoi196608/hwaoi.ini`. Release asset names:
 `AgeOfDecomp-v<ver>-Windows-x64.zip`, `AgeOfDecomp-v<ver>-Linux-x64.AppImage`. Spec: `refs/RecompLauncher/docs/DEVELOPERS.md`.
 Bump `prepare.version` only when players must rebuild.
+Validate before every release with RecompLauncher's own Developer-tab checks, nothing installed:
+`py tools/recomplauncher_check.py [--release <folder>] [--nup <dump>]` (scratch worktree of `refs/RecompLauncher` +
+`tools/recomplauncher_check.rs`, target `.cache/rlt`; Windows needs VS C++ tools). Expected: level 3, 0 errors; the
+only warnings are "no copy set up yet" and "saves isn't there yet" on an unbuilt folder. RecompLauncher writes
+`hwaoi.ini` as soon as a setting changes, even before setup: `prepare.rs stash_early_settings` moves such a lone file
+into the pending settings so the engine still gets an empty folder, and `settings::merge_pending` restores it.
 
 ## Controllers
 

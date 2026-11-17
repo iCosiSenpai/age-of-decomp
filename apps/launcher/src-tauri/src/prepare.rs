@@ -116,6 +116,52 @@ fn overall(stage: u32, sub: f64) -> f64 {
     (before + WEIGHTS[i] * sub).clamp(0.0, 0.999)
 }
 
+/// Settings written before the first build — RecompLauncher edits `hwaoi.ini` as soon as the player changes a setting
+/// on the game's page, which creates the file in a game folder that does not exist yet. The engine only builds into an
+/// empty folder, so when that file is the only thing there it moves into the pending settings (merged back by
+/// `settings::merge_pending` after the build) and its now-empty folders go. Anything else in the folder is left alone,
+/// and the engine refuses it as before.
+pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(), String> {
+    if output.join("hwaoi-compiler.json").is_file() {
+        return Ok(()); // an engine build folder: updates are the engine's business
+    }
+    let ini = paths::game_ini(output);
+    if !ini.is_file() {
+        return Ok(());
+    }
+    let mut others = Vec::new();
+    let mut stack = vec![output.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).map_err(|e| e.to_string())?.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p != ini {
+                others.push(p);
+            }
+        }
+    }
+    if !others.is_empty() {
+        return Ok(());
+    }
+    let mut pending = crate::ini::Ini::load(&paths.pending_ini());
+    for (k, v) in crate::ini::Ini::load(&ini).values() {
+        if let Ok(s) = crate::settings::validate(&k, &v) {
+            pending.set(&k, &v, &s.section); // the newer choice wins
+        }
+    }
+    pending.save(&paths.pending_ini()).map_err(|e| e.to_string())?;
+    std::fs::remove_file(&ini).map_err(|e| e.to_string())?;
+    let mut dir = ini.parent().map(std::path::Path::to_path_buf);
+    while let Some(d) = dir {
+        if d == output || std::fs::remove_dir(&d).is_err() {
+            break; // stops at the game folder itself, or at the first folder that is not empty
+        }
+        dir = d.parent().map(std::path::Path::to_path_buf);
+    }
+    Ok(())
+}
+
 /// Runs the build and calls `sink` with progress, log lines and the final result. Blocking.
 pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut(Event) + Send) -> Result<(), String> {
     let engine = paths.engine.clone().ok_or("The engine is missing: reinstall Age of Decomp")?;
@@ -128,6 +174,7 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     if !job.nup.is_file() {
         return Err(format!("Game file not found: {}", job.nup.display()));
     }
+    stash_early_settings(paths, &job.output)?;
     std::fs::create_dir_all(paths.logs()).map_err(|e| e.to_string())?;
     let log_path = paths.logs().join(format!("prepare-{}.log", paths::stamp()));
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).map_err(|e| e.to_string())?));
@@ -270,5 +317,51 @@ mod tests {
         assert_eq!(sub_progress(5, "emitted 362/362 chunks, 26s"), Some(1.0));
         assert_eq!(sub_progress(6, "[1/485] CC work/generated/main_table.c").map(|f| f > 0.0), Some(true));
         assert!(overall(7, 1.0) < 1.0 && overall(1, 0.0) == 0.0);
+    }
+}
+
+#[cfg(test)]
+mod early_settings_tests {
+    use super::*;
+
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("aod-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn paths_in(data: &std::path::Path) -> Paths {
+        Paths { exe_dir: data.to_path_buf(), data: data.to_path_buf(), engine: None, portable: false }
+    }
+
+    #[test]
+    fn moves_a_lone_settings_file_into_pending() {
+        let root = temp("early");
+        let (data, game) = (root.join("data"), root.join("game"));
+        let p = paths_in(&data);
+        let ini = paths::game_ini(&game);
+        std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
+        std::fs::write(&ini, "fps_limit=30\nunknown_key=1\n").unwrap();
+        stash_early_settings(&p, &game).unwrap();
+        assert!(!ini.exists() && !game.join("work").exists(), "the game folder is empty again");
+        let pending = crate::ini::Ini::load(&p.pending_ini()).values();
+        assert_eq!(pending.get("fps_limit").map(String::as_str), Some("30"));
+        assert!(!pending.contains_key("unknown_key"));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn leaves_folders_with_other_files_alone() {
+        let root = temp("early2");
+        let (data, game) = (root.join("data"), root.join("game"));
+        let p = paths_in(&data);
+        let ini = paths::game_ini(&game);
+        std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
+        std::fs::write(&ini, "fps_limit=30\n").unwrap();
+        std::fs::write(game.join("notes.txt"), "player file").unwrap();
+        stash_early_settings(&p, &game).unwrap();
+        assert!(ini.exists() && game.join("notes.txt").exists());
+        let _ = std::fs::remove_dir_all(root);
     }
 }

@@ -95,7 +95,11 @@ def manifest() -> dict:
             "program": ["AgeOfDecomp.exe", "AgeOfDecomp-x86_64.AppImage"],
             "args": ["--play", "--game-dir", GAME_DIR],
         },
-        "config": [{"id": "main", "format": "ini", "file": [{"path": INI}]}],
+        # `new`: the engine's own first hwaoi.ini (compiler/backend.py), used if RecompLauncher has to create the file
+        # (a setting changed before setup): aod-cli prepare moves such an early file aside and merges it back after
+        # the build (prepare.rs stash_early_settings), because the engine only builds into an empty folder.
+        "config": [{"id": "main", "format": "ini", "file": [{"path": INI}],
+                    "new": {"output_res": "1920x1080", "render_scale": "100", "fps_limit": "60"}}],
         "settings": settings,
         "groups": [{"id": "Performance", "advanced": True}, {"id": "Diagnostics", "advanced": True}],
         "saves": [SAVES],

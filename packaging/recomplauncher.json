@@ -66,7 +66,12 @@
         {
           "path": "{install}/game/work/build/hwaoi196608/hwaoi.ini"
         }
-      ]
+      ],
+      "new": {
+        "output_res": "1920x1080",
+        "render_scale": "100",
+        "fps_limit": "60"
+      }
     }
   ],
   "settings": [
