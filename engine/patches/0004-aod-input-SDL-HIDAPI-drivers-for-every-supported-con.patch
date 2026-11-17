@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Tue, 17 Nov 2026 01:16:19 +0100
+Subject: [PATCH] aod: input: SDL HIDAPI drivers for every supported controller
+
+Turns on SDL's HIDAPI drivers for DualShock 4, DualSense, Switch Pro, Joy-Con (paired),
+Switch 2 Pro Controller / Joy-Con 2 and NSO GameCube, and libusb where SDL has it (wired
+Switch 2 pads on Windows). Default priority, so SDL_* environment variables still win.
+---
+ runtime/input.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/runtime/input.c b/runtime/input.c
+index 078970d17c46373440bf29eb1ca76baff272a4a9..a9b75f2d39c924f2edc2546aa2128fe5319ca464 100644
+--- a/runtime/input.c
++++ b/runtime/input.c
+@@ -487,10 +487,25 @@ static void test_pad_attach(void) {
+     rt_log("input: test gamepad attached, sticks at %d,%d %d,%d", v[0], v[1], v[2], v[3]);
+ }
+ 
++// SDL's own HIDAPI drivers for every pad the game can be played with, so they work natively (rumble, gyro, Joy-Con
++// pairs) without Steam Input or virtual drivers: DualShock 4, DualSense, Switch Pro, Joy-Con (paired into one pad),
++// Switch 2 Pro Controller and Joy-Con 2, NSO GameCube. libusb is asked for where SDL has it (wired Switch 2 pads on
++// Windows). Default priority: an SDL_* environment variable the player set still wins. Names as strings, so an older
++// SDL without a hint simply ignores it.
++static void hidapi_hints(void) {
++    static const char *const on[] = {
++        "SDL_JOYSTICK_HIDAPI", "SDL_JOYSTICK_HIDAPI_PS4", "SDL_JOYSTICK_HIDAPI_PS5", "SDL_JOYSTICK_HIDAPI_SWITCH",
++        "SDL_JOYSTICK_HIDAPI_SWITCH2", "SDL_JOYSTICK_HIDAPI_JOY_CONS", "SDL_JOYSTICK_HIDAPI_COMBINE_JOY_CONS",
++        "SDL_JOYSTICK_HIDAPI_GAMECUBE", "SDL_HIDAPI_LIBUSB",
++    };
++    for (size_t i = 0; i < sizeof on / sizeof *on; i++) SDL_SetHintWithPriority(on[i], "1", SDL_HINT_DEFAULT);
++}
++
+ static void start(void) {
+     binds_refresh();
+     const char *e = cfg_get("TOTK_INPUT");
+     if (e && !strcmp(e, "none")) { state = -1; rt_log("input: disabled (TOTK_INPUT=none)"); return; }
++    hidapi_hints();
+     if (!SDL_Init(SDL_INIT_GAMEPAD)) { state = -1; rt_log("input: SDL gamepad init failed (%s), keyboard only", SDL_GetError()); }
+     else state = 1;
+     if (state == 1) test_pad_attach();

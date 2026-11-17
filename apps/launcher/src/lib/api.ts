@@ -11,6 +11,7 @@ import type {
   PrepareEvent,
   SettingValues,
   SystemInfo,
+  UiLanguage,
   UiPrefs,
 } from './types';
 
@@ -108,7 +109,7 @@ const demoState: LauncherState = {
     built_at: demoBuilt ? '2026-11-16T19:42:00Z' : null,
     nup_present: true,
   },
-  ui: { language: 'auto', close_on_play: false, jobs: 0, rate_unlock: false },
+  ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, jobs: 0, rate_unlock: false },
   system_locale: { language: 'it', country: 'IT' },
   recomplauncher: false,
 };

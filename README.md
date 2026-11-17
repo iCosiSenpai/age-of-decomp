@@ -34,9 +34,24 @@ packaging for Windows and Linux, and RecompLauncher integration.
 |---|---|
 | 🧭 **Five-step setup** | Pick your `.nup` (it is also found automatically), see every check pass, choose a folder, press *Build*: one progress bar, a list of stages, time left. Stop any time; continuing reuses everything already done. About **7 minutes** on a Core Ultra 7 265K. |
 | 🖥️ **Every setting** | Resolution (720p–4K), window, V-Sync mode, frame rate, 3D resolution, FSR upscaling and sharpness, aspect, field of view, colour (presets or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume, players, controller type, button layout, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
-| 🎮 **Controllers, natively** | Through SDL 3's own drivers: Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro Controller, Joy-Con (single or pair), **Switch 2 Pro Controller, Joy-Con 2**, GameCube — wired or Bluetooth, with rumble and motion. A live tester shows every button, stick, trigger and the gyro. The whole launcher works with a controller. |
+| 🎮 **Controllers, natively** | Through SDL 3's own drivers: Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro Controller, Joy-Con (single or pair), **Switch 2 Pro Controller, Joy-Con 2**, GameCube — wired or Bluetooth (Switch 2 pads: wired; over Bluetooth not verified yet), with rumble and motion. SDL is built with libusb, because the official Windows SDL lacks the Switch 2 driver. A live tester shows every button, stick, trigger and the gyro. The whole launcher works with a controller. |
 | 🚀 **RecompLauncher ready** | Each release carries `recomplauncher.json`: one-click setup from your `.nup` (recognised by its build ID), the settings on the game's page, Big Picture mode, save backups. |
 | 🌐 **English and Italian** | Follows your system; switch any time. |
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="docs/assets/screenshots/home.png" alt="Play: status, quick settings, connected controllers"></td>
+    <td><img src="docs/assets/screenshots/setup.png" alt="Setup wizard: six steps with a progress bar"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/screenshots/display.png" alt="Display settings"></td>
+    <td><img src="docs/assets/screenshots/controllers.png" alt="Controllers: live tester, rumble test, player assignment"></td>
+  </tr>
+</table>
+
+<sub>The launcher with sample data (`?lang=en` demo mode): no game footage.</sub>
 
 ## Status
 

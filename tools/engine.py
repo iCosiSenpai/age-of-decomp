@@ -81,6 +81,9 @@ PINS = {  # name: (url, sha256)
              "172541cf5e2391a402f092104988699b0163129d22be1d6b4b201bfb84af6fcf"),
     "libusb": (MSYS2 + "mingw-w64-ucrt-x86_64-libusb-1.0.30-1-any.pkg.tar.zst",
                "20106e6ff31b4581bb111b28a68b6b79a50dc3e5fc3033944e1c4b3ff8cd812e"),
+    # SDL source: the official Windows DLL has no Switch 2 driver (SDL compiles it only with libusb, HAVE_LIBUSB)
+    "sdl3-src": (f"https://github.com/libsdl-org/SDL/releases/download/release-{SDL_VERSION}/SDL3-{SDL_VERSION}.tar.gz",
+                 "f3bb06f55bed9557227a700af2ea62e49497ebdf58037732a731a5fb3ef8581f"),
     # Linux: relocatable CPython (astral-sh/python-build-standalone, stripped install_only build)
     "python-linux": ("https://github.com/astral-sh/python-build-standalone/releases/download/20261110/"
                      "cpython-3.14.10%2B20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
@@ -260,6 +263,7 @@ def toolchain_windows() -> None:
     if sdl_lic.is_file():
         shutil.copy2(sdl_lic, lic / "SDL3-LICENSE.txt")
     shutil.copy2(llvm / "LICENSE.TXT", lic / "llvm-mingw-LICENSE.txt")
+    build_sdl_libusb(llvm, deps, lic)
     # Python: the official NuGet layout (full stdlib, no ._pth) + the generator's packages
     py = TC / "python"
     if not (py / "python.exe").is_file():
@@ -289,6 +293,60 @@ def toolchain_windows() -> None:
         target = Path(system).resolve().parent
         run(["cmd", "/c", "mklink", "/J", str(dn), str(target)])
     log(f"toolchain ready in {TC}")
+
+
+SWITCH2_MARKERS = (b"SDL_JOYSTICK_HIDAPI_SWITCH2", b"libusb_init")
+
+
+def sdl_has_switch2(dll: Path) -> bool:
+    """The SDL3.dll carries the Switch 2 HIDAPI driver and its libusb loader (the check NxToWin uses)."""
+    data = dll.read_bytes() if dll.is_file() else b""
+    return all(m in data for m in SWITCH2_MARKERS)
+
+
+def find_cmake() -> Path | None:
+    found = shutil.which("cmake")
+    if found:
+        return Path(found)
+    import glob
+    hits = glob.glob(r"C:\Program Files\Microsoft Visual Studio\*\*\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe")
+    return Path(sorted(hits)[-1]) if hits else None
+
+
+def build_sdl_libusb(llvm: Path, deps: Path, lic: Path) -> None:
+    """SDL 3 from source with HIDAPI over libusb, loaded at run time (`libusb-1.0.dll` beside SDL3.dll). It replaces the
+    official DLL, which lacks the Switch 2 driver: wired Switch 2 Pro Controller / Joy-Con 2 / GameCube pads need it on
+    Windows. Same version and headers as the official package; only the HIDAPI libusb backend is added."""
+    dll = deps / "bin" / "SDL3.dll"
+    if sdl_has_switch2(dll) and (deps / "bin" / "libusb-1.0.dll").is_file():
+        log("SDL3.dll already has the Switch 2 driver (libusb)")
+        return
+    cmake = find_cmake()
+    if not cmake:
+        die("CMake not found: install it (winget install Kitware.CMake) or Visual Studio's C++ CMake tools")
+    src = unpack("sdl3-src") / f"SDL3-{SDL_VERSION}"
+    usb = unpack("libusb") / "ucrt64"
+    build = CACHE / "build" / "sdl3-libusb"
+    shutil.rmtree(build, ignore_errors=True)
+    env = dict(os.environ, PATH=os.pathsep.join([str(llvm / "bin"), str(TC / "bin"), os.environ.get("PATH", "")]))
+    cm = lambda p: Path(p).as_posix()   # CMake reads backslashes as escapes
+    run([cmake, "-S", src, "-B", build, "-G", "Ninja", f"-DCMAKE_MAKE_PROGRAM={cm(TC / 'bin' / 'ninja.exe')}",
+         f"-DCMAKE_C_COMPILER={cm(llvm / 'bin' / 'clang.exe')}", f"-DCMAKE_CXX_COMPILER={cm(llvm / 'bin' / 'clang++.exe')}",
+         f"-DCMAKE_RC_COMPILER={cm(llvm / 'bin' / 'llvm-windres.exe')}", "-DCMAKE_BUILD_TYPE=Release",
+         "-DSDL_SHARED=ON", "-DSDL_STATIC=OFF", "-DSDL_TEST_LIBRARY=OFF", "-DSDL_TESTS=OFF", "-DSDL_EXAMPLES=OFF",
+         "-DSDL_HIDAPI=ON", "-DSDL_HIDAPI_LIBUSB=ON", "-DSDL_HIDAPI_LIBUSB_SHARED=ON", f"-DCMAKE_PREFIX_PATH={cm(usb)}",
+         "-DSDL_VENDOR_INFO=Age of Decomp (HIDAPI libusb)"], env=env, capture=True)
+    run([cmake, "--build", build, "--config", "Release"], env=env, capture=True)
+    built = build / "SDL3.dll"
+    if not sdl_has_switch2(built):
+        die(f"{built} was built without the Switch 2 driver: libusb was not found by SDL's CMake")
+    shutil.copy2(built, dll)
+    shutil.copy2(build / "libSDL3.dll.a", deps / "lib" / "libSDL3.dll.a")
+    shutil.copy2(usb / "bin" / "libusb-1.0.dll", deps / "bin" / "libusb-1.0.dll")
+    p = usb / "share" / "licenses" / "libusb" / "COPYING"
+    if p.is_file():
+        shutil.copy2(p, lic / "libusb-COPYING.txt")   # LGPL-2.1: shipped as the unmodified DLL
+    log(f"SDL {SDL_VERSION} with the Switch 2 driver (libusb) → {dll}")
 
 
 def linux_missing() -> list[str]:
@@ -511,6 +569,8 @@ def cmd_status(_args) -> None:
 
 
 def main() -> None:
+    for stream in (sys.stdout, sys.stderr):   # paths and notes can hold characters a Windows console code page lacks
+        stream.reconfigure(errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("toolchain")

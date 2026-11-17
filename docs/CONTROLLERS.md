@@ -11,10 +11,16 @@ SDL's own HIDAPI drivers talk to the pads.
 | DualShock 4 | USB, Bluetooth | ✅ | ✅ | ✅ | HIDAPI PS4 |
 | Switch Pro Controller | USB, Bluetooth | ✅ | ✅ HD rumble | ✅ | HIDAPI Switch |
 | Joy-Con L/R, pair | Bluetooth | ✅ (pairs combined) | ✅ | ✅ | `PLAYERn_TYPE = dual` makes the game see a Joy-Con pair |
-| Switch 2 Pro Controller, Joy-Con 2 | Bluetooth; USB | ✅ | ✅ | ✅ | HIDAPI Switch 2. **Windows, wired:** needs SDL built with libusb (task C-2) |
+| Switch 2 Pro Controller, Joy-Con 2 | USB (Bluetooth: see notes) | ✅ | ✅ | ✅ | HIDAPI Switch 2 over libusb. Age of Decomp builds SDL 3.4.20 with libusb itself (`tools/engine.py toolchain`): the official Windows SDL3.dll has no Switch 2 driver |
 | NSO GameCube (Switch 2) | USB, Bluetooth | ✅ | ✅ | — | HIDAPI GameCube |
 
 ## Rules
+
+- **SDL build**: `SDL3.dll` in the engine bundle is SDL 3.4.20 built from the official source with
+  `SDL_HIDAPI_LIBUSB=ON` (libusb loaded at run time from `libusb-1.0.dll`, shipped beside the game and the launcher's
+  SDL). The game turns on every HIDAPI driver (engine patch 0004); `SDL_*` environment variables still override them.
+- **Switch 2 pads over Bluetooth** (BLE) are not verified with SDL on Windows yet; wired goes through libusb. If they
+  do not show up wirelessly, the maintainer's NxToWin bridges them (task C-5 records what works).
 
 - **Confirm / back in the launcher**: Nintendo pads confirm with **A (right)** and go back with **B (bottom)**, as on
   the console; all others confirm with the bottom button (A / ✕) and go back with the right one (B / ○). The hint bar

@@ -9,7 +9,8 @@ in `licenses/` of a release and in the engine bundle's `source/THIRD_PARTY_NOTIC
 | [DKB Recomp](https://github.com/Lucas-blip-png/dkb-pc-recomp) and the TotK Recomp lineage | Upstream of the engine | GPL-3.0 / MIT |
 | [Ryujinx / Ryubing](https://git.ryujinx.app/ryubing/ryujinx) | Shader translator (vendored by the engine) | MIT |
 | [Eglantine](https://github.com/Eglantine-Community/Eglantine) | Ampere shader frontend (vendored by the engine) | GPL-3.0 |
-| [SDL 3](https://libsdl.org) | Input, window, audio (game and launcher controllers) | zlib |
+| [SDL 3](https://libsdl.org) | Input, window, audio (game and launcher controllers); built from source with HIDAPI libusb | zlib |
+| [libusb](https://libusb.info) | Wired Switch 2 controllers through SDL (unmodified `libusb-1.0.dll`, MSYS2 package 1.0.30) | LGPL-2.1-or-later |
 | [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | C/C++ toolchain shipped to build the game on the player's PC | Apache-2.0 with LLVM exception, mingw-w64 licences |
 | [Python](https://www.python.org) + numpy, lz4, zstandard, capstone | Generator runtime (Linux: the relocatable [python-build-standalone](https://github.com/astral-sh/python-build-standalone) build; CPython licence in `engine/licenses/python-LICENSE.txt`, the libraries it links in, such as OpenSSL, SQLite and libffi, are listed by that project) | PSF, BSD, BSD, BSD, BSD |
 | [Ninja](https://ninja-build.org) | Build tool | Apache-2.0 |

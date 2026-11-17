@@ -148,6 +148,16 @@ impl Gamepads {
         std::thread::Builder::new()
             .name("aod-sdl".into())
             .spawn(move || {
+                // SDL opens libusb by name (wired Switch 2 pads on Windows), and Windows looks for it beside the
+                // program, not beside SDL3.dll: load the copy next to SDL3.dll first so that name resolves to it.
+                let _libusb: Vec<Library> = candidates
+                    .iter()
+                    .filter_map(|p| p.parent().map(|d| d.join("libusb-1.0.dll")))
+                    .filter(|p| cfg!(windows) && p.is_file())
+                    .take(1)
+                    // SAFETY: loading the unmodified libusb DLL shipped with the engine; no symbols are called here.
+                    .filter_map(|p| unsafe { Library::new(p).ok() })
+                    .collect();
                 let api = candidates.iter().find_map(|p| {
                     // SAFETY: loading SDL3; the symbols are the documented SDL 3 API with matching signatures.
                     unsafe { Library::new(p).ok().and_then(|l| Api::load(l).ok()) }
