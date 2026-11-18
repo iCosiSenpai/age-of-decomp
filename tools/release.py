@@ -141,13 +141,13 @@ def cmd_docs(_a) -> None:
             out.append(f"| `{s['key']}` | {s['label']} — {s['help']} | {vals} | `{s['default'] or '(empty)'}` | "
                        f"{'yes' if s.get('restart') else ''} |")
         out.append("")
-    (ROOT / "docs/SETTINGS.md").write_text("\n".join(out), encoding="utf-8")
+    (ROOT / "docs/SETTINGS.md").write_text("\n".join(out), encoding="utf-8", newline="\n")
     print("wrote docs/SETTINGS.md")
 
 
 def cmd_manifest(_a) -> None:
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-    MANIFEST.write_text(json.dumps(manifest(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    MANIFEST.write_text(json.dumps(manifest(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     print(f"wrote {MANIFEST.relative_to(ROOT)} ({len(manifest()['settings'])} settings)")
 
 
@@ -164,6 +164,20 @@ def sha256(p: Path) -> str:
         return hashlib.file_digest(f, "sha256").hexdigest()
 
 
+def release_info(allow_dirty: bool, engine: Path) -> dict:
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
+
+    dirty = bool(git("status", "--porcelain"))
+    if dirty and not allow_dirty:
+        sys.exit("repository has uncommitted changes; commit them or pass --allow-dirty")
+    if dirty:
+        print("releasing a dirty repository (--allow-dirty)")
+    bundle = json.loads((engine / "bundle.json").read_text(encoding="utf-8"))
+    return {"repository_revision": git("rev-parse", "HEAD"), "engine_source_revision": bundle["source_revision"],
+            "dirty": dirty, "engine_dirty": bool(bundle.get("dirty", False))}
+
+
 def cmd_windows(a) -> None:
     ver = version()
     name = f"AgeOfDecomp-v{ver}-Windows-x64"
@@ -174,6 +188,7 @@ def cmd_windows(a) -> None:
     for need in (engine / "bundle.json", exe, cli):
         if not need.is_file():
             sys.exit(f"missing {need}: run tools/engine.py stage and `pnpm tauri build --no-bundle` first")
+    info = release_info(a.allow_dirty, engine)
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
@@ -198,6 +213,7 @@ def cmd_windows(a) -> None:
         "Updating: extract the new release over this folder; your build, settings and saves are kept.\n"
         "Licences: LICENSE.txt, licenses/ and engine/licenses/. Not affiliated with Nintendo or Koei Tecmo.\n",
         encoding="utf-8")
+    (out / "build-info.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8", newline="\n")
     bad = check(out)
     if bad:
         sys.exit("release contains forbidden files:\n" + "\n".join(bad))
@@ -231,6 +247,7 @@ def cmd_linux(a) -> None:
         if not need.is_file():
             sys.exit(f"missing {need}: run tools/engine.py stage and build the launcher on Linux first "
                      "(pnpm build; cargo build --release --features tauri/custom-protocol)")
+    info = release_info(a.allow_dirty, engine)
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
@@ -263,6 +280,7 @@ def cmd_linux(a) -> None:
         "Command line: `AgeOfDecomp-…AppImage cli prepare|play|verify …` runs aod-cli (RecompLauncher uses it).\n"
         "Licences: LICENSE.txt, licenses/ and engine/licenses/. Not affiliated with Nintendo or Koei Tecmo.\n",
         encoding="utf-8")
+    (out / "build-info.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8", newline="\n")
     bad = check(out)
     if bad:
         sys.exit("release contains forbidden files:\n" + "\n".join(bad))
@@ -301,7 +319,9 @@ def main() -> None:
     sub.add_parser("docs")
     w = sub.add_parser("windows")
     w.add_argument("--zip", action="store_true")
+    w.add_argument("--allow-dirty", action="store_true")
     li = sub.add_parser("linux")
+    li.add_argument("--allow-dirty", action="store_true")
     li.add_argument("--appimage", action="store_true", help="also pack the AppImage (mksquashfs + pinned runtime)")
     li.add_argument("--bin-dir", help="folder with the Linux launcher binaries (default src-tauri/target/release)")
     li.add_argument("--dest", help="output folder (default out/release; under WSL use the Linux file system)")

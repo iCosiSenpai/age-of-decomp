@@ -93,7 +93,7 @@ PINS = {  # name: (url, sha256)
                          "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d"),
 }
 # The Python packages the engine's generator and NUP tools need (upstream tools/requirements-hwaoi.txt).
-PY_PACKAGES = ["numpy==2.5.4", "lz4==4.4.5", "zstandard==0.25.0", "capstone==5.0.7"]
+PY_REQUIREMENTS = ROOT / "tools/requirements-engine.txt"
 # llvm-mingw: only the x86_64 Windows target is needed.
 LLVM_SKIP_TOP = {"aarch64-w64-mingw32", "armv7-w64-mingw32", "i686-w64-mingw32", "busybox", "python", "share"}
 # Linux build requirements, checked by `toolchain`: program -> Debian/Ubuntu package, and header + library -> package
@@ -275,10 +275,11 @@ def toolchain_windows() -> None:
         uv = shutil.which("uv")
         if uv:
             run([uv, "pip", "install", "--target", site, "--python", py / "python.exe", "--only-binary", ":all:",
-                 *PY_PACKAGES], env=dict(os.environ, UV_CACHE_DIR=str(CACHE / "uv-cache")))
+                 "--require-hashes", "-r", PY_REQUIREMENTS], env=dict(os.environ, UV_CACHE_DIR=str(CACHE / "uv-cache")))
         else:
             run([py / "python.exe", "-m", "ensurepip"], check=False)
-            run([py / "python.exe", "-m", "pip", "install", "--only-binary", ":all:", "--target", site, *PY_PACKAGES])
+            run([py / "python.exe", "-m", "pip", "install", "--only-binary", ":all:", "--require-hashes",
+                 "--target", site, "-r", PY_REQUIREMENTS])
         shutil.rmtree(site / "bin", ignore_errors=True)
     check = run([py / "python.exe", "-I", "-c", "import sys, numpy, lz4.block, zstandard, capstone; "
                  "print('python', sys.version.split()[0], 'numpy', numpy.__version__)"], capture=True)
@@ -386,7 +387,7 @@ def toolchain_linux() -> None:
         if subprocess.run([exe, "-I", "-m", "pip", "--version"], capture_output=True).returncode:
             run([exe, "-I", "-m", "ensurepip"])
         run([exe, "-I", "-m", "pip", "install", "--disable-pip-version-check", "--no-warn-script-location",
-             "--only-binary", ":all:", *PY_PACKAGES])
+             "--only-binary", ":all:", "--require-hashes", "-r", PY_REQUIREMENTS])
     check = run([exe, "-I", "-c", "import sys, numpy, lz4.block, zstandard, capstone; "
                  "print('python', sys.version.split()[0], 'numpy', numpy.__version__)"], capture=True)
     log(check.stdout.strip())
@@ -500,6 +501,13 @@ def linux_python_skip(rel: str) -> bool:
 def cmd_stage(args) -> None:
     """Windows: the full portable compiler (Python, llvm-mingw, deps, Ninja). Linux: sources, Python and the translator;
     clang, lld, Ninja and the libraries are the system's (`toolchain` checks them)."""
+    if not ENGINE.is_dir():
+        die("run `engine.py fetch` first")
+    dirty = bool(git("status", "--porcelain").stdout.strip())
+    if dirty and not args.allow_dirty:
+        die("engine checkout has uncommitted changes; commit them or pass --allow-dirty")
+    if dirty:
+        log("staging a dirty engine checkout (--allow-dirty)")
     needs = [bundle_python(TC), XLATE_OUT / XLATE_EXE] + ([TC / "llvm" / "bin" / "clang.exe"] if WIN else [])
     for need in needs:
         if not need.is_file():
@@ -533,6 +541,8 @@ def cmd_stage(args) -> None:
     version = (ROOT / "VERSION").read_text().strip() if (ROOT / "VERSION").is_file() else "0.0.0-dev"
     manifest = {"format": "hwaoi-compiler-v1", "version": version, "source_revision": revision,
                 "aod_upstream": upstream()["commit"], "files": files, "game_content_included": False}
+    if dirty:
+        manifest["dirty"] = True
     (STAGE / "bundle.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     size = sum((STAGE / p).stat().st_size for p in files)
     log(f"staged {len(files)} files, {size / 2**20:.0f} MiB in {STAGE}")
@@ -578,7 +588,8 @@ def main() -> None:
     f.add_argument("--force", action="store_true")
     sub.add_parser("export-patches")
     sub.add_parser("translator")
-    sub.add_parser("stage")
+    s = sub.add_parser("stage")
+    s.add_argument("--allow-dirty", action="store_true")
     g = sub.add_parser("game")
     g.add_argument("--nup", required=True)
     g.add_argument("--out", default=str(ROOT / "work" / ("game" if WIN else "game-linux")))
