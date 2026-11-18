@@ -174,7 +174,7 @@ def release_info(allow_dirty: bool, engine: Path) -> dict:
     if dirty:
         print("releasing a dirty repository (--allow-dirty)")
     bundle = json.loads((engine / "bundle.json").read_text(encoding="utf-8"))
-    return {"repository_revision": git("rev-parse", "HEAD"), "engine_source_revision": bundle["source_revision"],
+    return {"compiler_version": version(), "repository_revision": git("rev-parse", "HEAD"), "engine_source_revision": bundle["source_revision"],
             "dirty": dirty, "engine_dirty": bool(bundle.get("dirty", False))}
 
 

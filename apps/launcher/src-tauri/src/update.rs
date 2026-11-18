@@ -166,6 +166,9 @@ pub fn stage(mut progress: impl FnMut(f64)) -> Result<(), String> {
     let package = stage.join("package.zip");
     download(&client, asset, &package, &mut progress)?;
     extract(&package, &stage.join("new"), &release.tag_name)?;
+    if installed_version(&stage.join("new"))? != version {
+        return Err("The update package version does not match its release tag".into());
+    }
     fs::remove_file(package).map_err(|e| e.to_string())?;
     fs::copy(destination.join("aod-cli.exe"), stage.join("update-helper.exe")).map_err(|e| e.to_string())?;
     fs::write(stage.join("plan.json"), serde_json::to_vec(&Plan { destination, parent: std::process::id() }).unwrap())
@@ -217,6 +220,26 @@ fn swap(stage: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn installed_version(dir: &Path) -> Result<Version, String> {
+    let info: serde_json::Value = serde_json::from_slice(&fs::read(dir.join("build-info.json")).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    Version::parse(info["compiler_version"].as_str().ok_or("Package has no compiler version")?).map_err(|e| e.to_string())
+}
+
+#[cfg(windows)]
+fn install_lock(destination: &Path) -> Result<fs::File, String> {
+    use std::os::windows::fs::OpenOptionsExt;
+    for _ in 0..1200 {
+        match fs::OpenOptions::new().read(true).write(true).create(true).truncate(false).share_mode(0)
+            .open(destination.join(".aod-update.lock")) {
+            Ok(file) => return Ok(file),
+            Err(e) if e.raw_os_error() == Some(32) => std::thread::sleep(Duration::from_millis(100)),
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Err("Another compiler update is still being installed".into())
+}
+
 /// Internal helper entry point. The helper and plan live on the installation's filesystem.
 pub fn apply(stage: &Path) -> Result<(), String> {
     let stage = stage.canonicalize().map_err(|e| e.to_string())?;
@@ -228,6 +251,14 @@ pub fn apply(stage: &Path) -> Result<(), String> {
     }
     #[cfg(windows)]
     wait_for_parent(plan.parent)?;
+    #[cfg(windows)]
+    let _lock = install_lock(&destination)?;
+    let candidate = installed_version(&stage.join("new"))?;
+    if installed_version(&destination).is_ok_and(|current| current >= candidate) {
+        // Another instance already installed this release or a newer one while this package downloaded.
+        Command::new(destination.join("AgeOfDecomp.exe")).current_dir(&destination).spawn().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
     let result = swap(&stage, &destination);
     fs::write(stage.join("result.log"), match &result { Ok(()) => "Update installed".into(), Err(e) => e.clone() })
         .map_err(|e| e.to_string())?;
