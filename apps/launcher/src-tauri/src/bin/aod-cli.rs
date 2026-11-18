@@ -19,6 +19,15 @@ fn arg(args: &[String], name: &str) -> Option<String> {
         .or_else(|| args.iter().find_map(|a| a.strip_prefix(&format!("{name}=")).map(str::to_string)))
 }
 
+fn parse_jobs(args: &[String]) -> Result<u32, String> {
+    let value = arg(args, "--jobs");
+    if value.is_none() && !args.iter().any(|a| a == "--jobs") {
+        return Ok(0);
+    }
+    value.and_then(|s| s.parse::<u32>().ok()).filter(|n| *n <= 8)
+        .ok_or_else(|| "--jobs must be an integer from 0 to 8".into())
+}
+
 fn usage() -> i32 {
     eprintln!("usage: aod-cli verify --game <nup> [--update <nup>] | prepare --game <nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution WxH] [--unlock] | play [--out <dir>] | info");
     2
@@ -64,6 +73,20 @@ fn main() {
 
 fn prepare_cmd(args: &[String]) -> i32 {
     let (Some(game), Some(out)) = (arg(args, "--game"), arg(args, "--out")) else { return usage() };
+    let jobs = match parse_jobs(args) {
+        Ok(jobs) => jobs,
+        Err(e) => {
+            eprintln!("{e}");
+            return 2;
+        }
+    };
+    let marker_path = PathBuf::from(&out).join("aod-ready.json");
+    if let Err(e) = std::fs::remove_file(&marker_path)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        eprintln!("Could not remove {}: {e}", marker_path.display());
+        return 4;
+    }
     let paths = Paths::detect();
     let update = arg(args, "--update").filter(|s| !s.is_empty());
     let dlc = arg(args, "--dlc").filter(|s| !s.is_empty());
@@ -82,13 +105,12 @@ fn prepare_cmd(args: &[String]) -> i32 {
             return 3;
         }
     }
-    let job_out = out.clone();
     let job = prepare::Job {
         nup: PathBuf::from(&game),
         update: update.as_ref().map(PathBuf::from),
         dlc: dlc.as_ref().map(PathBuf::from),
         output: PathBuf::from(&out),
-        jobs: arg(args, "--jobs").and_then(|j| j.parse().ok()).unwrap_or(0),
+        jobs,
         resolution: arg(args, "--resolution").unwrap_or_else(|| "1920x1080".into()),
         unlock: args.iter().any(|a| a == "--unlock"),
     };
@@ -119,13 +141,35 @@ fn prepare_cmd(args: &[String]) -> i32 {
             let _ = settings::merge_pending(&cfg, &paths);
             // RecompLauncher's `prepare.done` marker: present only after a complete build.
             let marker = serde_json::json!({ "version": aod_launcher_lib::VERSION, "built": aod_launcher_lib::paths::stamp() });
-            let _ = std::fs::write(PathBuf::from(&job_out).join("aod-ready.json"), marker.to_string());
-            0
+            let part = marker_path.with_file_name("aod-ready.json.part");
+            match std::fs::write(&part, marker.to_string()).and_then(|_| std::fs::rename(&part, &marker_path)) {
+                Ok(()) => 0,
+                Err(e) => {
+                    eprintln!("Could not write {}: {e}", marker_path.display());
+                    4
+                }
+            }
         }
         Err(e) if e == "cancelled" => 5,
         Err(e) => {
             eprintln!("{e}");
             4
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jobs_must_be_in_range() {
+        let args = |values: &[&str]| values.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(parse_jobs(&args(&[])), Ok(0));
+        assert_eq!(parse_jobs(&args(&["--jobs", "0"])), Ok(0));
+        assert_eq!(parse_jobs(&args(&["--jobs=8"])), Ok(8));
+        for values in [&["--jobs", "9"][..], &["--jobs", "-1"], &["--jobs", "x"], &["--jobs"], &["--jobs="]] {
+            assert!(parse_jobs(&args(values)).is_err(), "{values:?}");
         }
     }
 }

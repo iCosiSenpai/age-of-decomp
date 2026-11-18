@@ -14,6 +14,7 @@ version = "0.1.0"
 dependencies = [
  "aod-nup",
  "ash",
+ "libc",
  "libloading 0.8.9",
  "serde",
  "serde_json",
@@ -22,6 +23,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

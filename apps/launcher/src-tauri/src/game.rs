@@ -7,23 +7,60 @@ use crate::paths::{self, Paths};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 
+#[derive(Debug)]
+pub enum LaunchError {
+    NotBuilt(String),
+    GameFile(String),
+    Other(String),
+}
+
+impl std::fmt::Display for LaunchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotBuilt(s) | Self::GameFile(s) | Self::Other(s) => f.write_str(s),
+        }
+    }
+}
+
+impl LaunchError {
+    pub fn exit_code(&self) -> i32 {
+        match self {
+            Self::NotBuilt(_) => 64,
+            Self::GameFile(_) => 65,
+            Self::Other(_) => 1,
+        }
+    }
+}
+
+fn same_identity(recorded: &serde_json::Value, id: &aod_nup::Identity) -> bool {
+    recorded.get("header").and_then(|v| v.as_str()) == Some(id.header.as_str())
+        && recorded.get("toc").and_then(|v| v.as_str()) == Some(id.toc.as_str())
+        && recorded.get("size").and_then(|v| v.as_u64()) == Some(id.size)
+}
+
 /// Checks that the build is complete and that the player's NUP is still the one it was built from (the game reads
 /// its raw resources from it). Identity = SHA-256 of the NUP header and TOC + file size, as the engine records it.
-pub fn check(cfg: &Config, paths: &Paths) -> Result<(), String> {
+pub fn check(cfg: &Config, paths: &Paths) -> Result<(), LaunchError> {
     let output = cfg.output(paths);
-    let state = config::engine_state(&output).ok_or("The game is not built yet: open Setup")?;
+    let state = config::engine_state(&output)
+        .ok_or_else(|| LaunchError::NotBuilt("The game is not built yet: open Setup".into()))?;
     if state.get("status").and_then(|s| s.as_str()) != Some("complete") || !paths::game_exe(&output).is_file() {
-        return Err("The game build is incomplete: open Setup and continue the build".into());
+        return Err(LaunchError::NotBuilt("The game build is incomplete: open Setup and continue the build".into()));
     }
-    let nup = state.get("nup").and_then(|s| s.as_str()).ok_or("The build does not record its game file")?;
+    let nup = state.get("nup").and_then(|s| s.as_str())
+        .ok_or_else(|| LaunchError::NotBuilt("The build does not record its game file".into()))?;
     let recorded = state.get("nup_identity").cloned().unwrap_or_default();
-    let opened = aod_nup::Nup::open(nup).map_err(|e| format!("Your game file cannot be read ({e}): {nup}. Put it back where it was, or set up again."))?;
-    let id = opened.identity();
-    let same = recorded.get("header").and_then(|v| v.as_str()) == Some(id.header.as_str())
-        && recorded.get("toc").and_then(|v| v.as_str()) == Some(id.toc.as_str())
-        && recorded.get("size").and_then(|v| v.as_u64()) == Some(id.size);
-    if !same {
-        return Err("Your game file changed since the build. Set up again with it.".into());
+    let opened = aod_nup::Nup::open(nup).map_err(|e| LaunchError::GameFile(
+        format!("Your game file cannot be read ({e}): {nup}. Put it back where it was, or set up again.")))?;
+    if !same_identity(&recorded, &opened.identity()) {
+        return Err(LaunchError::GameFile("Your game file changed since the build. Set up again with it.".into()));
+    }
+    if let Some(update) = state.get("update_nup").and_then(|v| v.as_str()) {
+        let opened = aod_nup::Nup::open(update).map_err(|e| LaunchError::GameFile(
+            format!("Your update game file cannot be read ({e}): {update}. Put it back where it was, or set up again.")))?;
+        if !same_identity(&recorded["update"], &opened.identity()) {
+            return Err(LaunchError::GameFile("Your update game file changed since the build. Set up again with it.".into()));
+        }
     }
     Ok(())
 }
@@ -33,22 +70,22 @@ pub struct Launched {
     pub log: std::path::PathBuf,
 }
 
-pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched, String> {
+pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched, LaunchError> {
     check(cfg, paths)?;
     let output = cfg.output(paths);
     let exe = paths::game_exe(&output);
     let bin = paths::game_bin_dir(&output);
     let translator = bin.join("xlate-managed-irbanks").join(if cfg!(windows) { "totk_xlate.exe" } else { "totk_xlate" });
     if !translator.is_file() {
-        return Err("The shader translator is missing: open Setup and continue the build".into());
+        return Err(LaunchError::NotBuilt("The shader translator is missing: open Setup and continue the build".into()));
     }
     let logs = paths::game_logs_dir(&output);
-    std::fs::create_dir_all(&logs).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&logs).map_err(|e| LaunchError::Other(e.to_string()))?;
     let saves = paths::saves_dir(&output);
-    std::fs::create_dir_all(&saves).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&saves).map_err(|e| LaunchError::Other(e.to_string()))?;
     let log_path = logs.join(format!("game-{}.log", paths::stamp()));
-    let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
-    let log2 = log.try_clone().map_err(|e| e.to_string())?;
+    let log = std::fs::File::create(&log_path).map_err(|e| LaunchError::Other(e.to_string()))?;
+    let log2 = log.try_clone().map_err(|e| LaunchError::Other(e.to_string()))?;
     let state = config::engine_state(&output).unwrap_or_default();
     let unlock = state.get("rate_unlock").and_then(|v| v.as_bool()).unwrap_or(false);
 
@@ -108,7 +145,7 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched,
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: no console; the game opens its own window
     }
-    let child = cmd.spawn().map_err(|e| format!("Could not start the game: {e}"))?;
+    let child = cmd.spawn().map_err(|e| LaunchError::Other(format!("Could not start the game: {e}")))?;
     Ok(Launched { child, log: log_path })
 }
 
@@ -134,4 +171,24 @@ pub fn session_fps(log: &Path) -> Option<f64> {
     let line = text.lines().rev().find(|l| l.contains("frametime: exit:"))?;
     let at = line.find("mean ")? + 5;
     line[at..].split_whitespace().next()?.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn launch_error_exit_codes_do_not_depend_on_message() {
+        assert_eq!(LaunchError::NotBuilt("anything".into()).exit_code(), 64);
+        assert_eq!(LaunchError::GameFile("anything".into()).exit_code(), 65);
+        assert_eq!(LaunchError::Other("game file incomplete".into()).exit_code(), 1);
+    }
+
+    #[test]
+    fn identity_requires_header_toc_and_size() {
+        let id = aod_nup::Identity { header: "a".into(), toc: "b".into(), size: 42 };
+        assert!(same_identity(&serde_json::json!({"header": "a", "toc": "b", "size": 42}), &id));
+        assert!(!same_identity(&serde_json::json!({"header": "a", "toc": "c", "size": 42}), &id));
+        assert!(!same_identity(&serde_json::Value::Null, &id));
+    }
 }

@@ -440,6 +440,8 @@ pub fn sdl_candidates(engine: Option<&std::path::Path>, exe_dir: &std::path::Pat
         v.push(e.join("deps").join("lib").join(name));
     }
     v.push(exe_dir.join(name));
-    v.push(PathBuf::from(name));
+    if cfg!(unix) {
+        v.push(PathBuf::from(name));
+    }
     v
 }

@@ -33,6 +33,12 @@ ash = { version = "0.38", default-features = false, features = ["loaded", "debug
 sysinfo = "0.37"
 sys-locale = "0.3"
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.191"
+
 [profile.release]
 codegen-units = 1
 lto = "thin"

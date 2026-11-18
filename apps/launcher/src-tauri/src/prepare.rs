@@ -79,6 +79,42 @@ pub struct Control {
     pub pid: AtomicU32,
 }
 
+#[cfg(windows)]
+fn assign_job(child: &std::process::Child) -> Result<(), String> {
+    use std::os::windows::io::AsRawHandle;
+    use std::sync::OnceLock;
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JobObjectExtendedLimitInformation, SetInformationJobObject,
+    };
+
+    static JOB: OnceLock<Result<usize, String>> = OnceLock::new();
+    let handle = *JOB.get_or_init(|| unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job.is_null() {
+            return Err(format!("Could not create the build job: {}", std::io::Error::last_os_error()));
+        }
+        let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        ) == 0 {
+            let error = std::io::Error::last_os_error();
+            CloseHandle(job);
+            return Err(format!("Could not configure the build job: {error}"));
+        }
+        Ok(job as usize)
+    }).as_ref().map_err(Clone::clone)?;
+    if unsafe { AssignProcessToJobObject(handle as _, child.as_raw_handle() as _) } == 0 {
+        return Err(format!("Could not assign the engine to the build job: {}", std::io::Error::last_os_error()));
+    }
+    Ok(())
+}
+
 fn stage_of(line: &str) -> Option<u32> {
     let rest = line.strip_prefix('[')?;
     let (n, tail) = rest.split_once("/6]")?;
@@ -162,6 +198,7 @@ pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(
 
 /// Runs the build and calls `sink` with progress, log lines and the final result. Blocking.
 pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut(Event) + Send) -> Result<(), String> {
+    control.cancel.store(false, Ordering::SeqCst);
     let engine = paths.engine.clone().ok_or("The engine is missing: reinstall Age of Decomp")?;
     // The bundle's own Python (Windows: NuGet CPython, Linux: python-build-standalone); on Linux the compiler, Ninja
     // and the libraries are the system's, which the engine checks before it starts.
@@ -201,8 +238,30 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     {
         use std::os::unix::process::CommandExt;
         cmd.process_group(0); // a group of its own, so `cancel` stops Python, Ninja and clang together
+        #[cfg(target_os = "linux")]
+        {
+            let parent = unsafe { libc::getpid() };
+            // SIGKILL of aod-cli still leaves Ninja / clang running: the process group outlives it.
+            unsafe {
+                cmd.pre_exec(move || {
+                    if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM, 0, 0, 0) != 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    if libc::getppid() != parent {
+                        return Err(std::io::Error::from_raw_os_error(libc::ESRCH));
+                    }
+                    Ok(())
+                });
+            }
+        }
     }
     let mut child = cmd.spawn().map_err(|e| format!("Could not start the engine: {e}"))?;
+    #[cfg(windows)]
+    if let Err(e) = assign_job(&child) {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(e);
+    }
     control.pid.store(child.id(), Ordering::SeqCst);
 
     // stderr carries `ERROR: …`; read it on its own thread so neither pipe can fill up.
@@ -258,16 +317,16 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     let status = child.wait().map_err(|e| e.to_string())?;
     let _ = err_thread.join();
     control.pid.store(0, Ordering::SeqCst);
-    if control.cancel.swap(false, Ordering::SeqCst) {
-        sink(Event::new("cancelled"));
-        return Err("cancelled".into());
-    }
+    let cancelled = control.cancel.swap(false, Ordering::SeqCst);
     if status.success() && complete {
         let mut e = Event::new("done");
         e.fraction = Some(1.0);
         e.elapsed_s = Some(started.elapsed().as_secs_f64());
         sink(e);
         Ok(())
+    } else if cancelled {
+        sink(Event::new("cancelled"));
+        Err("cancelled".into())
     } else {
         let errs = err_lines.lock().unwrap();
         let msg = errs
@@ -305,6 +364,19 @@ pub fn cancel(control: &Control) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn run_clears_an_old_cancel_before_preflight() {
+        let p = Paths { exe_dir: PathBuf::new(), data: PathBuf::new(), engine: None, portable: false };
+        let job = Job {
+            nup: PathBuf::new(), update: None, dlc: None, output: PathBuf::new(), jobs: 0,
+            resolution: "1920x1080".into(), unlock: false,
+        };
+        let control = Arc::new(Control::default());
+        control.cancel.store(true, Ordering::SeqCst);
+        assert!(run(&p, &job, control.clone(), |_| {}).is_err());
+        assert!(!control.cancel.load(Ordering::SeqCst));
+    }
 
     #[test]
     fn parses_stages_and_progress() {

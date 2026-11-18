@@ -128,6 +128,9 @@ fn set_game(app: tauri::State<'_, App>, nup: String, update: Option<String>, dlc
 
 #[tauri::command]
 fn start_prepare(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
+    let cfg = app.cfg.lock().unwrap().clone();
+    let resolution = settings::read(&cfg, &app.paths).get("output_res").cloned().unwrap_or_else(|| "1920x1080".into());
+    let job = prepare::Job::from_config(&cfg, &app.paths, resolution)?;
     {
         let mut busy = app.preparing.lock().unwrap();
         if *busy {
@@ -135,9 +138,6 @@ fn start_prepare(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()
         }
         *busy = true;
     }
-    let cfg = app.cfg.lock().unwrap().clone();
-    let resolution = settings::read(&cfg, &app.paths).get("output_res").cloned().unwrap_or_else(|| "1920x1080".into());
-    let job = prepare::Job::from_config(&cfg, &app.paths, resolution)?;
     let paths = app.paths.clone();
     let control = app.prepare.clone();
     std::thread::spawn(move || {
@@ -213,7 +213,7 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
             if let Some(p) = &pads {
                 p.suspend(false);
             }
-            return Err(e);
+            return Err(e.to_string());
         }
     };
     *running = true;
@@ -315,6 +315,14 @@ pub fn run() {
             *tauri_app.state::<App>().pads.lock().unwrap() = pads;
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                let app = window.state::<App>();
+                if *app.preparing.lock().unwrap() {
+                    prepare::cancel(&app.prepare);
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_state, set_ui, system_info, disk_info, find_nups, inspect_nup, set_game, start_prepare, cancel_prepare,
             get_settings, set_setting, reset_settings, list_pads, pad_state, pad_rumble, play, open_folder, log_tail,
@@ -338,9 +346,9 @@ pub fn play_headless(game_dir: Option<PathBuf>) -> i32 {
         Ok(mut l) => l.child.wait().ok().and_then(|s| s.code()).unwrap_or(1),
         Err(e) => {
             eprintln!("{e}");
-            write_last_error(&paths, &e);
+            write_last_error(&paths, &e.to_string());
             // Distinct code for "the game is not set up" (shown by RecompLauncher through exit_codes).
-            if e.contains("not built") || e.contains("incomplete") { 64 } else if e.contains("game file") { 65 } else { 1 }
+            e.exit_code()
         }
     }
 }

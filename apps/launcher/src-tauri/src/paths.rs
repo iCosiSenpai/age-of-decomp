@@ -59,16 +59,21 @@ fn platform_data_dir() -> PathBuf {
 /// The engine bundle: AOD_ENGINE_DIR, `engine/` beside the program, the AppImage layout, or (development) the
 /// repository's `out/engine/<os>` found by walking up from the program.
 fn find_engine(exe_dir: &Path) -> Option<PathBuf> {
-    if let Some(d) = std::env::var_os("AOD_ENGINE_DIR") {
-        let d = PathBuf::from(d);
-        if engine_ok(&d) {
-            return Some(d);
-        }
+    find_engine_from(exe_dir, std::env::var_os("AOD_ENGINE_DIR").map(PathBuf::from))
+}
+
+fn find_engine_from(exe_dir: &Path, configured: Option<PathBuf>) -> Option<PathBuf> {
+    if let Some(d) = configured
+        && engine_ok(&d)
+    {
+        return Some(d);
     }
     let os = if cfg!(windows) { "windows" } else { "linux" };
     let mut candidates = vec![exe_dir.join("engine"), exe_dir.join("../lib/age-of-decomp/engine")];
     for anc in exe_dir.ancestors().take(8) {
-        candidates.push(anc.join("out").join("engine").join(os));
+        if anc.join("engine/upstream.json").is_file() && anc.join("apps/launcher").is_dir() {
+            candidates.push(anc.join("out").join("engine").join(os));
+        }
     }
     candidates.into_iter().find(|c| engine_ok(c)).map(|c| plain(c.canonicalize().unwrap_or(c)))
 }
@@ -107,4 +112,28 @@ pub fn game_logs_dir(output: &Path) -> PathBuf {
 pub fn stamp() -> String {
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     secs.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn development_engine_requires_repository_markers() {
+        let root = std::env::temp_dir().join(format!(
+            "aod-engine-search-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        let exe = root.join("apps/launcher/src-tauri/target/release");
+        let engine = root.join("out/engine").join(if cfg!(windows) { "windows" } else { "linux" });
+        std::fs::create_dir_all(&exe).unwrap();
+        std::fs::create_dir_all(&engine).unwrap();
+        std::fs::write(engine.join("bundle.json"), "{}").unwrap();
+        assert!(find_engine_from(&exe, None).is_none());
+        std::fs::create_dir_all(root.join("engine")).unwrap();
+        std::fs::write(root.join("engine/upstream.json"), "{}").unwrap();
+        assert_eq!(find_engine_from(&exe, None), Some(plain(engine.canonicalize().unwrap())));
+        let _ = std::fs::remove_dir_all(root);
+    }
 }
