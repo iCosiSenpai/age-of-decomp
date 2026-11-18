@@ -156,8 +156,8 @@ pub fn check(nup: &Nup, update_nup: Option<&Nup>, profile: &GameProfile) -> Resu
                     // The TOC hash is the hash of the content; read_all re-verifies it while decompressing.
                     if hex::encode(e.sha256) != *sha {
                         bad.push(format!("{name} differs"));
-                    } else if n.read_all(e).is_err() {
-                        bad.push(format!("{name} is damaged"));
+                    } else {
+                        n.read_all(e)?;
                     }
                 }
             }

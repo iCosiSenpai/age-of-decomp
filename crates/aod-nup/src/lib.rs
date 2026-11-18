@@ -19,6 +19,8 @@ const FILE_SIZE: usize = 0x50;
 const TOC_HEADER: usize = 0x30;
 /// TOCs larger than this are refused (the HWAoI TOC is 389 KiB for 4228 files).
 const MAX_TOC: u64 = 256 << 20;
+const MAX_READ_ALL: u64 = 512 << 20;
+const MAX_READ_RESERVE: u64 = 64 << 20;
 const NONE: u32 = u32::MAX;
 
 #[derive(Debug, thiserror::Error)]
@@ -381,6 +383,11 @@ impl Nup {
 
     /// Every file under `dir` with its path relative to `dir` ("a/b/c"), depth-first, folders before deeper levels.
     pub fn walk(&self, dir: u32) -> Result<Vec<(String, Entry)>> {
+        if dir as u64 >= self.dir_count {
+            return corrupt("folder refers to a missing node");
+        }
+        let mut visited = vec![0u8; (self.dir_count as usize).div_ceil(8)];
+        visited[dir as usize / 8] |= 1 << (dir % 8);
         let mut out = Vec::new();
         let mut stack = vec![(dir, String::new(), 0usize)];
         while let Some((d, prefix, depth)) = stack.pop() {
@@ -390,10 +397,19 @@ impl Nup {
             for node in self.children(d)? {
                 match node {
                     Node::Dir(c) => {
+                        let byte = &mut visited[c as usize / 8];
+                        let bit = 1 << (c % 8);
+                        if *byte & bit != 0 {
+                            return corrupt("folder listed twice");
+                        }
+                        *byte |= bit;
                         let name = self.dir_name(c)?;
                         stack.push((c, format!("{prefix}{name}/"), depth + 1));
                     }
                     Node::File(f) => {
+                        if out.len() as u64 >= self.file_count {
+                            return corrupt("too many files listed");
+                        }
                         let e = self.entry(f)?;
                         out.push((format!("{prefix}{}", e.name), e));
                     }
@@ -424,18 +440,21 @@ impl Nup {
 
     /// A whole file, decompressed and checked against its SHA-256.
     pub fn read_all(&self, e: &Entry) -> Result<Vec<u8>> {
-        let mut out = Vec::with_capacity(e.size as usize);
-        if e.size != 0 {
+        if e.size > MAX_READ_ALL {
+            return corrupt(format!("{} is too large to read whole", e.name));
+        }
+        let mut out = Vec::with_capacity(e.size.min(MAX_READ_RESERVE) as usize);
+        if e.size != 0 || e.extent_size != 0 {
             let mut f = self.file.lock().unwrap();
             f.seek(SeekFrom::Start(e.extent_offset))?;
             let limited = (&mut *f).take(e.extent_size);
             if e.codec == 0 {
-                let mut r = limited;
+                let mut r = limited.take(e.size + 1);
                 r.read_to_end(&mut out)?;
             } else {
-                let mut dec =
+                let dec =
                     ruzstd::decoding::StreamingDecoder::new(limited).map_err(|x| Error::Zstd(x.to_string()))?;
-                dec.read_to_end(&mut out)?;
+                dec.take(e.size + 1).read_to_end(&mut out)?;
             }
         }
         if out.len() as u64 != e.size {
@@ -562,6 +581,146 @@ mod tests {
         out.resize(blob_at, 0);
         out.extend_from_slice(&main);
         out
+    }
+
+    fn synthetic_graph(dirs: &[(u32, u32)], children: &[u32], with_file: bool) -> Vec<u8> {
+        let files = usize::from(with_file);
+        let files_at = TOC_HEADER + PACKAGE_SIZE + dirs.len() * DIR_SIZE;
+        let children_at = files_at + files * FILE_SIZE;
+        let pool_at = children_at + children.len() * 4;
+        let mut toc = vec![0u8; pool_at + 1];
+        toc[0..4].copy_from_slice(b"TOC\x01");
+        toc[4..8].copy_from_slice(&1u32.to_le_bytes());
+        toc[8..16].copy_from_slice(&(dirs.len() as u64).to_le_bytes());
+        toc[16..24].copy_from_slice(&(files as u64).to_le_bytes());
+        toc[24..32].copy_from_slice(&(pool_at as u64).to_le_bytes());
+        toc[32..40].copy_from_slice(&1u64.to_le_bytes());
+        let p = TOC_HEADER;
+        toc[p..p + 8].copy_from_slice(&0x0400_3F40_232D_E000u64.to_le_bytes());
+        toc[p + 12..p + 16].copy_from_slice(&NONE.to_le_bytes());
+        for (i, (first, count)) in dirs.iter().enumerate() {
+            let d = TOC_HEADER + PACKAGE_SIZE + i * DIR_SIZE;
+            toc[d + 4..d + 8].copy_from_slice(&u32::from(i != 0).to_le_bytes());
+            toc[d + 8..d + 12].copy_from_slice(&first.to_le_bytes());
+            toc[d + 12..d + 16].copy_from_slice(&count.to_le_bytes());
+        }
+        let blob_at = (SUPERBLOCK_SIZE + toc.len()).div_ceil(16) * 16;
+        if with_file {
+            toc[files_at + 4..files_at + 8].copy_from_slice(&1u32.to_le_bytes());
+            toc[files_at + 8..files_at + 16].copy_from_slice(&1u64.to_le_bytes());
+            toc[files_at + 16..files_at + 24].copy_from_slice(&(blob_at as u64).to_le_bytes());
+            toc[files_at + 24..files_at + 32].copy_from_slice(&1u64.to_le_bytes());
+            toc[files_at + 32..files_at + 64].copy_from_slice(&Sha256::digest(b"x"));
+        }
+        for (i, child) in children.iter().enumerate() {
+            toc[children_at + i * 4..children_at + i * 4 + 4].copy_from_slice(&child.to_le_bytes());
+        }
+        toc[pool_at] = b'r';
+        let mut sb = vec![0u8; SUPERBLOCK_SIZE];
+        sb[0..4].copy_from_slice(b"NUP\x01");
+        sb[4..6].copy_from_slice(&(SUPERBLOCK_SIZE as u16).to_le_bytes());
+        sb[6..8].copy_from_slice(&1u16.to_le_bytes());
+        sb[8..16].copy_from_slice(&(SUPERBLOCK_SIZE as u64).to_le_bytes());
+        sb[16..24].copy_from_slice(&(toc.len() as u64).to_le_bytes());
+        sb[0x18..0x38].copy_from_slice(&Sha256::digest(&toc));
+        sb[0x38..0x40].copy_from_slice(&(blob_at as u64).to_le_bytes());
+        sb[0x40..0x48].copy_from_slice(&((blob_at + files) as u64).to_le_bytes());
+        sb[0x48..0x4c].copy_from_slice(&1u32.to_le_bytes());
+        sb.extend_from_slice(&toc);
+        sb.resize(blob_at, 0);
+        if with_file {
+            sb.push(b'x');
+        }
+        sb
+    }
+
+    fn rehash_toc(bytes: &mut [u8]) {
+        let size = u64_at(bytes, 0x10) as usize;
+        let hash = Sha256::digest(&bytes[SUPERBLOCK_SIZE..SUPERBLOCK_SIZE + size]);
+        bytes[0x18..0x38].copy_from_slice(&hash);
+    }
+
+    fn with_synthetic<T>(name: &str, data: &[u8], f: impl FnOnce(&Nup) -> T) -> T {
+        let path = std::env::temp_dir().join(format!("aod-nup-{name}-{}.nup", std::process::id()));
+        std::fs::write(&path, data).unwrap();
+        let nup = Nup::open(&path).unwrap();
+        let result = f(&nup);
+        drop(nup);
+        let _ = std::fs::remove_file(path);
+        result
+    }
+
+    #[test]
+    fn rejects_huge_declared_decompressed_size() {
+        let mut bytes = synthetic();
+        let package = SUPERBLOCK_SIZE + TOC_HEADER;
+        bytes[package + 0x14..package + 0x18].copy_from_slice(&196608u32.to_le_bytes());
+        bytes[package + 0x18] = 1;
+        bytes[package + 0x19] = 1;
+        let file = SUPERBLOCK_SIZE + TOC_HEADER + PACKAGE_SIZE + 2 * DIR_SIZE;
+        bytes[file + 8..file + 16].copy_from_slice(&(1u64 << 40).to_le_bytes());
+        bytes[file + 0x40] = 1;
+        rehash_toc(&mut bytes);
+        with_synthetic("huge", &bytes, |nup| {
+            let entry = nup.entry(0).unwrap();
+            assert!(matches!(nup.read_all(&entry), Err(Error::Corrupt(s)) if s.contains("too large to read whole")));
+            let mut profile = profile::GameProfile::hwaoi();
+            profile.modules.clear();
+            profile.modules.insert("main".into(), hex::encode(entry.sha256));
+            assert!(matches!(profile::check(nup, None, &profile), Err(Error::Corrupt(s)) if s.contains("too large to read whole")));
+        });
+    }
+
+    #[test]
+    fn rejects_folder_cycle() {
+        let data = synthetic_graph(&[(0, 2), (2, 2)], &[1, 1, 1, 1], false);
+        with_synthetic("cycle", &data, |nup| {
+            assert!(matches!(nup.walk(0), Err(Error::Corrupt(s)) if s == "folder listed twice"));
+        });
+    }
+
+    #[test]
+    fn rejects_repeated_folder_dag200() {
+        let mut children = vec![1; 200];
+        children.extend(vec![2; 200]);
+        children.extend(vec![3; 200]);
+        children.push(4);
+        let data = synthetic_graph(&[(0, 200), (200, 200), (400, 200), (600, 1)], &children, true);
+        with_synthetic("dag200", &data, |nup| {
+            assert!(matches!(nup.walk(0), Err(Error::Corrupt(s)) if s == "folder listed twice"));
+        });
+    }
+
+    #[test]
+    fn rejects_more_file_listings_than_declared() {
+        let data = synthetic_graph(&[(0, 2)], &[1, 1], true);
+        with_synthetic("files", &data, |nup| {
+            assert!(matches!(nup.walk(0), Err(Error::Corrupt(s)) if s == "too many files listed"));
+        });
+    }
+
+    #[test]
+    fn rejects_zstd_output_larger_than_declared() {
+        let content = b"more than three bytes";
+        let compressed = ruzstd::encoding::compress_to_vec(&content[..], ruzstd::encoding::CompressionLevel::Uncompressed);
+        for declared in [0usize, 3] {
+            let mut bytes = synthetic();
+            let blob_at = u64_at(&bytes, 0x38) as usize;
+            bytes.truncate(blob_at);
+            bytes.extend_from_slice(&compressed);
+            let total = bytes.len() as u64;
+            bytes[0x40..0x48].copy_from_slice(&total.to_le_bytes());
+            let file = SUPERBLOCK_SIZE + TOC_HEADER + PACKAGE_SIZE + 2 * DIR_SIZE;
+            bytes[file + 8..file + 16].copy_from_slice(&(declared as u64).to_le_bytes());
+            bytes[file + 24..file + 32].copy_from_slice(&(compressed.len() as u64).to_le_bytes());
+            bytes[file + 32..file + 64].copy_from_slice(&Sha256::digest(&content[..declared]));
+            bytes[file + 0x40] = 1;
+            rehash_toc(&mut bytes);
+            with_synthetic(&format!("overflow-{declared}"), &bytes, |nup| {
+                let entry = nup.entry(0).unwrap();
+                assert!(matches!(nup.read_all(&entry), Err(Error::Corrupt(s)) if s.contains("size mismatch")));
+            });
+        }
     }
 
     #[test]
