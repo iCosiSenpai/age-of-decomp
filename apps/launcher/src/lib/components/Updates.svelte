@@ -6,7 +6,7 @@
   let busy = $derived(app.prepare.running || app.game.running);
 </script>
 
-{#if !startup || app.update.info?.available || app.update.installing}
+{#if !startup || (app.page !== 'system' && (app.update.info?.available || app.update.installing))}
   <section class:banner={startup} class="updates" aria-label={tr('Compiler updates')}>
     <div>
       {#if app.update.installing}
