@@ -39,7 +39,7 @@ SDL's own HIDAPI drivers talk to the pads.
 
 | Pad | Windows USB | Windows BT | Linux USB | Linux BT | Tester |
 |---|---|---|---|---|---|
-| Switch 2 Pro | | | | | |
+| Switch 2 Pro | ✅ 2026-11-17 (maintainer): detected by SDL's Switch 2 driver (named "Nintendo Switch Pro Controller"), rumble + gyro + accelerometer at 250 Hz, live motion, launcher and game | | | | in game |
 | Joy-Con 2 pair | | | | | |
 | Switch Pro | | | | | |
 | DualSense | | | | | |

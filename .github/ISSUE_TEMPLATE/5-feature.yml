@@ -1,0 +1,8 @@
+name: Idea or request
+description: A setting, a feature or an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes: { label: What would you like, description: "What it does for you when you play." }
+    validations: { required: true }

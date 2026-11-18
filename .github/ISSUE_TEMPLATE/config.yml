@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read me first (requirements, setup, known limits)
+    url: https://github.com/iCosiSenpai/age-of-decomp#readme
+    about: Supported build, requirements and known limits of the engine.

@@ -1,0 +1,15 @@
+name: Other bug
+description: Something else does not work as it should.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes: { label: Age of Decomp version, placeholder: "v0.1.0" }
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: "Steps, what you expected, what happened instead." }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes: { label: Logs, render: text }

@@ -1,0 +1,26 @@
+name: Graphics problem
+description: Something looks wrong (missing objects, wrong colours, flicker, wrong size).
+labels: [graphics]
+body:
+  - type: markdown
+    attributes:
+      value: Say where in the game it happens. A screenshot helps; never attach game files or saves.
+  - type: input
+    id: version
+    attributes: { label: Age of Decomp version, placeholder: "v0.1.0" }
+    validations: { required: true }
+  - type: input
+    id: system
+    attributes: { label: "GPU and driver version, OS", placeholder: "RTX 5070 Ti, 621.01, Windows 11" }
+    validations: { required: true }
+  - type: input
+    id: settings
+    attributes: { label: "Resolution, frame rate, upscaler", placeholder: "1080p, 60 FPS, FSR" }
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: What looks wrong and where }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes: { label: Game log, description: "The game-*.log of that session.", render: text }

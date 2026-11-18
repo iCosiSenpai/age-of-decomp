@@ -1,0 +1,35 @@
+name: Controller problem
+description: A controller is not found, buttons are wrong, or rumble/motion does not work.
+labels: [controllers]
+body:
+  - type: input
+    id: version
+    attributes: { label: Age of Decomp version, placeholder: "v0.1.0" }
+    validations: { required: true }
+  - type: input
+    id: pad
+    attributes: { label: Controller, placeholder: "Switch 2 Pro Controller, DualSense, Xbox Series, Joy-Con pair…" }
+    validations: { required: true }
+  - type: dropdown
+    id: link
+    attributes:
+      label: Connection
+      options: [USB cable, Bluetooth, Wireless adapter]
+    validations: { required: true }
+  - type: input
+    id: os
+    attributes: { label: OS, placeholder: "Windows 11 / Ubuntu 26.04 / SteamOS" }
+    validations: { required: true }
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options: [Launcher (Controllers page or navigation), In game, Both]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: What happens, description: "Steam or other remapping tools running? Which buttons, rumble, motion?" }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes: { label: Game log, description: "Lines starting with `input:` and `hid:` from the game-*.log.", render: text }

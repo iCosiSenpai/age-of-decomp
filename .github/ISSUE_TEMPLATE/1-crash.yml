@@ -1,0 +1,36 @@
+name: Crash or does not start
+description: The game or the launcher closes, freezes or refuses to start.
+labels: [crash]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach game files, your .nup, keys or saves. Logs are fine: the launcher's *System → Folders → Logs*
+        and the game's `logs/` folder inside its game folder.
+  - type: input
+    id: version
+    attributes: { label: Age of Decomp version, placeholder: "v0.1.0" }
+    validations: { required: true }
+  - type: dropdown
+    id: how
+    attributes:
+      label: Started from
+      options: [Age of Decomp launcher, RecompLauncher, aod-cli]
+    validations: { required: true }
+  - type: input
+    id: system
+    attributes: { label: "System: OS, CPU, GPU and driver, RAM", placeholder: "Windows 11, Ryzen 7 7800X3D, RTX 4070 (581.xx), 32 GB" }
+    validations: { required: true }
+  - type: dropdown
+    id: when
+    attributes:
+      label: When does it happen
+      options: [During setup / build, When pressing Play, In the menus, In gameplay, When closing]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: "What you did, what you expected, what happened instead." }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes: { label: Logs, description: "The newest prepare-*.log (setup) or game-*.log (game). Drag the file here.", render: text }
