@@ -161,9 +161,23 @@ Recomp (lifter, generator, host runtime, Vulkan code; MIT), MacNativeGames (host
 d2r-mobile / nxnative (MIT), deko3d (zlib), Ryujinx shader translator 1.3.2 and audio (MIT, via MacNativeGames),
 Eglantine Ampere lowering (GPL-3.0-or-later, from Franseven/PokeDinner-a-Eglantine-Fork `1dd40d86…` on
 git.eden-emu.dev, cross-checked with Djihads80/Eglantine `8b8d0fc…`), AMD FSR 1 and ADL (MIT), VMA (MIT), SDL, Opus,
-libvpx, Zstandard. **To verify** in a later pass: byte comparisons of those rows against their sources (only the
-Dear ImGui and Roboto rows were checked here). Our `THIRD_PARTY_NOTICES.md` had the Eglantine source (a different
-repository), its licence ("GPL-3.0") and the TotK lineage licence ("GPL-3.0 / MIT") wrong; corrected.
+libvpx, Zstandard. Our `THIRD_PARTY_NOTICES.md` had the Eglantine source (a different repository), its licence
+("GPL-3.0") and the TotK lineage licence ("GPL-3.0 / MIT") wrong; corrected.
+
+Byte checks of the rows the engine calls unmodified (2026-11-18, git blob/tree SHA-1 via the GitHub API, SHA-256
+after CRLF→LF for git.eden-emu.dev):
+| Engine path | Claimed source | Result |
+|---|---|---|
+| `tools/vendor/macnativegames/extract_{exefs,romfs,update_romfs,shared_fonts}.py` | MacNativeGames `b75be8c` `games/totk/scripts/` | identical (blob SHA-1) |
+| `tools/vendor/ryujinx/` (whole tree: `Ryujinx.Graphics.Shader`, `Ryujinx.Common`, `Spv.Generator`, licence, props) | MacNativeGames `b75be8c` `vendor/ryujinx/` | identical (tree SHA-1 `4a9223f6…`) |
+| `runtime/nvn.h` | MacNativeGames `b75be8c` `games/totk/third_party/d2r_gfx/gfx/nvn/include/nvn.h` | identical (blob SHA-1) |
+| `runtime/third_party/eglantine/shader_recompiler/frontend/ampere/lower_to_maxwell.h` | Franseven/PokeDinner-a-Eglantine-Fork `1dd40d86…` `src/shader_recompiler/frontend/ampere/` | **modified**: 81.9 % matched (623 changed lines) |
+| `…/ampere/program_capture.h` | same | **modified**: 86.0 % matched (e.g. the `DKB Recomp:` BRA .U fix, the EXIT predicate check) |
+The engine's notices row calls `runtime/third_party/eglantine/` "(unmodified)"; its own `README.md` there says the fork
+keeps Maxwell back-end adaptations and instruction fixes, and the changed lines carry `DKB Recomp:` comments. The
+notice row is inaccurate (an upstream documentation fix; GPL-3.0 §5a asks modified files to say so, which the
+README and the comments do). The other inherited rows (MacNativeGames runtime adaptations, d2r-mobile, nxnative,
+deko3d, FSR, ADL) are adaptations by their own description and were not compared line by line.
 
 ## 7. After the in-game menu redesign (engine patches 0005–0007, 2026-11-18)
 `0005` adds `tests/menu_preview*` (own code: a headless Vulkan host and a stdlib driver). `0006` is the redesign and

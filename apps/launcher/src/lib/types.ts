@@ -71,8 +71,16 @@ export interface GameState {
 export interface UiPrefs {
   language: UiLanguage;
   close_on_play: boolean;
+  check_updates: boolean;
   jobs: number;
   rate_unlock: boolean;
+}
+
+export interface UpdateInfo {
+  current: string;
+  latest: string | null;
+  available: boolean;
+  previous_error: string | null;
 }
 
 export interface LauncherState {

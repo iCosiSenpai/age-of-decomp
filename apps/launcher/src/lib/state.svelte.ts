@@ -3,11 +3,14 @@
 import { api } from './api';
 import catalogJson from './settings/catalog.json';
 import { resolveLocale, setLocale } from './i18n.svelte';
-import type { Catalog, CatalogSetting, LauncherState, PageId, Pad, PrepareEvent, SettingValues, SystemInfo } from './types';
+import type { Catalog, CatalogSetting, LauncherState, PageId, Pad, PrepareEvent, SettingValues, SystemInfo, UpdateInfo } from './types';
 
 export const catalog = catalogJson as unknown as Catalog;
 
 class AppState {
+  update = $state<{ checking: boolean; installing: boolean; progress: number; info: UpdateInfo | null; error: string | null }>({
+    checking: false, installing: false, progress: 0, info: null, error: null,
+  });
   page = $state<PageId>('home');
   launcher = $state<LauncherState | null>(null);
   system = $state<SystemInfo | null>(null);
@@ -27,6 +30,8 @@ class AppState {
   async init() {
     this.launcher = await api.state();
     setLocale(resolveLocale(this.launcher.ui.language, this.launcher.system_locale));
+    api.onUpdateProgress((fraction) => (this.update.progress = fraction));
+    if (this.launcher.ui.check_updates) void this.checkUpdates();
     if (this.launcher.game.status !== 'complete') this.page = 'setup';
     const params = new URLSearchParams(location.search);
     const page = params.get('page') as PageId | null;
@@ -51,6 +56,28 @@ class AppState {
     if (!first) return;
     this.hintPad = first.type.startsWith('ps') ? 'playstation' : first.type.startsWith('xbox') ? 'xbox' :
       first.type === 'standard' || first.type === 'unknown' ? 'xbox' : 'nintendo';
+  }
+
+  async checkUpdates() {
+    if (this.update.checking || this.update.installing) return;
+    this.update.checking = true;
+    this.update.error = null;
+    try {
+      this.update.info = await api.checkUpdates();
+      this.update.error = this.update.info.previous_error;
+    } catch (e) {
+      this.update.info = null;
+      this.update.error = String(e);
+    } finally { this.update.checking = false; }
+  }
+
+  async installUpdate() {
+    if (this.update.installing || this.prepare.running || this.game.running) return;
+    this.update.installing = true;
+    this.update.progress = 0;
+    this.update.error = null;
+    try { await api.installUpdate(); }
+    catch (e) { this.update.error = String(e); this.update.installing = false; }
   }
 
   onPrepare(e: PrepareEvent) {

@@ -13,6 +13,7 @@
   import SettingsPage from './lib/pages/SettingsPage.svelte';
   import Pads from './lib/pages/Pads.svelte';
   import System from './lib/pages/System.svelte';
+  import Updates from './lib/components/Updates.svelte';
 
   let ready = $state(false);
   let sdlNav = $state(false);
@@ -69,6 +70,7 @@
 <div class="shell">
   <TitleBar version={app.launcher?.version ?? ''} />
   {#if ready}
+    <Updates startup />
     <div class="body">
       <NavRail />
       <main bind:this={main} aria-label={tr('Content')}>

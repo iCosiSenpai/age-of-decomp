@@ -42,7 +42,7 @@
     ],
     "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
     "timeout": 14400,
-    "version": "1",
+    "version": "2",
     "done": [
       "{install}/game/aod-ready.json"
     ]

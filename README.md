@@ -84,6 +84,20 @@ sudo apt install clang lld ninja-build libsdl3-dev libopus-dev libvpx-dev libzst
 With **RecompLauncher**: find *Age of Decomp* in Discover (or add the release folder as a local build with its
 developer tools), drop in your `.nup`, press Play.
 
+## Updating
+
+The compiler checks GitHub releases at startup. **System → Compiler updates** also has **Check for updates** and,
+when a newer Windows package is available, **Update and restart**. The updater verifies the GitHub asset's SHA-256,
+stages the package beside the installation, then replaces release-owned files after the compiler exits. It keeps
+an installation backup in `.aod-update-*/backup`; the game folder, settings and saves are preserved. Close the game
+and finish or cancel Setup before updating. Rebuild the game through Setup to use a changed engine runtime.
+
+While this repository is private, automatic checks and downloads require an existing GitHub CLI login
+(`gh auth login`, with repository access), or `GH_TOKEN`/`GITHUB_TOKEN` in the environment. Credentials are never
+included in the release or saved in launcher settings. Linux automatic installation is not available yet.
+RecompLauncher can use the extracted local Windows build through its Developer tools; public Discover and
+anonymous downloads require the repository to be public. Preview releases appear in its beta channel.
+
 ## Building from source
 
 ```powershell

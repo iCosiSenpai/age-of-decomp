@@ -13,6 +13,7 @@ import type {
   SystemInfo,
   UiLanguage,
   UiPrefs,
+  UpdateInfo,
 } from './types';
 
 type Unlisten = () => void;
@@ -45,6 +46,9 @@ export const PREPARE_STAGES = [
 ] as const;
 
 export const api = {
+  checkUpdates: () => invoke<UpdateInfo>('check_updates'),
+  installUpdate: () => invoke<void>('install_update'),
+  onUpdateProgress: (cb: (fraction: number) => void) => listen<number>('update-progress', cb),
   state: () => invoke<LauncherState>('get_state'),
   setUi: (patch: Partial<UiPrefs>) => invoke<LauncherState>('set_ui', { patch }),
   systemInfo: () => invoke<SystemInfo>('system_info'),
@@ -109,7 +113,7 @@ const demoState: LauncherState = {
     built_at: demoBuilt ? '2026-11-16T19:42:00Z' : null,
     nup_present: true,
   },
-  ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, jobs: 0, rate_unlock: false },
+  ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false },
   system_locale: { language: 'it', country: 'IT' },
   recomplauncher: false,
 };
@@ -124,6 +128,8 @@ const demoPads: Pad[] = [
 ];
 
 async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
+  if (cmd === 'check_updates') return { current: '0.1.0', latest: params.has('update') ? 'v0.2.0' : 'v0.1.0', available: params.has('update'), previous_error: null };
+  if (cmd === 'install_update') throw new Error('Update installation is available in the desktop compiler.');
   await new Promise((r) => setTimeout(r, 120));
   switch (cmd) {
     case 'get_state':

@@ -13,7 +13,7 @@ Subject: [PATCH] aod: menu: Redesign the in-game settings menu
  runtime/ui/fonts/Inter-Variable.ttf  | Bin 0 -> 876576 bytes
  runtime/ui/fonts/OFL-Cinzel.txt      |  93 ++++
  runtime/ui/fonts/OFL-Inter.txt       |  93 ++++
- runtime/ui/menu.cpp                  | 427 ++++++++++++----
+ runtime/ui/menu.cpp                  | 430 ++++++++++++----
  runtime/ui/menu.h                    |   4 +-
  runtime/ui/option_rows.cpp           | 703 ++++++++++++++++++---------
  runtime/ui/option_rows.h             |  15 +-
@@ -23,7 +23,7 @@ Subject: [PATCH] aod: menu: Redesign the in-game settings menu
  tests/menu_preview.cpp               |  69 ++-
  tests/menu_preview_stubs.cpp         |   9 +-
  tests/menu_preview_test.py           | 184 ++++++-
- 19 files changed, 1342 insertions(+), 383 deletions(-)
+ 19 files changed, 1345 insertions(+), 383 deletions(-)
  create mode 100644 runtime/ui/fonts/Cinzel-Variable.ttf
  create mode 100644 runtime/ui/fonts/Inter-Variable.ttf
  create mode 100644 runtime/ui/fonts/OFL-Cinzel.txt
@@ -10809,7 +10809,7 @@ index 0000000000000000000000000000000000000000..21f6aff961064c2e429f570995e446bc
 +FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 +OTHER DEALINGS IN THE FONT SOFTWARE.
 diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
-index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25214579d4 100644
+index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..8c4bdf02a73236d01eac86459883d0052835ae43 100644
 --- a/runtime/ui/menu.cpp
 +++ b/runtime/ui/menu.cpp
 @@ -6,10 +6,12 @@
@@ -11090,7 +11090,7 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
              reset_all();
              close = true;
          }
-@@ -913,83 +996,215 @@ static void tab_advanced(float scale) {
+@@ -913,83 +996,218 @@ static void tab_advanced(float scale) {
  
  static const UiTextId kTabNames[TAB_COUNT] = {UI_MENU_TAB_SCREEN, UI_MENU_TAB_GAME, UI_MENU_TAB_SOUND,
                                                UI_MENU_TAB_CONTROLS, UI_MENU_TAB_MENU, UI_MENU_TAB_ADVANCED};
@@ -11273,8 +11273,11 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
 -        g_tab_request = -1;
 -        ImGui::EndTabBar();
 +    ImGui::PushFont(theme::fonts().small);
++    // Too wide for the rail: the version goes on a line of its own (word wrap would break it at its dots).
++    char *split = strrchr(version, ' ');
++    if (split && ImGui::CalcTextSize(version).x > rail - 48 * scale) *split = '\n';
 +    dl->AddText(theme::fonts().small, ImGui::GetFontSize(), ImVec2(origin.x + 24 * scale, bar_y - 52 * scale),
-+                theme::text_faint, version, nullptr, rail - 48 * scale);
++                theme::text_faint, version);
 +    ImGui::PopFont();
 +
 +    float page_x = origin.x + rail + 32 * scale, page_w = end.x - page_x - 32 * scale;
@@ -11365,7 +11368,7 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
  }
  
  static int g_save_pending;   // a changed setting still waits for its write to totk.ini (opt_save_tick)
-@@ -1152,7 +1367,10 @@ static void perf_full_draw(const MenuTarget *t, float scale) {
+@@ -1152,7 +1370,10 @@ static void perf_full_draw(const MenuTarget *t, float scale) {
      PerfStats s;
      perfmon_snapshot(&s);
      ImGui::SetNextWindowPos(ImVec2(w - 12 * scale, 12 * scale), ImGuiCond_Always, ImVec2(1, 0));
@@ -11377,7 +11380,7 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
      ImGui::Begin("##perf", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                                          ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
                                          ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoSavedSettings);
-@@ -1160,8 +1378,8 @@ static void perf_full_draw(const MenuTarget *t, float scale) {
+@@ -1160,8 +1381,8 @@ static void perf_full_draw(const MenuTarget *t, float scale) {
      if (g_open.load(std::memory_order_relaxed)) ImGui::BringWindowToDisplayBack(ImGui::GetCurrentWindow());
      else ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
      ImGui::SetWindowFontScale(0.72f);
@@ -11388,7 +11391,7 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
      if (ImGui::BeginTable("##perft", 4, ImGuiTableFlags_SizingFixedFit)) {
          static const UiTextId labels[] = {UI_MENU_OV_GPU, UI_MENU_OV_VRAM, UI_MENU_OV_CPU, UI_MENU_OV_RAM};
          static const PerfCol c0[] = {{UI_MENU_OV_FPS, 888}};
-@@ -1225,6 +1443,8 @@ static void perf_full_draw(const MenuTarget *t, float scale) {
+@@ -1225,6 +1446,8 @@ static void perf_full_draw(const MenuTarget *t, float scale) {
      if (s.gpu_name[0]) ImGui::TextDisabled("%s", s.gpu_name);
      if (s.cpu_name[0]) ImGui::TextDisabled("%s", s.cpu_name);
      ImGui::End();
@@ -11397,7 +11400,7 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
  }
  
  static void perf_draw(const MenuTarget *t, float scale) {
-@@ -1236,8 +1456,9 @@ static void perf_draw(const MenuTarget *t, float scale) {
+@@ -1236,8 +1459,9 @@ static void perf_draw(const MenuTarget *t, float scale) {
      ImVec2 sz = ImGui::CalcTextSize(g_perf_text);
      float pad = 6 * scale;
      ImVec2 p(w - 12 * scale - sz.x - pad * 2, 12 * scale);   // the top right corner: the game's HUD leaves it empty
@@ -11409,7 +11412,7 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
  }
  
  extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const char **shot) {
-@@ -1284,6 +1505,7 @@ extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const cha
+@@ -1284,6 +1508,7 @@ extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const cha
          io.ClearInputKeys();
          io.ClearInputMouse();
          g_last_ns = 0;
@@ -11417,7 +11420,7 @@ index 247e141811f5f9a1eae8b8ecd223df10a2cf3863..97c28ac20d07d593feef0f824ac86c25
          g_focus_page = g_tab_request >= 0 ? g_tab_request : g_tab;   // opening: the first row has the cursor
          if (GImGui->OpenPopupStack.Size) ImGui::ClosePopupToLevel(0, false);   // a confirmation left open on closing
          g_modal = false;
-@@ -1300,6 +1522,7 @@ extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const cha
+@@ -1300,6 +1525,7 @@ extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const cha
          plat_mutex_lock(&ev_lock);
          ev_n = 0;
          plat_mutex_unlock(&ev_lock);

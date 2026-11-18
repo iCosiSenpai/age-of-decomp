@@ -88,7 +88,7 @@ def manifest() -> dict:
             "args": ["cli", "prepare", "--game", "{game}", "--out", GAME_DIR, "--dlc={input:dlc}"],
             "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
             "timeout": 14400,
-            "version": "1",
+            "version": "2",
             "done": [GAME_DIR + "/aod-ready.json"],
         },
         "start": {

@@ -9,13 +9,14 @@ use std::path::{Path, PathBuf};
 pub struct UiPrefs {
     pub language: String,
     pub close_on_play: bool,
+    pub check_updates: bool,
     pub jobs: u32,
     pub rate_unlock: bool,
 }
 
 impl Default for UiPrefs {
     fn default() -> Self {
-        UiPrefs { language: "auto".into(), close_on_play: false, jobs: 0, rate_unlock: false }
+        UiPrefs { language: "auto".into(), close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false }
     }
 }
 
@@ -56,6 +57,14 @@ impl Config {
     pub fn save(&self, paths: &Paths) -> Result<(), String> {
         std::fs::create_dir_all(&paths.data).map_err(|e| e.to_string())?;
         let file = paths.config_file();
+        // A failed backup in load must never turn a later settings change into data loss.
+        match std::fs::read_to_string(&file) {
+            Ok(text) if serde_json::from_str::<Config>(&text).is_err() => {
+                return Err(format!("{} is invalid; preserve or repair it before saving", file.display()));
+            }
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+            _ => {}
+        }
         let tmp = file.with_extension("json.part");
         std::fs::write(&tmp, serde_json::to_string_pretty(self).unwrap()).map_err(|e| e.to_string())?;
         std::fs::rename(&tmp, &file).map_err(|e| e.to_string())
@@ -130,5 +139,16 @@ mod tests {
         assert!(bad[0].file_name().unwrap().to_string_lossy().starts_with("launcher.json.bad-"));
         assert_eq!(std::fs::read(&bad[0]).unwrap(), b"{invalid");
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn save_refuses_to_overwrite_an_unpreserved_bad_config() {
+        let root = std::env::temp_dir().join(format!("aod-config-save-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None, portable: false };
+        std::fs::write(paths.config_file(), b"{invalid").unwrap();
+        assert!(Config::default().save(&paths).is_err());
+        assert_eq!(std::fs::read(paths.config_file()).unwrap(), b"{invalid");
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

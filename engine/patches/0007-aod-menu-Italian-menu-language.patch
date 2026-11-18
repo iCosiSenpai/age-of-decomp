@@ -72,7 +72,7 @@ index eeeabf8cd4ec0a0e779bf439e03dec8e6cba82b6..881eec058c000cbed2dd2e4532d6fd9e
  
  static void probe_main(Cpu *c) {
 diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
-index 97c28ac20d07d593feef0f824ac86c25214579d4..7b3555bed89936130511e72af6e176b13fd6b65c 100644
+index 8c4bdf02a73236d01eac86459883d0052835ae43..84f587f8e83a59ade9bab7e364c1a857ab357ba9 100644
 --- a/runtime/ui/menu.cpp
 +++ b/runtime/ui/menu.cpp
 @@ -824,8 +824,9 @@ static void tab_controls(float scale) {

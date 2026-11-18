@@ -9,6 +9,7 @@ pub mod paths;
 pub mod prepare;
 pub mod settings;
 pub mod system;
+pub mod update;
 
 use config::{Config, GameState, UiPrefs};
 use paths::Paths;
@@ -27,6 +28,7 @@ struct App {
     preparing: Mutex<bool>,
     pads: Mutex<Option<gamepad::Gamepads>>,
     game_running: Mutex<bool>,
+    updating: Mutex<bool>,
 }
 
 #[derive(Serialize)]
@@ -84,6 +86,30 @@ fn set_ui(app: tauri::State<'_, App>, patch: serde_json::Value) -> Res<LauncherS
 }
 
 #[tauri::command]
+async fn check_updates() -> Res<update::UpdateInfo> {
+    tauri::async_runtime::spawn_blocking(update::check).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn install_update(handle: tauri::AppHandle) -> Res<()> {
+    {
+        let app = handle.state::<App>();
+        let mut updating = app.updating.lock().unwrap();
+        if *updating || *app.preparing.lock().unwrap() || *app.game_running.lock().unwrap() {
+            return Err("Close the game and wait for setup to finish before updating.".into());
+        }
+        *updating = true;
+    }
+    let events = handle.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || update::stage(|fraction| {
+        let _ = events.emit("update-progress", fraction);
+    })).await.map_err(|e| e.to_string()).and_then(|r| r);
+    if result.is_ok() { handle.exit(0); }
+    *handle.state::<App>().updating.lock().unwrap() = false;
+    result
+}
+
+#[tauri::command]
 async fn system_info() -> system::SystemInfo {
     tauri::async_runtime::spawn_blocking(system::system_info).await.unwrap_or_else(|_| system::system_info())
 }
@@ -128,6 +154,8 @@ fn set_game(app: tauri::State<'_, App>, nup: String, update: Option<String>, dlc
 
 #[tauri::command]
 fn start_prepare(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
+    let updating = app.updating.lock().unwrap();
+    if *updating { return Err("An update is being installed".into()); }
     let cfg = app.cfg.lock().unwrap().clone();
     let resolution = settings::read(&cfg, &app.paths).get("output_res").cloned().unwrap_or_else(|| "1920x1080".into());
     let job = prepare::Job::from_config(&cfg, &app.paths, resolution)?;
@@ -197,6 +225,8 @@ fn pad_rumble(app: tauri::State<'_, App>, id: u32, low: f32, high: f32, ms: u32)
 
 #[tauri::command]
 fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
+    let updating = app.updating.lock().unwrap();
+    if *updating { return Err("An update is being installed".into()); }
     let mut running = app.game_running.lock().unwrap();
     if *running {
         return Err("The game is already running".into());
@@ -295,6 +325,7 @@ pub fn run() {
             preparing: Mutex::new(false),
             pads: Mutex::new(None),
             game_running: Mutex::new(false),
+            updating: Mutex::new(false),
         })
         .setup(move |tauri_app| {
             let handle = tauri_app.handle().clone();
@@ -326,7 +357,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_state, set_ui, system_info, disk_info, find_nups, inspect_nup, set_game, start_prepare, cancel_prepare,
             get_settings, set_setting, reset_settings, list_pads, pad_state, pad_rumble, play, open_folder, log_tail,
-            licenses
+            licenses, check_updates, install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running Age of Decomp");

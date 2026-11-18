@@ -15,29 +15,45 @@ without unusual prerequisites; **Medium** = data loss, a stuck or broken flow, o
 plausible conditions; **Low** = needs unusual prerequisites, or only hardening. Confidence: **high** = reproduced, or
 a direct reading of a short code path; **medium** = code reading with a timing or environment assumption.
 
+## Follow-up on 2026-11-18
+
+The findings below describe the starting revision and retain its original file references. The status table records
+subsequent fixes in 69523de, ba5c717, e62e5a3 and bebc5fa. Verification includes 7 NUP tests, 18 launcher/CLI tests,
+4 release-guard tests, clippy, and the huge/DAG/cycle synthetic NUP regressions. The updater added four regression
+tests, taking launcher/CLI tests to 23 (including the later config-save guard). Read partial and mitigated entries together with these limits.
+
+A-17 remains a hypothesis. The runtime's `cfg_save_to` rereads the current file and merges dirty keys, reducing
+ordinary sequential overwrites. Simultaneous read-modify-write operations still have no shared interprocess lock.
+A-02 handles GUI close and Windows process death; killing the Linux CLI with SIGKILL can leave grandchildren.
+A-18 backs up bad configuration before defaults are used. A save guard now refuses to overwrite an invalid or
+unreadable file even when its backup rename failed. NuGet dependency locks, real Linux GPU/Steam Deck and the remaining physical controller matrix are open.
+The final menu patch series clean-applied with tree 680fe17205f4bbfbc684ef76a501b37ed37b250c, matching the local
+engine. The latest real-game run exited 0 and produced six menu captures; the Italian Screen and Menu pages were
+visually inspected, including the corrected two-line version label. Player-game captures stay in ignored work/.
+
 ## Summary
 
 | ID | Finding | Severity | Confidence | Status |
 |---|---|---|---|---|
-| A-01 | A `hwaoi.ini` that cannot be read as UTF-8 is treated as empty: the next launcher write erases every other setting | Medium | high | confirmed (test) |
-| A-02 | Closing the launcher during setup leaves the engine build running with nothing to show or stop it | Medium | high | confirmed (code) |
-| A-03 | `start_prepare` stays "busy" for good when the job cannot be built from the config | Medium | high | confirmed (code) |
-| A-04 | `engine.py stage` ships the engine's working tree and labels it with `HEAD` | Medium | high | confirmed (code) |
-| A-05 | CI never checks that `engine/patches` apply to the pin, nor any engine code | Medium | high | confirmed (code) |
-| A-06 | A NUP entry can declare any decompressed size: `read_all` aborts the process on the allocation | Low | high | confirmed (PoC) |
-| A-07 | NUP folders can share sub-folders: a 2.8 KB file lists 8,000,000 files | Low | high | confirmed (PoC) |
-| A-08 | Setting values with line breaks pass validation and inject `hwaoi.ini` lines | Low | high | confirmed (test) |
-| A-09 | `packaging/recomplauncher.json` and `docs/SETTINGS.md` can drift from the catalogue unnoticed | Low | high | confirmed (now stale) |
-| A-10 | Release workflow: actions pinned by tag in a `contents: write` job; Linux AppImage built only locally | Low | high | confirmed (code) |
-| A-11 | Cancel racing the end of a build reports a finished build as cancelled | Low | medium | confirmed (code) |
-| A-12 | Launch check ignores the identity of a separate update NUP | Low | high | confirmed (code) |
-| A-13 | `aod-cli --jobs` accepts values the engine refuses (exit 4 instead of 2) | Low | high | confirmed (code) |
-| A-14 | `aod-ready.json` survives a later failed or cancelled prepare | Low | high | confirmed (code) |
-| A-15 | Bare-name `SDL3.dll` fallback uses the default DLL search order | Low | high | confirmed (code) |
-| A-16 | The developer engine search (`out/engine/<os>` in 8 parent folders) is active in release builds | Low | high | confirmed (code) |
-| A-17 | Three writers of `hwaoi.ini` (launcher, RecompLauncher, the running game) without coordination | Low | medium | hypothesis |
-| A-18 | An unreadable `launcher.json` silently becomes the defaults and is overwritten on the next save | Low | high | confirmed (code) |
-| A-19 | PyPI and NuGet packages pinned by version only (no hashes, no lock file) | Low | high | confirmed (code) |
+| A-01 | A `hwaoi.ini` that cannot be read as UTF-8 is treated as empty: the next launcher write erases every other setting | Medium | high | Fixed — 69523de |
+| A-02 | Closing the launcher during setup leaves the engine build running with nothing to show or stop it | Medium | high | Partial — ba5c717; Linux SIGKILL limitation remains |
+| A-03 | `start_prepare` stays "busy" for good when the job cannot be built from the config | Medium | high | Fixed — ba5c717 |
+| A-04 | `engine.py stage` ships the engine's working tree and labels it with `HEAD` | Medium | high | Fixed — bebc5fa |
+| A-05 | CI never checks that `engine/patches` apply to the pin, nor any engine code | Medium | high | Partial — patch application checked in CI; runtime builds remain local |
+| A-06 | A NUP entry can declare any decompressed size: `read_all` aborts the process on the allocation | Low | high | Fixed — e62e5a3 |
+| A-07 | NUP folders can share sub-folders: a 2.8 KB file lists 8,000,000 files | Low | high | Fixed — e62e5a3 |
+| A-08 | Setting values with line breaks pass validation and inject `hwaoi.ini` lines | Low | high | Fixed — 69523de |
+| A-09 | `packaging/recomplauncher.json` and `docs/SETTINGS.md` can drift from the catalogue unnoticed | Low | high | Fixed — regenerated files and CI comparison |
+| A-10 | Release workflow: actions pinned by tag in a `contents: write` job; Linux AppImage built only locally | Low | high | Partial — actions pinned and release permissions split; Linux artifact remains local |
+| A-11 | Cancel racing the end of a build reports a finished build as cancelled | Low | medium | Fixed — ba5c717 |
+| A-12 | Launch check ignores the identity of a separate update NUP | Low | high | Fixed — ba5c717 |
+| A-13 | `aod-cli --jobs` accepts values the engine refuses (exit 4 instead of 2) | Low | high | Fixed — ba5c717 |
+| A-14 | `aod-ready.json` survives a later failed or cancelled prepare | Low | high | Fixed — ba5c717 |
+| A-15 | Bare-name `SDL3.dll` fallback uses the default DLL search order | Low | high | Fixed for SDL fallback — ba5c717; global DLL-search hardening remains optional |
+| A-16 | The developer engine search (`out/engine/<os>` in 8 parent folders) is active in release builds | Low | high | Mitigated — development search requires repository markers |
+| A-17 | Three writers of `hwaoi.ini` (launcher, RecompLauncher, the running game) without coordination | Low | medium | Open hypothesis — not reproduced; runtime merges dirty keys |
+| A-18 | An unreadable `launcher.json` silently becomes the defaults and is overwritten on the next save | Low | high | Fixed — backups plus save guard on unpreserved bad config |
+| A-19 | PyPI and NuGet packages pinned by version only (no hashes, no lock file) | Low | high | Partial — hashed Python wheels; NuGet restore lock remains open |
 
 Checked and refuted: see "Hypotheses that did not hold" at the end.
 

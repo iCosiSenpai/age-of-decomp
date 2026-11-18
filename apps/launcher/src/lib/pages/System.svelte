@@ -5,6 +5,7 @@
   import Segmented from '../components/Segmented.svelte';
   import Toggle from '../components/Toggle.svelte';
   import Icon from '../components/Icon.svelte';
+  import Updates from '../components/Updates.svelte';
   import type { UiLanguage } from '../types';
 
   let licenses = $state<string | null>(null);
@@ -17,6 +18,15 @@
 
 <section class="page">
   <h2>{tr('System')}</h2>
+
+  <div class="card">
+    <Updates />
+    <div class="row">
+      <div class="l">{tr('Check for updates at startup')}</div>
+      <Toggle label={tr('Check for updates at startup')} checked={app.launcher?.ui.check_updates ?? true}
+        onchange={async (v) => (app.launcher = await api.setUi({ check_updates: v }))} />
+    </div>
+  </div>
 
   <div class="card">
     <h3>{tr('Launcher')}</h3>
