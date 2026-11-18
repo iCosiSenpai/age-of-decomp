@@ -16,6 +16,11 @@ REFS = {
     "Switch2RECOMP": ("https://github.com/SwitchRECOMP-Dev/Switch2RECOMP.git", ["--depth", "1"]),  # AGPL: read only
     "nup": ("https://github.com/a55uka/nup.git", ["--depth", "1"]),
     "RecompLauncher": ("https://github.com/elripalda/RecompLauncher.git", ["--depth", "1"]),
+    # Sources compared in docs/CODE_PROVENANCE.md (full history: the report cites commits and `git log -S`).
+    "SavageWindRecomp": ("https://github.com/Revivedx/SavageWindRecomp.git", ["--filter=blob:none"]),
+    "LASRecomp": ("https://github.com/peiikai/LASRecomp.git", ["--filter=blob:none"]),
+    "totk-pc-recomp": ("https://github.com/valentderah/totk-pc-recomp.git", ["--filter=blob:none"]),
+    "Deluxe8": ("https://github.com/iCosiSenpai/Deluxe8.git", ["--filter=blob:none"]),
 }
 
 
