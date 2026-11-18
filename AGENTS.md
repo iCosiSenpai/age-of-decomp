@@ -91,7 +91,10 @@ The engine tree lives in `.cache/engine/hwaoi-recomp` (git clone, branch `aod` o
 
 Current patches: `0001` `HWAOI_NUGET_CACHE` (translator build with a read-only system-wide .NET SDK), `0002` Linux
 x86-64 in `compiler/backend.py build` (system clang/lld/Ninja/libraries, probe of the dev packages, flock lock),
-`0003` `tools/hostmem.py` free memory on Linux (generator and compile workers).
+`0003` `tools/hostmem.py` free memory on Linux (generator and compile workers), `0004` SDL HIDAPI hints for every
+supported pad (`runtime/input.c`), `0005` `tests/menu_preview*` (the in-game menu on a synthetic Vulkan scene with
+scripted input, no game needed), `0006` in-game menu redesign "Seal of the Imprisoned" (`runtime/ui/`, Inter +
+Cinzel embedded; spec `plan&activity/research/menu-redesign.md`), `0007` Italian menu language (`MENU_LANG=it`).
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
 llvm-mingw 20261020, Ninja 1.13.2, Python 3.14.9 (NuGet layout) + `numpy lz4 zstandard capstone`, SDL 3.4.20 mingw
@@ -170,6 +173,10 @@ for text. Everything reachable with a controller (D-pad/A/B/LB/RB/Start) and the
 
 - `cargo test` / `cargo clippy --all-targets -- -D warnings` in `crates/aod-nup` and `apps/launcher/src-tauri`;
   `pnpm check` in `apps/launcher` (svelte-check + i18n: every `tr()` literal and catalogue text needs Italian).
+- In-game menu without the game: in the engine checkout `py -I tests/menu_preview_test.py --out <dir>` (builds
+  `tests/menu_preview.cpp` with the project llvm-mingw + deps, headless Vulkan on the local GPU; keyboard, pad,
+  mouse, remap, quit, text-catalogue and screenshot scenarios for en/it/ru at 720p…4K; `--shots-only`). Shots go
+  outside the repo (`work/menu-shots/`).
 - UI without backend: `.claude/launch.json` → `launcher-ui` (or `pnpm dev`), `http://localhost:5173/?page=<id>`
   (`&built=0` = not built yet); mock data in `src/lib/api.ts`.
 - Real app: `pnpm tauri build --no-bundle`, run `target/release/AgeOfDecomp.exe` with `AOD_DATA_DIR=work/launcher-data`

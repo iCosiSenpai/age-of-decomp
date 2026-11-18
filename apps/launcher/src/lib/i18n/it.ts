@@ -286,4 +286,6 @@ export const it: Record<string, string> = {
   "4K (experimental)": "4K (sperimentale)",
   "90 FPS (faster game)": "90 FPS (gioco più veloce)",
   "120 FPS (faster game)": "120 FPS (gioco più veloce)",
+  "In-game menu language": "Lingua del menu di gioco",
+  "The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system.": "La lingua del menu impostazioni che apri con Esc e dell'overlay. Automatico segue il sistema.",
 };

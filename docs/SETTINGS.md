@@ -37,6 +37,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
 | `lang` | Game language — The language of the game's text and voices menu. Automatic follows your system. | `(empty)` Automatic, `en-US` English (US), `en-GB` English (UK), `it` Italiano, `fr` Français, `fr-CA` Français (Canada), `de` Deutsch, `es` Español, `es-419` Español (Latinoamérica), `nl` Nederlands, `pt` Português, `pt-BR` Português (Brasil), `ru` Русский, `ja` 日本語, `ko` 한국어, `zh-Hans` 简体中文, `zh-Hant` 繁體中文 | `(empty)` | yes |
+| `menu_lang` | In-game menu language — The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system. | `(empty)` Automatic, `en` English, `it` Italiano, `ru` Русский | `(empty)` |  |
 | `operation_mode` | Console mode — Docked is the TV mode. Handheld uses the console's portable settings, lighter on slower PCs. | `docked` Docked, `handheld` Handheld | `docked` |  |
 | `assume_focus` | Keep running in the background — Off pauses the game when you switch to another window. | `0` off, `1` on | `1` |  |
 

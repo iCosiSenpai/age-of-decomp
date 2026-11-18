@@ -62,7 +62,7 @@ for (const f of ['state.svelte.ts', 'api.ts']) {
 }
 // Native language names are shown as they are.
 const native = new Set(['Italiano', 'Français', 'Français (Canada)', 'Deutsch', 'Español', 'Español (Latinoamérica)', 'Nederlands',
-  'Português', 'Português (Brasil)', 'Русский', '日本語', '한국어', '简体中文', '繁體中文', 'English (US)', 'English (UK)']);
+  'Português', 'Português (Brasil)', 'Русский', '日本語', '한국어', '简体中文', '繁體中文', 'English (US)', 'English (UK)', 'English']);
 for (const t of texts) {
   used++;
   if (!native.has(t) && !italian.has(t)) problems.push(`catalog: no Italian for "${t}"`);

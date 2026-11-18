@@ -629,6 +629,41 @@
       }
     },
     {
+      "id": "menu_lang",
+      "label": "In-game menu language",
+      "help": "The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system.",
+      "group": "Game",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "menu_lang": ""
+          }
+        },
+        {
+          "label": "English",
+          "set": {
+            "menu_lang": "en"
+          }
+        },
+        {
+          "label": "Italiano",
+          "set": {
+            "menu_lang": "it"
+          }
+        },
+        {
+          "label": "Русский",
+          "set": {
+            "menu_lang": "ru"
+          }
+        }
+      ],
+      "defaults": {
+        "menu_lang": ""
+      }
+    },
+    {
       "id": "operation_mode",
       "label": "Console mode",
       "help": "Docked is the TV mode. Handheld uses the console's portable settings, lighter on slower PCs.",
