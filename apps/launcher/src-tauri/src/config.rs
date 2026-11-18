@@ -31,7 +31,26 @@ pub struct Config {
 
 impl Config {
     pub fn load(paths: &Paths) -> Config {
-        std::fs::read_to_string(paths.config_file()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+        let file = paths.config_file();
+        let error = match std::fs::read_to_string(&file) {
+            Ok(text) => match serde_json::from_str(&text) {
+                Ok(config) => return config,
+                Err(e) => e.to_string(),
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Config::default(),
+            Err(e) => e.to_string(),
+        };
+        let mut bad = file.with_file_name(format!("launcher.json.bad-{}", paths::stamp()));
+        let mut n = 0;
+        while bad.exists() {
+            n += 1;
+            bad = file.with_file_name(format!("launcher.json.bad-{}-{n}", paths::stamp()));
+        }
+        match std::fs::rename(&file, &bad) {
+            Ok(()) => eprintln!("{} could not be read ({error}); kept as {}", file.display(), bad.display()),
+            Err(e) => eprintln!("{} could not be read ({error}); could not preserve it ({e})", file.display()),
+        }
+        Config::default()
     }
 
     pub fn save(&self, paths: &Paths) -> Result<(), String> {
@@ -86,5 +105,30 @@ pub fn game_state(cfg: &Config, paths: &Paths) -> GameState {
         output: output.to_string_lossy().into_owned(),
         status,
         built_at,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_config_is_preserved_before_using_defaults() {
+        let root = std::env::temp_dir().join(format!(
+            "aod-config-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None, portable: false };
+        std::fs::write(paths.config_file(), b"{invalid").unwrap();
+        let cfg = Config::load(&paths);
+        assert!(cfg.nup.is_none() && cfg.output.is_none());
+        assert!(!paths.config_file().exists());
+        let bad: Vec<_> = std::fs::read_dir(&root).unwrap().map(|e| e.unwrap().path()).collect();
+        assert_eq!(bad.len(), 1);
+        assert!(bad[0].file_name().unwrap().to_string_lossy().starts_with("launcher.json.bad-"));
+        assert_eq!(std::fs::read(&bad[0]).unwrap(), b"{invalid");
+        let _ = std::fs::remove_dir_all(root);
     }
 }

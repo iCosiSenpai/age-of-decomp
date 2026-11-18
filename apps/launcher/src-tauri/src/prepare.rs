@@ -126,9 +126,7 @@ pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(
         return Ok(()); // an engine build folder: updates are the engine's business
     }
     let ini = paths::game_ini(output);
-    if !ini.is_file() {
-        return Ok(());
-    }
+    let Some(early) = crate::settings::existing_ini(&ini)? else { return Ok(()) };
     let mut others = Vec::new();
     let mut stack = vec![output.to_path_buf()];
     while let Some(d) = stack.pop() {
@@ -144,8 +142,8 @@ pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(
     if !others.is_empty() {
         return Ok(());
     }
-    let mut pending = crate::ini::Ini::load(&paths.pending_ini());
-    for (k, v) in crate::ini::Ini::load(&ini).values() {
+    let mut pending = crate::settings::load_ini(&paths.pending_ini())?;
+    for (k, v) in early.values() {
         if let Ok(s) = crate::settings::validate(&k, &v) {
             pending.set(&k, &v, &s.section); // the newer choice wins
         }
@@ -345,7 +343,7 @@ mod early_settings_tests {
         std::fs::write(&ini, "fps_limit=30\nunknown_key=1\n").unwrap();
         stash_early_settings(&p, &game).unwrap();
         assert!(!ini.exists() && !game.join("work").exists(), "the game folder is empty again");
-        let pending = crate::ini::Ini::load(&p.pending_ini()).values();
+        let pending = crate::ini::Ini::load(&p.pending_ini()).unwrap().values();
         assert_eq!(pending.get("fps_limit").map(String::as_str), Some("30"));
         assert!(!pending.contains_key("unknown_key"));
         let _ = std::fs::remove_dir_all(root);
@@ -362,6 +360,27 @@ mod early_settings_tests {
         std::fs::write(game.join("notes.txt"), "player file").unwrap();
         stash_early_settings(&p, &game).unwrap();
         assert!(ini.exists() && game.join("notes.txt").exists());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn unreadable_settings_are_left_untouched() {
+        let root = temp("early-invalid");
+        let (data, game) = (root.join("data"), root.join("game"));
+        let p = paths_in(&data);
+        let ini = paths::game_ini(&game);
+        std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(&ini, b"\xff").unwrap();
+        std::fs::write(p.pending_ini(), "volume=100\n").unwrap();
+        assert!(stash_early_settings(&p, &game).is_err());
+        assert_eq!(std::fs::read(&ini).unwrap(), b"\xff");
+        assert_eq!(std::fs::read_to_string(p.pending_ini()).unwrap(), "volume=100\n");
+        std::fs::write(&ini, "volume=150\n").unwrap();
+        std::fs::write(p.pending_ini(), b"\xff").unwrap();
+        assert!(stash_early_settings(&p, &game).is_err());
+        assert_eq!(std::fs::read_to_string(&ini).unwrap(), "volume=150\n");
+        assert_eq!(std::fs::read(p.pending_ini()).unwrap(), b"\xff");
         let _ = std::fs::remove_dir_all(root);
     }
 }

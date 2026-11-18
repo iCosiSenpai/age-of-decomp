@@ -48,10 +48,16 @@ fn line_section(line: &str) -> Option<String> {
 }
 
 impl Ini {
-    pub fn load(path: &Path) -> Ini {
-        let text = std::fs::read_to_string(path).unwrap_or_default();
-        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-        Ini { crlf: text.contains("\r\n"), lines: text.lines().map(str::to_string).collect() }
+    pub fn load(path: &Path) -> std::io::Result<Ini> {
+        let bytes = match std::fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+            Err(e) => return Err(e),
+        };
+        let text = std::str::from_utf8(&bytes)
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("{} is not UTF-8 text", path.display())))?;
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+        Ok(Ini { crlf: text.contains("\r\n"), lines: text.lines().map(str::to_string).collect() })
     }
 
     /// Every key set in the file, normalised to lower case, last line wins; empty values are left out (they mean
