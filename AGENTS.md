@@ -100,7 +100,7 @@ Cinzel embedded; spec `plan&activity/research/menu-redesign.md`), `0007` Italian
 player-facing identity, `0011` integrated Windows Bluetooth input, `0012` controller button images, `0013` foreground
 input and launcher controller defaults, `0014` game build compatibility, `0015` more volume headroom, and
 `0016` safe handling of depth and stencil copies in split screen. Patch `0017` updates the menu's volume test
-for the new range.
+for the new range. Patch `0018` starts Windows Big Picture launches fullscreen without a separate focus action.
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
 llvm-mingw 20261020, Ninja 1.13.2, Python 3.14.9 (NuGet layout) + `numpy lz4 zstandard capstone`, SDL 3.4.20 mingw
