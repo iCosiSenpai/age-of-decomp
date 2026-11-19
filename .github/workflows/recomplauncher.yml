@@ -1,0 +1,51 @@
+name: recomplauncher
+
+# RecompLauncher compatibility (AGENTS.md hard rule 9), every day and on changes to the manifest's sources:
+# - schema: packaging/recomplauncher.json against RecompLauncher's current schema (docs/recomplauncher.schema.json);
+#   the generated-file check stays in ci.yml (job generated).
+# - guide: one open issue (label recomplauncher-guide) when RecompLauncher's developer guide, schema or setup inputs
+#   page changed after the commit named in packaging/recomplauncher-guide.txt (.github/scripts/recomplauncher-guide.js).
+# The full check with RecompLauncher's own code stays local: `py tools/recomplauncher_check.py` (needs a Windows
+# build of their app).
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["packaging/**", "apps/launcher/src/lib/settings/catalog.json", "tools/release.py"]
+  pull_request:
+    paths: ["packaging/**", "apps/launcher/src/lib/settings/catalog.json", "tools/release.py"]
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: The manifest follows RecompLauncher's schema
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/recomplauncher.schema.json" \
+            https://raw.githubusercontent.com/elripalda/RecompLauncher/main/docs/recomplauncher.schema.json
+          pipx run check-jsonschema --schemafile "$RUNNER_TEMP/recomplauncher.schema.json" packaging/recomplauncher.json
+
+  guide:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const run = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/recomplauncher-guide.js`);
+            await run({ github, context, core });

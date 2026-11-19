@@ -15,6 +15,13 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - run: python3 tools/check_content.py --all
 
+  repo-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Triage and RecompLauncher guide scripts
+        run: node --test .github/scripts/
+
   engine-patches:
     runs-on: ubuntu-latest
     steps:

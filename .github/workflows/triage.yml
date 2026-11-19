@@ -1,0 +1,35 @@
+name: triage
+
+# Labels and one-time notes for new issues and pull requests (.github/scripts/triage.js): issue forms → recomplauncher,
+# windows, linux, steam-deck; a reminder when game files, keys or saves are posted; a request for a missing version or
+# log (needs-info, removed once the issue is edited with them); pull request labels from the changed paths.
+# pull_request_target runs the default branch's script with the API only: the pull request's code is never checked
+# out or run here.
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const run = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/triage.js`);
+            await run({ github, context, core });

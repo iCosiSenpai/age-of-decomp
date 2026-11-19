@@ -1,0 +1,33 @@
+name: stale
+
+# Only reports still waiting for the version or a log (label needs-info, set by triage.yml): a note after three weeks,
+# closed two weeks later. Any other issue or pull request is never touched.
+
+on:
+  schedule:
+    - cron: "11 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  needs-info:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          only-labels: needs-info
+          days-before-stale: 21
+          days-before-close: 14
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          stale-issue-label: stale
+          remove-stale-when-updated: true
+          stale-issue-message: >-
+            This report still needs the Age of Decomp version or a log. It closes in two weeks without them;
+            you can reopen it any time with them.
+          close-issue-message: >-
+            Closed for now because no version or log came. Reopen it with them and it will be looked at again.

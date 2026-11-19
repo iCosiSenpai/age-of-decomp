@@ -1,0 +1,4 @@
+baecaf4e1b6c012d5230bc441d54a74266bc0c85
+# The RecompLauncher commit (github.com/elripalda/RecompLauncher, 0.90.0-beta.65) whose developer guide, manifest
+# schema and setup inputs page Age of Decomp was last checked against (2026-11-19). .github/workflows/recomplauncher.yml
+# opens an issue when any of them changes after it; put the newest commit id on the first line once it is checked.

@@ -1,0 +1,29 @@
+# Weekly update pull requests: the pinned actions, the launcher's and the NUP crate's Rust crates, the launcher's
+# npm packages. Minor and patch updates come grouped; major ones one by one. CI and the content guard run on each.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: cargo
+    directories: ["/apps/launcher/src-tauri", "/crates/aod-nup"]
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /apps/launcher
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor:
+        patterns: ["*"]
+        update-types: [minor, patch]
