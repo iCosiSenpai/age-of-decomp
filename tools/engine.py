@@ -521,6 +521,10 @@ def cmd_stage(args) -> None:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ENGINE / rel, dst)
         n += 1
+    # The runtime generator reads source/VERSION. Keep it tied to the compiler release,
+    # rather than shipping the engine fork's development version in the menu.
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    (STAGE / "source/VERSION").write_text(version + "\n", encoding="utf-8")
     log(f"source: {n} files")
     copy_tree(TC / "python", STAGE / "python", lambda rel: "__pycache__" in rel or rel.endswith(".pyc") or
               (not WIN and linux_python_skip(rel)))
@@ -538,7 +542,6 @@ def cmd_stage(args) -> None:
             shutil.copy2(lic, STAGE / "licenses" / "python-LICENSE.txt")
     revision = git("rev-parse", "HEAD").stdout.strip()
     files = {p.relative_to(STAGE).as_posix(): sha256(p) for p in sorted(STAGE.rglob("*")) if p.is_file()}
-    version = (ROOT / "VERSION").read_text().strip() if (ROOT / "VERSION").is_file() else "0.0.0-dev"
     manifest = {"format": "hwaoi-compiler-v1", "version": version, "source_revision": revision,
                 "aod_upstream": upstream()["commit"], "files": files, "game_content_included": False}
     if dirty:

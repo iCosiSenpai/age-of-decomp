@@ -72,7 +72,9 @@ pub struct Launched {
 
 pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched, LaunchError> {
     check(cfg, paths)?;
-    let output = cfg.output(paths);
+    // The child runs from its bin directory. Resolve CLI-relative paths before changing
+    // its working directory, including resource and save paths passed in the environment.
+    let output = std::path::absolute(cfg.output(paths)).map_err(|e| LaunchError::Other(e.to_string()))?;
     let exe = paths::game_exe(&output);
     let bin = paths::game_bin_dir(&output);
     let translator = bin.join("xlate-managed-irbanks").join(if cfg!(windows) { "totk_xlate.exe" } else { "totk_xlate" });

@@ -57,7 +57,9 @@ packaging for Windows and Linux, and RecompLauncher integration.
 
 Early. The game builds, boots, plays its opening and reaches exploration and combat at 1080p / 60 FPS on tested PCs
 (engine status: [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp#current-status)). Known limits inherited from
-the engine: 90/120 FPS also speed the game up; 1440p and 4K are experimental; a full playthrough is not verified yet.
+the engine: 90/120 FPS also speed the game up; 1440p and 4K are experimental; a full playthrough is not verified yet. The v0.1.1 engine also includes the unmerged upstream RDNA 3 recorder
+workaround from [PR #20](https://github.com/Alano6678/hwaoi-recomp/pull/20); synthetic policy tests passed, while
+physical AMD validation here is pending.
 Linux: the AppImage builds the game from your `.nup` and boots it to its first menu (tested under WSL with a software
 renderer); speed on real Linux PCs and on the Steam Deck is not tested yet.
 
@@ -74,15 +76,17 @@ and to build the game clang, lld, Ninja and the SDL3, Opus, libvpx, zstd, Vulkan
 2. Run **AgeOfDecomp.exe** and follow *Setup*. Keep your `.nup` where it is: the game reads its resources from it.
 3. Press **Play**. In game: **Esc** settings, **F10** performance overlay, **F11** fullscreen.
 
-Linux: download `AgeOfDecomp-v<version>-Linux-x64.AppImage`, make it executable and run it; the same Setup and Play
-follow. On Debian/Ubuntu install the build packages first:
+The published preview currently ships Windows. Linux builds are experimental and can be built from source.
+On Debian/Ubuntu install the build packages first:
 
 ```bash
 sudo apt install clang lld ninja-build libsdl3-dev libopus-dev libvpx-dev libzstd-dev libvulkan-dev zlib1g-dev
 ```
 
-With **RecompLauncher**: find *Age of Decomp* in Discover (or add the release folder as a local build with its
-developer tools), drop in your `.nup`, press Play.
+With **RecompLauncher**: import the extracted folder through **Settings → Developers → Add a build**.
+Drop in your `.nup`, follow Setup, then press Play. The repository can be added through **Add a recomp**;
+catalog distribution of this prerelease needs the RecompLauncher team to enable its beta.
+See [RecompLauncher integration](docs/RECOMPLAUNCHER.md).
 
 ## Updating
 
@@ -92,11 +96,9 @@ stages the package beside the installation, then replaces release-owned files af
 an installation backup in `.aod-update-*/backup`; the game folder, settings and saves are preserved. Close the game
 and finish or cancel Setup before updating. Rebuild the game through Setup to use a changed engine runtime.
 
-While this repository is private, automatic checks and downloads require an existing GitHub CLI login
-(`gh auth login`, with repository access), or `GH_TOKEN`/`GITHUB_TOKEN` in the environment. Credentials are never
-included in the release or saved in launcher settings. Linux automatic installation is not available yet.
-RecompLauncher can use the extracted local Windows build through its Developer tools; public Discover and
-anonymous downloads require the repository to be public. Preview releases appear in its beta channel.
+This repository and its release downloads are public. Update checks and downloads work without a GitHub account.
+An existing GitHub CLI login or `GH_TOKEN`/`GITHUB_TOKEN` can also be used. Credentials are never included in the
+release or saved in launcher settings. Linux automatic installation is not available yet.
 
 ## Building from source
 

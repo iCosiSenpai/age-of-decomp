@@ -88,7 +88,7 @@ def manifest() -> dict:
             "args": ["cli", "prepare", "--game", "{game}", "--out", GAME_DIR, "--dlc={input:dlc}"],
             "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
             "timeout": 14400,
-            "version": "2",
+            "version": "3",
             "done": [GAME_DIR + "/aod-ready.json"],
         },
         "start": {
@@ -174,6 +174,9 @@ def release_info(allow_dirty: bool, engine: Path) -> dict:
     if dirty:
         print("releasing a dirty repository (--allow-dirty)")
     bundle = json.loads((engine / "bundle.json").read_text(encoding="utf-8"))
+    runtime_version = (engine / "source/VERSION").read_text(encoding="utf-8").strip()
+    if bundle.get("version") != version() or runtime_version != version():
+        sys.exit("engine/compiler versions differ; run tools/engine.py stage again")
     return {"compiler_version": version(), "repository_revision": git("rev-parse", "HEAD"), "engine_source_revision": bundle["source_revision"],
             "dirty": dirty, "engine_dirty": bool(bundle.get("dirty", False))}
 
@@ -210,7 +213,8 @@ def cmd_windows(a) -> None:
         "1. Run AgeOfDecomp.exe and follow Setup: pick your .nup, check it, choose a folder (25 GB free), Build.\n"
         "2. Press Play. Settings: in the launcher, or in game with Esc. F10 performance overlay, F11 fullscreen.\n\n"
         "RecompLauncher: this folder carries recomplauncher.json (one-click setup, settings, Big Picture).\n"
-        "Updating: extract the new release over this folder; your build, settings and saves are kept.\n"
+        "Updating: use System > Updates in the compiler. Rebuild through Setup after an engine update.\n"
+        "Manual updates: extract the new release over this folder; your build, settings and saves are kept.\n"
         "Licences: LICENSE.txt, licenses/ and engine/licenses/. Not affiliated with Nintendo or Koei Tecmo.\n",
         encoding="utf-8")
     (out / "build-info.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8", newline="\n")

@@ -1,6 +1,6 @@
 [package]
 name = "age-of-decomp"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "GPL-3.0-or-later"
 description = "Age of Decomp launcher: setup, settings and controllers for a native PC build of your own Hyrule Warriors: Age of Imprisonment"

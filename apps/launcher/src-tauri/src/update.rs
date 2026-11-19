@@ -61,7 +61,7 @@ fn releases(client: &Client) -> Result<Vec<Release>, String> {
     let response = client.get(format!("{API}/releases?per_page=100")).timeout(Duration::from_secs(20))
         .send().map_err(|_| "Could not reach GitHub. Check your connection and try again.")?;
     if response.status() == reqwest::StatusCode::NOT_FOUND || response.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err("This repository is private. Sign in with GitHub CLI (gh auth login), then retry.".into());
+        return Err("GitHub could not access the releases. Check your GitHub credentials and try again.".into());
     }
     let response = response.error_for_status().map_err(|e| format!("GitHub update check failed ({})", e.status().map(|s| s.as_u16()).unwrap_or(0)))?;
     let mut bytes = Vec::new();

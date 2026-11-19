@@ -20,6 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - run: AOD_CACHE_DIR="$RUNNER_TEMP/aod" python3 tools/engine.py fetch
+      - name: Check GPU recorder policy without a game
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libvulkan-dev
+          python3 "$RUNNER_TEMP/aod/engine/hwaoi-recomp/tests/hwaoi/test_amd_recorder_default.py"
 
   generated:
     runs-on: ubuntu-latest

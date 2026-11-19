@@ -6,6 +6,7 @@ in `licenses/` of a release and in the engine bundle's `source/THIRD_PARTY_NOTIC
 | Project | Use | Licence |
 |---|---|---|
 | [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp) by Alano6678, LibertyPrime27, fgabe and contributors | The engine: static recompiler, Horizon/NVN2 runtime, Vulkan renderer, compiler workflow. Pinned in `engine/upstream.json`, changed only through `engine/patches/` | GPL-3.0-or-later (MIT parts in its LICENSE-MIT) |
+| [HWAoI Recomp PR #20](https://github.com/Alano6678/hwaoi-recomp/pull/20), PrimeWalkerVN / PrimeWalker, commit `c95b6f6478c41f5ab186e4d48e0bdbb8f67affdd` | Discrete AMD RDNA 3 recorder default in `runtime/vk.h`, `vk_caps.c`, `vk_rec.c`; imported with original author in engine patch 0008 | GPL-3.0-or-later project, inherited MIT parts |
 | [DKB Recomp](https://github.com/Lucas-blip-png/dkb-pc-recomp) (`42fcd9d`) | Base of the engine | GPL-3.0-or-later |
 | [TotK Recomp](https://github.com/valentderah/totk-pc-recomp) by Valiantsin Dzerakh | Base of DKB Recomp: most of the engine, including the in-game menu's structure (`runtime/ui/`); also the pinned toolchain downloads in `tools/engine.py` (from its `tools/make_release.py`) | MIT |
 | [LAS Recomp](https://github.com/peiikai/LASRecomp) by Peiikai (`da35b83`) | In the engine: lifter, code generator, host runtime, Vulkan back end, the in-game menu's Dear ImGui Vulkan set-up | MIT |

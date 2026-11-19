@@ -195,3 +195,30 @@ deko3d, FSR, ADL) are adaptations by their own description and were not compared
   25.0 % vs the pinned file (the save logic, focus handling and restored comments).
 - New vendored files: `runtime/ui/fonts/Inter-Variable.ttf`, `Cinzel-Variable.ttf`, `OFL-Inter.txt`, `OFL-Cinzel.txt`
   — byte copies of the launcher's (2.3), embedded by `runtime/ui/menu.cpp`. Roboto stays in the tree, no longer used.
+
+## Upstream comparison on 2026-11-19
+
+HWAoI Recomp main is still ce035e02f5d77ced2ba967905e45c7226a063656, the exact pin used here. No merged
+upstream commits are missing. Age of Decomp applies its own patch queue on that revision, including Linux
+compiler workflow, controller support, menu preview/redesign and Italian UI. This comparison used local clones
+and a read-only fetch; no GitHub fork was created.
+
+The open PR #20 by PrimeWalkerVN, c95b6f6478c41f5ab186e4d48e0bdbb8f67affdd, disables the recorder by default
+on discrete AMD RDNA 3 with AMD's proprietary driver. It was cherry-picked retaining its author as engine patch
+0008. The PR reports short successful RX 7800 XT runs with the recorder disabled; its final device-ID form was
+compiled by the author but not hardware-tested there. Patch 0009 adds synthetic tests of production classification
+and recorder-default functions covering 13 GPU/driver profiles and explicit 0/1 overrides (39 cases), run on
+Windows and Linux. AMD physical GPU stability and long-session performance remain unverified here.
+
+## Player-facing identity review on 2026-11-19
+
+Engine patch 0010 changes the inherited project labels in the menu footer, Windows/SDL window title,
+Vulkan application/engine name, system report and fallback compiler window/packager to **Age of Decomp**.
+System reports and the launcher's About page identify **iCosiSenpai**. Diagnostic settings now show the actual
+environment alias in use instead of always claiming a TOTK_ alias. Release staging writes the root project
+VERSION into the engine source before hashing the bundle, and packaging refuses mismatched versions.
+
+The review covered tracked launcher UI/translations, app/desktop metadata, update links, release and
+RecompLauncher metadata, runtime text catalogs, window creation and diagnostic strings. HWAoI game identifiers,
+file names and HWAOI_/DKB_/TOTK_ compatibility aliases keep their existing contracts. Third-party source headers,
+credits, licenses, original repository URLs and historical upstream tools retain their authors and provenance.

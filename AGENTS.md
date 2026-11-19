@@ -94,7 +94,9 @@ x86-64 in `compiler/backend.py build` (system clang/lld/Ninja/libraries, probe o
 `0003` `tools/hostmem.py` free memory on Linux (generator and compile workers), `0004` SDL HIDAPI hints for every
 supported pad (`runtime/input.c`), `0005` `tests/menu_preview*` (the in-game menu on a synthetic Vulkan scene with
 scripted input, no game needed), `0006` in-game menu redesign "Seal of the Imprisoned" (`runtime/ui/`, Inter +
-Cinzel embedded; spec `plan&activity/research/menu-redesign.md`), `0007` Italian menu language (`MENU_LANG=it`).
+Cinzel embedded; spec `plan&activity/research/menu-redesign.md`), `0007` Italian menu language (`MENU_LANG=it`), `0008` upstream PR #20 AMD RDNA 3 recorder default,
+`0009` synthetic GPU policy/override regression tests (`tests/hwaoi/test_amd_recorder_default.py`), `0010` Age of Decomp
+player-facing identity (menu, window titles, compiler fallback and diagnostics).
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
 llvm-mingw 20261020, Ninja 1.13.2, Python 3.14.9 (NuGet layout) + `numpy lz4 zstandard capstone`, SDL 3.4.20 mingw

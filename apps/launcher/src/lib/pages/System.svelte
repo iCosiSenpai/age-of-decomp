@@ -64,7 +64,7 @@
   <div class="card">
     <h3>{tr('About')}</h3>
     <p class="muted">
-      {tr('Age of Decomp {v} is free software (GPL-3.0-or-later). Its engine is HWAoI Recomp by Alano6678 and contributors, built on DKB Recomp; shaders are translated with code from Ryujinx and Eglantine. It contains nothing from Nintendo or Koei Tecmo and is not affiliated with them.', { v: app.launcher?.version ?? '' })}
+      {tr('Age of Decomp {v} by iCosiSenpai is free software (GPL-3.0-or-later). Its engine is HWAoI Recomp by Alano6678 and contributors, built on DKB Recomp; shaders are translated with code from Ryujinx and Eglantine. It contains nothing from Nintendo or Koei Tecmo and is not affiliated with them.', { v: app.launcher?.version ?? '' })}
     </p>
     <button class="btn ghost" onclick={async () => (licenses = licenses ? null : await api.licenses())}>{licenses ? tr('Hide licences') : tr('Licences and credits')}</button>
     {#if licenses}<pre class="lic mono">{licenses}</pre>{/if}

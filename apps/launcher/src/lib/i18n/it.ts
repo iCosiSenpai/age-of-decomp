@@ -13,7 +13,7 @@ export const it: Record<string, string> = {
   "Above 100 % boosts quiet speakers.": "Oltre il 100 % alza il volume di altoparlanti deboli.",
   "Advanced pages": "Pagine avanzate",
   "Age of Decomp turns your own copy of Hyrule Warriors: Age of Imprisonment into a native PC game. Nothing from the game is included: it is built here, from your file, and stays on this PC.": "Age of Decomp trasforma la tua copia di Hyrule Warriors: L'era dell'esilio in un gioco nativo per PC. Non contiene nulla del gioco: viene compilato qui, dal tuo file, e resta su questo PC.",
-  "Age of Decomp {v} is free software (GPL-3.0-or-later). Its engine is HWAoI Recomp by Alano6678 and contributors, built on DKB Recomp; shaders are translated with code from Ryujinx and Eglantine. It contains nothing from Nintendo or Koei Tecmo and is not affiliated with them.": "Age of Decomp {v} è software libero (GPL-3.0 o successiva). Il suo motore è HWAoI Recomp di Alano6678 e collaboratori, basato su DKB Recomp; gli shader sono tradotti con codice di Ryujinx ed Eglantine. Non contiene nulla di Nintendo o Koei Tecmo e non è affiliato con loro.",
+  "Age of Decomp {v} by iCosiSenpai is free software (GPL-3.0-or-later). Its engine is HWAoI Recomp by Alano6678 and contributors, built on DKB Recomp; shaders are translated with code from Ryujinx and Eglantine. It contains nothing from Nintendo or Koei Tecmo and is not affiliated with them.": "Age of Decomp {v} di iCosiSenpai è software libero (GPL-3.0 o successiva). Il suo motore è HWAoI Recomp di Alano6678 e collaboratori, basato su DKB Recomp; gli shader sono tradotti con codice di Ryujinx ed Eglantine. Non contiene nulla di Nintendo o Koei Tecmo e non è affiliato con loro.",
   "Aggressive": "Aggressiva",
   "All display settings": "Tutte le impostazioni video",
   "Applies the next time the game starts": "Si applica al prossimo avvio del gioco",
@@ -290,6 +290,7 @@ export const it: Record<string, string> = {
   "The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system.": "La lingua del menu impostazioni che apri con Esc e dell'overlay. Automatico segue il sistema.",
 
   "Compiler updates": "Aggiornamenti del compilatore",
+  "GitHub could not access the releases. Check your GitHub credentials and try again.": "GitHub non riesce ad accedere alle release. Controlla le credenziali GitHub e riprova.",
   "Downloading update… {percent}%": "Download aggiornamento… {percent}%",
   "The compiler will restart when the update is ready.": "Il compilatore si riavvierà quando l’aggiornamento sarà pronto.",
   "Age of Decomp {version} is available": "È disponibile Age of Decomp {version}",
