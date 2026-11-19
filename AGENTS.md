@@ -189,7 +189,10 @@ for text. Everything reachable with a controller (D-pad/A/B/LB/RB/Start) and the
 - Real app: `pnpm tauri build --no-bundle`, run `target/release/AgeOfDecomp.exe` with `AOD_DATA_DIR=work/launcher-data`
   (points at the dev build in `work/game`). Capture windows with `tools/capture_window.ps1 -ProcessId <pid> -Out <png>` (PrintWindow, outside the repo), close
   them with CloseMainWindow, never send keys.
-- Release: `py tools/release.py windows [--zip]` → `out/release/` (content check built in).
+- Release: run `pnpm build` in `apps/launcher` and
+  `cargo build --locked --release --bins --features tauri/custom-protocol` in `src-tauri`.
+  Then run `py tools/release.py windows [--zip]` → `out/release/`. The packager takes the Cargo
+  `age-of-decomp.exe` and names it `AgeOfDecomp.exe` in the ZIP.
 - Never leave game-derived files outside gitignored folders. Close the game with its window, not by killing it, so
   logs flush.
 

@@ -37,7 +37,10 @@ jobs:
         working-directory: apps/launcher
         run: |
           pnpm install --frozen-lockfile
-          pnpm tauri build --no-bundle
+          pnpm build
+      - name: Release executables
+        working-directory: apps/launcher/src-tauri
+        run: cargo build --locked --release --bins --features tauri/custom-protocol
       - name: Release folder and zip
         run: python tools/release.py windows --zip
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

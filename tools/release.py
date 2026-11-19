@@ -190,11 +190,14 @@ def cmd_windows(a) -> None:
     name = f"AgeOfDecomp-v{ver}-Windows-x64"
     out = ROOT / "out/release" / name
     engine = ROOT / "out/engine/windows"
-    exe = TAURI / "target/release/AgeOfDecomp.exe"
+    # Use the Cargo binary from the same build as aod-cli. Tauri's optional
+    # bundling step may have left an older renamed AgeOfDecomp.exe beside it.
+    exe = TAURI / "target/release/age-of-decomp.exe"
     cli = TAURI / "target/release/aod-cli.exe"
     for need in (engine / "bundle.json", exe, cli):
         if not need.is_file():
-            sys.exit(f"missing {need}: run tools/engine.py stage and `pnpm tauri build --no-bundle` first")
+            sys.exit(f"missing {need}: stage the engine, run `pnpm build` in apps/launcher, then "
+                     "`cargo build --locked --release --bins --features tauri/custom-protocol` in src-tauri")
     info = release_info(a.allow_dirty, engine)
     if out.exists():
         shutil.rmtree(out)
@@ -249,7 +252,7 @@ def cmd_linux(a) -> None:
     out = dest / f"{name}.AppDir"
     engine = ROOT / "out/engine/linux"
     bins = Path(a.bin_dir).expanduser() if a.bin_dir else TAURI / "target/release"
-    exe = next((p for p in (bins / "AgeOfDecomp", bins / "age-of-decomp") if p.is_file()), bins / "AgeOfDecomp")
+    exe = bins / "age-of-decomp"
     cli = bins / "aod-cli"
     for need in (engine / "bundle.json", exe, cli):
         if not need.is_file():
