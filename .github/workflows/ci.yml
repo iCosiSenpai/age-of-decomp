@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Triage and RecompLauncher guide scripts
-        run: node --test .github/scripts/
+        run: node --test .github/scripts/triage.test.js
 
   engine-patches:
     runs-on: ubuntu-latest

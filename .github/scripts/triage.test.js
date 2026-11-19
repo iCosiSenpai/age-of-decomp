@@ -1,4 +1,4 @@
-// node --test .github/scripts/ — the pure parts of the triage and guide scripts, no GitHub access.
+// node --test .github/scripts/triage.test.js — the pure parts of the triage and guide scripts, no GitHub access.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
