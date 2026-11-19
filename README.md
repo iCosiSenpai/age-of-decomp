@@ -5,6 +5,10 @@
 <h1 align="center">Age of Decomp</h1>
 
 <p align="center">
+  <a href="https://recompstore.com/dev/icosisenpai"><img alt="Verified developer on RecompStore" src="https://recompstore.com/assets/press/verified-dark.svg"></a>
+</p>
+
+<p align="center">
   <b>Hyrule Warriors: Age of Imprisonment</b>, recompiled into a native Windows and Linux game from <b>your own</b> copy.<br>
   Easy step-by-step setup · complete graphics settings · native Xbox, PlayStation, Switch and Switch 2 controllers ·
   <a href="https://github.com/elripalda/RecompLauncher">RecompLauncher</a> ready
@@ -34,7 +38,7 @@ packaging for Windows and Linux, and RecompLauncher integration.
 |---|---|
 | 🧭 **Five-step setup** | Pick your `.nup` (it is also found automatically), see every check pass, choose a folder, press *Build*: one progress bar, a list of stages, time left. Stop any time; continuing reuses everything already done. About **7 minutes** on a Core Ultra 7 265K. |
 | 🖥️ **Every setting** | Resolution (720p–4K), window, V-Sync mode, frame rate, 3D resolution, FSR upscaling and sharpness, aspect, field of view, colour (presets or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume, players, controller type, button layout, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
-| 🎮 **Controllers, natively** | Through SDL 3's own drivers: Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro Controller, Joy-Con (single or pair), **Switch 2 Pro Controller, Joy-Con 2**, GameCube — wired or Bluetooth (Switch 2 pads: wired; over Bluetooth not verified yet), with rumble and motion. SDL is built with libusb, because the official Windows SDL lacks the Switch 2 driver. A live tester shows every button, stick, trigger and the gyro. The whole launcher works with a controller. |
+| 🎮 **Controllers, natively** | SDL 3 supports Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro, Joy-Con and GameCube controllers. Switch 2 Pro and Joy-Con 2 work over USB with our SDL build. On Windows, the Switch 2 Pro Controller can also connect over Bluetooth through the included transport. The compiler and its in-game settings menu show controller-specific button images. |
 | 🚀 **RecompLauncher ready** | Each release carries `recomplauncher.json`: one-click setup from your `.nup` (recognised by its build ID), the settings on the game's page, Big Picture mode, save backups. |
 | 🌐 **English and Italian** | Follows your system; switch any time. |
 
@@ -94,7 +98,10 @@ The compiler checks GitHub releases at startup. **System → Compiler updates** 
 when a newer Windows package is available, **Update and restart**. The updater verifies the GitHub asset's SHA-256,
 stages the package beside the installation, then replaces release-owned files after the compiler exits. It keeps
 an installation backup in `.aod-update-*/backup`; the game folder, settings and saves are preserved. Close the game
-and finish or cancel Setup before updating. Rebuild the game through Setup to use a changed engine runtime.
+and finish or cancel Setup before updating. The compiler asks you to rebuild only when an update changes the
+game build requirements. Setup reuses your existing build folder, settings, and saves.
+
+Diagnostics are optional and off until you opt in. See [what is collected](docs/DIAGNOSTICS.md).
 
 This repository and its release downloads are public. Update checks and downloads work without a GitHub account.
 An existing GitHub CLI login or `GH_TOKEN`/`GITHUB_TOKEN` can also be used. Credentials are never included in the

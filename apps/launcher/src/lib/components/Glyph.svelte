@@ -1,7 +1,8 @@
 <script lang="ts">
   // A controller button as the player's pad labels it: Xbox letters, PlayStation shapes, Nintendo letters (A on the
   // right), or the keyboard key.
-  type Family = 'xbox' | 'playstation' | 'nintendo' | 'keyboard';
+  import { buttonImage, type PadFamily } from '../controller-glyphs';
+  type Family = PadFamily;
   type Btn = 'a' | 'b' | 'x' | 'y' | 'lb' | 'rb' | 'start' | 'dpad';
   let { button, family }: { button: Btn; family: Family } = $props();
 
@@ -13,15 +14,20 @@
   const COLORS: Record<string, string> = { A: '#6ecb63', B: '#e5534b', X: '#4d8fe8', Y: '#e8c34d' };
 
   let label = $derived(
-    family === 'keyboard' ? KEYS[button] : family === 'xbox' ? XBOX[button] : family === 'playstation' ? PS[button] : NINTENDO[button],
+    family === 'keyboard' ? KEYS[button] : family === 'xbox' ? XBOX[button] : ['playstation', 'ps4', 'ps5'].includes(family) ? PS[button] : NINTENDO[button],
   );
   let round = $derived(family !== 'keyboard' && ['a', 'b', 'x', 'y'].includes(button));
   let tint = $derived(family === 'xbox' ? COLORS[label] : undefined);
 </script>
 
-<span class="glyph" class:round class:key={family === 'keyboard'} style:color={tint}>{label}</span>
+{#if family !== 'keyboard' && buttonImage(family, button)}
+  <img class="button-image" src={buttonImage(family, button)} alt={label} />
+{:else}
+  <span class="glyph" class:round class:key={family === 'keyboard'} style:color={tint}>{label}</span>
+{/if}
 
 <style>
+  .button-image { width: 28px; height: 28px; vertical-align: middle; }
   .glyph {
     display: inline-flex;
     align-items: center;

@@ -46,6 +46,21 @@
   </div>
 
   <div class="card">
+    <h3>{tr('Anonymous diagnostics')}</h3>
+    <div class="row">
+      <div>
+        <div class="l">{tr('Share diagnostics')}</div>
+        <div class="faint">{tr('Share crash categories, build failures and rounded frame rates with the developer. Personal files and full logs stay on this PC. You can turn this off in System.')}</div>
+        {#if !app.launcher?.diagnostics_available}<div class="faint">{tr('The diagnostics service is unavailable in this build.')}</div>{/if}
+      </div>
+      {#if app.launcher?.diagnostics_available}
+        <Toggle label={tr('Share diagnostics')} checked={app.launcher.ui.diagnostics === true}
+          onchange={(v) => app.setDiagnostics(v)} />
+      {/if}
+    </div>
+  </div>
+
+  <div class="card">
     <h3>{tr('Folders')}</h3>
     <div class="folders">
       <button class="btn" onclick={() => api.openFolder('game')}><Icon name="folder" size={16} /> {tr('Game')}</button>

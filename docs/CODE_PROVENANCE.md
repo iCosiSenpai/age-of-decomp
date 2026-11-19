@@ -222,3 +222,17 @@ The review covered tracked launcher UI/translations, app/desktop metadata, updat
 RecompLauncher metadata, runtime text catalogs, window creation and diagnostic strings. HWAoI game identifiers,
 file names and HWAOI_/DKB_/TOTK_ compatibility aliases keep their existing contracts. Third-party source headers,
 credits, licenses, original repository URLs and historical upstream tools retain their authors and provenance.
+
+## Controller transport and renderer fixes
+
+The Windows Bluetooth helper adapts the maintainer's own NxToWin code at
+`752b214a047c21fec72253b03a3d308b39165929`. Its core files keep that revision in their headers. The binary
+protocol, SDL adapter, handoff, and Xbox/PlayStation/Nintendo button images are Age of Decomp code and art.
+
+The pinned engine already includes the merged NUP, performance, co-op, memory and Linux pull requests. The
+optimized fork's ROMFS verification, demanded shader priority and console encoding fixes are present in the
+pin. Patch 0016 uses the reproduction from
+[the split-screen report](https://github.com/Alano6678/hwaoi-recomp/issues/19) and implements a disjoint-image-region
+check against Vulkan's requirements. It preserves the existing fatal checks for malformed metadata. When
+aliasing cannot be ruled out, it keeps command ordering and skips the copy. The policy is covered by synthetic
+fixtures; the reporter's full co-op mission still needs a hardware run.

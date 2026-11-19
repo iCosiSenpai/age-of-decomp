@@ -45,7 +45,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `volume` | Master volume — Above 100 % boosts quiet speakers. | 0 – 200 (step 5) | `100` |  |
+| `volume` | Master volume — Above 100 % boosts quiet speakers. | 0 – 300 (step 5) | `100` |  |
 
 ## Controls
 

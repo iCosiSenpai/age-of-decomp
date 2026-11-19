@@ -1,0 +1,223 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 02:49:03 +0100
+Subject: [PATCH] aod: respect launcher controller defaults and foreground
+ input
+
+---
+ runtime/input.c                      | 51 ++++++++++++++++++++-
+ runtime/ui/binds_page.cpp            |  5 +-
+ runtime/ui/menu.cpp                  |  3 +-
+ tests/hwaoi/test_input_focus_gate.py | 68 ++++++++++++++++++++++++++++
+ 4 files changed, 122 insertions(+), 5 deletions(-)
+ create mode 100644 tests/hwaoi/test_input_focus_gate.py
+
+diff --git a/runtime/input.c b/runtime/input.c
+index 631b29afaa9c1b606007dee00e1a6c7274d41d44..16465e05c8ecf0806ef4a1fcc5afbd56914f3e63 100644
+--- a/runtime/input.c
++++ b/runtime/input.c
+@@ -54,6 +54,27 @@ static Pad pads[MAX_PADS];
+ static int npads;
+ static unsigned pads_version;        // bumped whenever a gamepad opens or closes
+ 
++// The host window is not an SDL window. Gate virtual and physical pads explicitly,
++// including a held button when returning from the launcher's overlay. Under lock.
++static int pad_focus_gate(int slot, uint64_t *buttons, int32_t left[2], int32_t right[2]) {
++    static unsigned seen[INPUT_PLAYERS + 2];
++    static uint64_t blocked[INPUT_PLAYERS + 2];
++    unsigned epoch = gfx_window_focus_messages();
++    if (SDL_GetHintBoolean("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", false)) {
++        seen[slot] = epoch; blocked[slot] = 0; return 0;
++    }
++    int focused = ikb_foreground(), reset = !focused || seen[slot] != epoch;
++    if (reset) blocked[slot] |= *buttons;
++    seen[slot] = epoch;
++    blocked[slot] &= *buttons;
++    *buttons &= ~blocked[slot];
++    if (!focused) {
++        *buttons = 0;
++        left[0] = left[1] = right[0] = right[1] = 0;
++    }
++    return reset;
++}
++
+ static volatile int32_t pad_labels[4];           // player 1's gamepad's face labels, for the menu (any thread)
+ static volatile int32_t pad_type_shown;
+ static volatile int32_t pad_layout_shown = -1;   // player 1's gamepad's layout for the menu (any thread), -1 without one
+@@ -629,6 +650,7 @@ static int poll_player(int p, uint64_t *buttons, int32_t *lx, int32_t *ly, int32
+     uint64_t b = 0;
+     int32_t sl[2] = {0, 0}, sr[2] = {0, 0};
+     int connected = p == 0;
++    int focus_reset = 0;
+     plat_mutex_lock(&lock);
+     if (!state) start();
+     if (state > 0) {
+@@ -639,6 +661,7 @@ static int poll_player(int p, uint64_t *buttons, int32_t *lx, int32_t *ly, int32
+             for (int i = 0; i < npads; i++)
+                 if (pad_owner[i] == p) connected |= 1, pad_read(&pads[i], input_map_player(p), &b, sl, sr);
+         if (kb_owner == p) connected = 1;
++        focus_reset = pad_focus_gate(p, &b, sl, sr);
+         if (kb_owner == p && ikb_foreground()) {
+             uint8_t down[KEY_COUNT] = {0};
+             // Mouse buttons count only while the cursor is captured, and a button already held when the capture began
+@@ -677,6 +700,7 @@ static int poll_player(int p, uint64_t *buttons, int32_t *lx, int32_t *ly, int32
+     static uint64_t menu_down_at[INPUT_PLAYERS];
+     static int menu_held_minus[INPUT_PLAYERS], menu_press_ignored[INPUT_PLAYERS];
+     int menu_tap = 0;
++    if (focus_reset) { menu_down_at[p] = 0; menu_held_minus[p] = 0; menu_press_ignored[p] = 1; }
+     if (b & 1ull << B_MENU) {
+         uint64_t t = plat_now_ns();
+         if (!menu_down_at[p]) menu_down_at[p] = t ? t : 1, menu_press_ignored[p] = menu_binding_capture();
+@@ -793,6 +817,7 @@ int input_pad_read(uint64_t *buttons, int32_t *lx, int32_t *ly) {
+         pads_tick();
+         for (int i = 0; i < npads; i++) ok |= pad_read(&pads[i], &input_map, &b, sl, sr);
+     }
++    pad_focus_gate(INPUT_PLAYERS, &b, sl, sr);
+     plat_mutex_unlock(&lock);
+     *buttons = b;
+     *lx = sl[0];
+@@ -812,9 +837,26 @@ int input_pad_layout(void) {
+ 
+ int input_pad_label(int pad_id) {
+     if (pad_id < PAD_SOUTH || pad_id > PAD_NORTH) return PAD_LABEL_NONE;
+-    return (int)plat_cas32(&pad_labels[pad_id - PAD_SOUTH], 0, 0);
++    int label = (int)plat_cas32(&pad_labels[pad_id - PAD_SOUTH], 0, 0);
++    if (label) return label;
++    const char *pad = getenv("RECOMPLAUNCHER_PAD");
++    if (pad && !strcmp(pad, "playstation")) {
++        static const int labels[] = {PAD_LABEL_CROSS, PAD_LABEL_CIRCLE, PAD_LABEL_SQUARE, PAD_LABEL_TRIANGLE};
++        return labels[pad_id - PAD_SOUTH];
++    }
++    if (pad && !strcmp(pad, "xbox")) {
++        static const int labels[] = {PAD_LABEL_A, PAD_LABEL_B, PAD_LABEL_X, PAD_LABEL_Y};
++        return labels[pad_id - PAD_SOUTH];
++    }
++    return PAD_LABEL_NONE;
++}
++int input_pad_type(void) {
++    int type = (int)plat_cas32(&pad_type_shown, 0, 0);
++    if (type) return type;
++    const char *pad = getenv("RECOMPLAUNCHER_PAD");
++    return pad && !strcmp(pad, "playstation") ? SDL_GAMEPAD_TYPE_PS5
++         : pad && !strcmp(pad, "xbox") ? SDL_GAMEPAD_TYPE_XBOXONE : 0;
+ }
+-int input_pad_type(void) { return (int)plat_cas32(&pad_type_shown, 0, 0); }
+ 
+ void input_map_snapshot_player(int player, InputMap *m) {
+     plat_mutex_lock(&lock);
+@@ -839,6 +881,11 @@ int input_capture(int reset, int *id) {
+         pads_tick();
+         for (int i = 0; i < npads; i++) pad_physical(&pads[i], p);   // any gamepad can be the one being bound
+     }
++    uint64_t physical = 0;
++    for (int i = 0; i < PAD_COUNT; i++) if (p[i]) physical |= 1ull << i;
++    int32_t neutral_left[2] = {0, 0}, neutral_right[2] = {0, 0};
++    pad_focus_gate(INPUT_PLAYERS + 1, &physical, neutral_left, neutral_right);
++    for (int i = 0; i < PAD_COUNT; i++) p[i] = (physical >> i) & 1;
+     plat_mutex_unlock(&lock);
+     int got = INPUT_CAPTURE_NONE;
+     if (!reset) {
+diff --git a/runtime/ui/binds_page.cpp b/runtime/ui/binds_page.cpp
+index 6e0b0370631eb9cd015c9914db8f8c0c3c9ce912..1c63248bd663ccf7655f9cdb1f927affa77ff93a 100644
+--- a/runtime/ui/binds_page.cpp
++++ b/runtime/ui/binds_page.cpp
+@@ -126,8 +126,9 @@ const char *binds_pad_hint(int action, const char *fallback, int *face_label) {
+     int n = input_map_pads_of(&m, action, shown_layout(), p, INPUT_PAD_BINDING_MAX);
+     if (!n) return fallback;
+     if (face_label) *face_label = input_pad_label(p[0]);
+-    if (p[0] == PAD_L) return "L";
+-    if (p[0] == PAD_R) return "R";
++    int type = input_pad_type();
++    if (p[0] == PAD_L) return type == 2 || type == 3 ? "LB" : type >= 4 && type <= 6 ? "L1" : "L";
++    if (p[0] == PAD_R) return type == 2 || type == 3 ? "RB" : type >= 4 && type <= 6 ? "R1" : "R";
+     if (p[0] >= PAD_SOUTH && p[0] <= PAD_NORTH && input_pad_label(p[0]) == PAD_LABEL_NONE) return fallback;
+     return pad_label(p[0]);
+ }
+diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
+index bf9f519320a3dcaac07d615e4bad78de242930ce..c1a586f21673a6c026dee53699c6abcb7d13ee36 100644
+--- a/runtime/ui/menu.cpp
++++ b/runtime/ui/menu.cpp
+@@ -1102,7 +1102,8 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
+                       IM_COL32(13, 15, 19, 255), 20 * scale, ImDrawFlags_RoundCornersBottom);
+     dl->AddLine(ImVec2(origin.x, bar_y), ImVec2(end.x, bar_y), theme::line);
+ 
+-    bool pad = pad_have;
++    const char *launcher_pad = getenv("RECOMPLAUNCHER_PAD");
++    bool pad = pad_have || (launcher_pad && (!strcmp(launcher_pad, "xbox") || !strcmp(launcher_pad, "playstation")));
+     ImGui::PushFont(theme::fonts().brand);
+     dl->AddText(ImVec2(origin.x + 24 * scale, origin.y + 28 * scale), theme::text, "Age of Decomp");
+     ImGui::PopFont();
+diff --git a/tests/hwaoi/test_input_focus_gate.py b/tests/hwaoi/test_input_focus_gate.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b94ebb2157be670c3115b0908f2ed2a58a892a7
+--- /dev/null
++++ b/tests/hwaoi/test_input_focus_gate.py
+@@ -0,0 +1,68 @@
++"""Compile the production gamepad focus gate against deterministic host focus events."""
++import os
++from pathlib import Path
++import shutil
++import subprocess
++import tempfile
++import unittest
++
++ROOT = Path(__file__).resolve().parents[2]
++
++
++class FocusGate(unittest.TestCase):
++    def test_overlay_focus_and_held_buttons(self):
++        source = (ROOT / "runtime/input.c").read_text(encoding="utf-8")
++        start = source.index("static int pad_focus_gate(")
++        brace = source.index("{", start)
++        depth = 1
++        end = brace + 1
++        while depth:
++            depth += (source[end] == "{") - (source[end] == "}")
++            end += 1
++        production = source[start:end]
++        fixture = r'''
++#include <stdint.h>
++#include <stdbool.h>
++#include <assert.h>
++#define INPUT_PLAYERS 2
++static unsigned epoch;
++static int foreground = 1, background;
++static unsigned gfx_window_focus_messages(void) { return epoch; }
++static int ikb_foreground(void) { return foreground; }
++static bool SDL_GetHintBoolean(const char *name, bool fallback) { (void)name; (void)fallback; return background; }
++''' + production + r'''
++int main(void) {
++    uint64_t b = 1; int32_t l[2] = {100, 200}, r[2] = {300, 400};
++    assert(!pad_focus_gate(0, &b, l, r) && b == 1);
++    foreground = 0; epoch++; b = 3;
++    assert(pad_focus_gate(0, &b, l, r) && b == 0 && l[0] == 0 && r[1] == 0);
++    foreground = 1; epoch++; b = 1;
++    assert(pad_focus_gate(0, &b, l, r) && b == 0);
++    b = 0; pad_focus_gate(0, &b, l, r);
++    b = 1; pad_focus_gate(0, &b, l, r); assert(b == 1);
++    epoch += 2; b = 8; // Focus lost/regained while the guest was paused.
++    assert(pad_focus_gate(0, &b, l, r) && b == 0);
++    b = 0; pad_focus_gate(0, &b, l, r);
++    b = 8; pad_focus_gate(0, &b, l, r); assert(b == 8);
++    b = 2; pad_focus_gate(1, &b, l, r); assert(b == 0);
++    b = 0; pad_focus_gate(1, &b, l, r);
++    b = 2; pad_focus_gate(1, &b, l, r); assert(b == 2);
++    b = 8; pad_focus_gate(0, &b, l, r); assert(b == 8); // Players are independent.
++    foreground = 0; background = 1; b = 4; l[0] = 900;
++    assert(!pad_focus_gate(2, &b, l, r) && b == 4 && l[0] == 900);
++    background = 0; b = 4; pad_focus_gate(3, &b, l, r); assert(b == 0);
++    return 0;
++}
++'''
++        compiler = os.environ.get("AOD_TEST_CC") or shutil.which("clang") or shutil.which("cc")
++        self.assertIsNotNone(compiler, "Set AOD_TEST_CC to a C compiler")
++        with tempfile.TemporaryDirectory(prefix="aod-focus-") as tmp:
++            code = Path(tmp) / "test.c"
++            exe = Path(tmp) / ("test.exe" if os.name == "nt" else "test")
++            code.write_text(fixture, encoding="utf-8")
++            subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", str(code), "-o", str(exe)], check=True)
++            subprocess.run([str(exe)], check=True, timeout=10)
++
++
++if __name__ == "__main__":
++    unittest.main()

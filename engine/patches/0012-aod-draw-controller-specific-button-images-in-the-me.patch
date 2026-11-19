@@ -1,0 +1,193 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 02:33:25 +0100
+Subject: [PATCH] aod: draw controller-specific button images in the menu
+
+---
+ runtime/input.c              |  3 +++
+ runtime/input.h              |  1 +
+ runtime/ui/binds_page.cpp    |  4 +++-
+ runtime/ui/binds_page.h      |  2 +-
+ runtime/ui/menu.cpp          | 38 +++++++++++++++++++++++++++++-------
+ tests/menu_preview_stubs.cpp |  7 +++++++
+ tests/menu_preview_test.py   |  3 +++
+ 7 files changed, 49 insertions(+), 9 deletions(-)
+
+diff --git a/runtime/input.c b/runtime/input.c
+index a2bdfa8000bbfe2f6a0614fb742c72423b5635aa..631b29afaa9c1b606007dee00e1a6c7274d41d44 100644
+--- a/runtime/input.c
++++ b/runtime/input.c
+@@ -55,6 +55,7 @@ static int npads;
+ static unsigned pads_version;        // bumped whenever a gamepad opens or closes
+ 
+ static volatile int32_t pad_labels[4];           // player 1's gamepad's face labels, for the menu (any thread)
++static volatile int32_t pad_type_shown;
+ static volatile int32_t pad_layout_shown = -1;   // player 1's gamepad's layout for the menu (any thread), -1 without one
+ static int motion_thread;            // 0 not started, 1 running, -1 off (TOTK_MOTION=0, no SDL)
+ 
+@@ -438,6 +439,7 @@ static void assign(void) {
+     for (int i = 0; i < npads && first < 0; i++)
+         if (pad_owner[i] == 0) first = i;
+     plat_xchg32(&pad_layout_shown, first < 0 ? -1 : pad_layout_get(&pads[first]));
++    plat_xchg32(&pad_type_shown, first < 0 ? 0 : SDL_GetGamepadType(pads[first].g));
+     for (int k = 0; k < 4; k++) plat_xchg32(&pad_labels[k], first < 0 ? PAD_LABEL_NONE : pads[first].labels[k]);
+ }
+ 
+@@ -812,6 +814,7 @@ int input_pad_label(int pad_id) {
+     if (pad_id < PAD_SOUTH || pad_id > PAD_NORTH) return PAD_LABEL_NONE;
+     return (int)plat_cas32(&pad_labels[pad_id - PAD_SOUTH], 0, 0);
+ }
++int input_pad_type(void) { return (int)plat_cas32(&pad_type_shown, 0, 0); }
+ 
+ void input_map_snapshot_player(int player, InputMap *m) {
+     plat_mutex_lock(&lock);
+diff --git a/runtime/input.h b/runtime/input.h
+index 3fd59b908987ff3ece7aedd118a1dcb98b526827..0e14216150d4ea4f5d5280f0025a12263585c9c9 100644
+--- a/runtime/input.h
++++ b/runtime/input.h
+@@ -35,6 +35,7 @@ int input_pad_layout(void);
+ enum { PAD_LABEL_NONE, PAD_LABEL_A, PAD_LABEL_B, PAD_LABEL_X, PAD_LABEL_Y, PAD_LABEL_CROSS, PAD_LABEL_CIRCLE,
+        PAD_LABEL_SQUARE, PAD_LABEL_TRIANGLE };
+ int input_pad_label(int pad);
++int input_pad_type(void); // SDL family of player one's pad (Xbox, PS4, PS5, Nintendo); 0 without one.
+ // The menu's remapping rows (Controls tab). input_map_snapshot copies the tables in effect (after any changed TOTK_BIND_* line).
+ // input_capture polls the keys, the mouse buttons and the gamepad for a press: reset 1 takes what is held now as the
+ // start (a held key counts once released and pressed again) and returns NONE; then it returns KEY or PAD with *id the
+diff --git a/runtime/ui/binds_page.cpp b/runtime/ui/binds_page.cpp
+index a918635fa269af4ae3a35f8435dc31c686fbae03..6e0b0370631eb9cd015c9914db8f8c0c3c9ce912 100644
+--- a/runtime/ui/binds_page.cpp
++++ b/runtime/ui/binds_page.cpp
+@@ -118,12 +118,14 @@ static int shown_layout(void) {
+     return l >= 0 ? l : input_pad_layout_pick(cfg_value("TOTK_PAD_LAYOUT"), 0);
+ }
+ 
+-const char *binds_pad_hint(int action, const char *fallback) {
++const char *binds_pad_hint(int action, const char *fallback, int *face_label) {
++    if (face_label) *face_label = PAD_LABEL_NONE;
+     InputMap m;
+     input_map_snapshot_player(0, &m);
+     uint8_t p[INPUT_PAD_BINDING_MAX];
+     int n = input_map_pads_of(&m, action, shown_layout(), p, INPUT_PAD_BINDING_MAX);
+     if (!n) return fallback;
++    if (face_label) *face_label = input_pad_label(p[0]);
+     if (p[0] == PAD_L) return "L";
+     if (p[0] == PAD_R) return "R";
+     if (p[0] >= PAD_SOUTH && p[0] <= PAD_NORTH && input_pad_label(p[0]) == PAD_LABEL_NONE) return fallback;
+diff --git a/runtime/ui/binds_page.h b/runtime/ui/binds_page.h
+index 296fa3dcb1cab25b69f01751b8f09d2cef277274..56992a68d4afd0656ab9b7fa90567dd90f3557c1 100644
+--- a/runtime/ui/binds_page.h
++++ b/runtime/ui/binds_page.h
+@@ -9,4 +9,4 @@ void binds_after_page(void);
+ // A cell waits for a press (or its press is still reaching the menu): B, Esc, L / R and the tab keys stay on the page.
+ bool binds_modal(void);
+ // The first player-one controller binding for an action, or fallback when it has none.
+-const char *binds_pad_hint(int action, const char *fallback);
++const char *binds_pad_hint(int action, const char *fallback, int *face_label = nullptr);
+diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
+index 8d07d6fdf32ca4c8d82266076f37f36c06dfa3f3..bf9f519320a3dcaac07d615e4bad78de242930ce 100644
+--- a/runtime/ui/menu.cpp
++++ b/runtime/ui/menu.cpp
+@@ -1008,9 +1008,9 @@ static float glyph_width(const char *label, float scale) {
+     return fmaxf(28 * scale, ImGui::CalcTextSize(label).x + 14 * scale);
+ }
+ 
+-static float glyph(ImDrawList *dl, ImVec2 p, const char *label, float scale, bool circle, bool dpad = false) {
++static float glyph(ImDrawList *dl, ImVec2 p, const char *label, float scale, bool circle, bool dpad = false, int face = 0) {
+     float fs = ImGui::GetFontSize(), height = 30 * scale;
+-    float width = dpad ? height : glyph_width(label, scale);
++    float width = dpad || circle ? height : glyph_width(label, scale);
+     ImVec2 end(p.x + width, p.y + height);
+     float radius = circle || dpad ? height * .5f : 6 * scale;
+     dl->AddRectFilled(p, end, theme::surface3, radius);
+@@ -1019,9 +1019,30 @@ static float glyph(ImDrawList *dl, ImVec2 p, const char *label, float scale, boo
+         float x = p.x + width * .5f, y = p.y + height * .5f, r = 7 * scale;
+         dl->AddLine(ImVec2(x - r, y), ImVec2(x + r, y), theme::text, 2.5f * scale);
+         dl->AddLine(ImVec2(x, y - r), ImVec2(x, y + r), theme::text, 2.5f * scale);
++    } else if (face >= PAD_LABEL_CROSS && face <= PAD_LABEL_TRIANGLE) {
++        ImU32 colour = theme::text;
++        if (input_pad_type() == 4 || input_pad_type() == 5) {
++            static const ImU32 classic[] = {IM_COL32(113,182,255,255), IM_COL32(255,119,114,255),
++                                            IM_COL32(239,152,209,255), IM_COL32(121,223,184,255)};
++            colour = classic[face - PAD_LABEL_CROSS];
++        }
++        float x = p.x + width * .5f, y = p.y + height * .5f, r = 7 * scale, stroke = 2 * scale;
++        if (face == PAD_LABEL_CROSS) {
++            dl->AddLine(ImVec2(x-r,y-r), ImVec2(x+r,y+r), colour, stroke);
++            dl->AddLine(ImVec2(x+r,y-r), ImVec2(x-r,y+r), colour, stroke);
++        } else if (face == PAD_LABEL_CIRCLE) dl->AddCircle(ImVec2(x,y), r, colour, 24, stroke);
++        else if (face == PAD_LABEL_SQUARE) dl->AddRect(ImVec2(x-r,y-r), ImVec2(x+r,y+r), colour, 0, 0, stroke);
++        else dl->AddTriangle(ImVec2(x,y-r), ImVec2(x+r,y+r), ImVec2(x-r,y+r), colour, stroke);
+     } else {
++        ImU32 colour = theme::text;
++        if (circle && (input_pad_type() == 2 || input_pad_type() == 3)) {
++            if (face == PAD_LABEL_A) colour = IM_COL32(119,217,101,255);
++            if (face == PAD_LABEL_B) colour = IM_COL32(255,108,100,255);
++            if (face == PAD_LABEL_X) colour = IM_COL32(113,182,255,255);
++            if (face == PAD_LABEL_Y) colour = IM_COL32(246,214,107,255);
++        }
+         ImVec2 sz = ImGui::CalcTextSize(label);
+-        dl->AddText(ImVec2(p.x + (width - sz.x) * .5f, p.y + (height - fs) * .5f), theme::text, label);
++        dl->AddText(ImVec2(p.x + (width - sz.x) * .5f, p.y + (height - fs) * .5f), colour, label);
+     }
+     return width;
+ }
+@@ -1171,11 +1192,13 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
+     ImGui::PushFont(theme::fonts().small);
+     const char *labels[] = {menu_text(UI_MENU_HINT_MOVE), menu_text(UI_MENU_HINT_CHANGE),
+                             menu_text(UI_MENU_HINT_CLOSE), menu_text(UI_MENU_HINT_PAGES)};
+-    const char *keys[] = {pad ? "" : "↑↓", pad ? binds_pad_hint(B_A, "A") : menu_text(UI_KEY_ENTER),
+-                          pad ? binds_pad_hint(B_B, "B") : "Esc", prev, next};
++    int face_labels[2] = {};
++    const char *keys[] = {pad ? "" : "↑↓", pad ? binds_pad_hint(B_A, "A", &face_labels[0]) : menu_text(UI_KEY_ENTER),
++                          pad ? binds_pad_hint(B_B, "B", &face_labels[1]) : "Esc", prev, next};
+     float gap = 8 * scale, group_gap = 18 * scale, glyph_h = 30 * scale, total = 0;
+     for (int i = 0; i < 4; i++) {
+-        total += (i == 0 && pad ? glyph_h : glyph_width(keys[i], scale)) + gap + ImGui::CalcTextSize(labels[i]).x;
++        bool image = pad && (i == 0 || ((i == 1 || i == 2) && face_labels[i-1]));
++        total += (image ? glyph_h : glyph_width(keys[i], scale)) + gap + ImGui::CalcTextSize(labels[i]).x;
+         if (i == 3) total += glyph_width(keys[4], scale) + gap;
+         if (i < 3) total += group_gap;
+     }
+@@ -1183,7 +1206,8 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
+     float min_hx = origin.x + 20 * scale;
+     if (hx >= min_hx) {
+         for (int i = 0; i < 4; i++) {
+-            hx += glyph(dl, ImVec2(hx, hy), keys[i], scale, pad && (i == 1 || i == 2), pad && i == 0) + gap;
++            int face = pad && (i == 1 || i == 2) ? face_labels[i-1] : 0;
++            hx += glyph(dl, ImVec2(hx, hy), keys[i], scale, face != 0, pad && i == 0, face) + gap;
+             if (i == 3) hx += glyph(dl, ImVec2(hx, hy), keys[4], scale, false) + gap;
+             dl->AddText(ImVec2(hx, hy + (glyph_h - ImGui::GetFontSize()) * .5f), theme::text_dim, labels[i]);
+             hx += ImGui::CalcTextSize(labels[i]).x + group_gap;
+diff --git a/tests/menu_preview_stubs.cpp b/tests/menu_preview_stubs.cpp
+index 01fe59cf85b8296f3253926e2a1cd0587fa5323b..f3dc848222143795adbff6374e3418ad4564da00 100644
+--- a/tests/menu_preview_stubs.cpp
++++ b/tests/menu_preview_stubs.cpp
+@@ -59,7 +59,14 @@ int input_pad_read(uint64_t *b, int32_t *x, int32_t *y) {
+     *b = preview_buttons; *x = preview_lx; *y = preview_ly; return 1;
+ }
+ int input_pad_layout(void) { return -1; }
++int input_pad_type(void) { const char *type = getenv("AOD_PREVIEW_PAD_TYPE"); return type ? atoi(type) : 3; }
+ int input_pad_label(int p) {
++    if (input_pad_type() >= 4 && input_pad_type() <= 6) {
++        if (p == PAD_SOUTH) return PAD_LABEL_CROSS;
++        if (p == PAD_EAST) return PAD_LABEL_CIRCLE;
++        if (p == PAD_WEST) return PAD_LABEL_SQUARE;
++        if (p == PAD_NORTH) return PAD_LABEL_TRIANGLE;
++    }
+     if (p == PAD_SOUTH) return PAD_LABEL_A;
+     if (p == PAD_EAST) return PAD_LABEL_B;
+     if (p == PAD_WEST) return PAD_LABEL_X;
+diff --git a/tests/menu_preview_test.py b/tests/menu_preview_test.py
+index 15ca80e5ef0641091fd47ce138aad54d4de6b5e1..1b2a66bfb784a292f63e4010ae5e48287ed45305 100644
+--- a/tests/menu_preview_test.py
++++ b/tests/menu_preview_test.py
+@@ -375,6 +375,9 @@ def main():
+         return 1
+     results = [run(exe, out, name, script, w, h, dpi, lang)
+                for name, script, w, h, dpi, lang in shots()]
++    for family, value in (("xbox", "3"), ("ps4", "5"), ("ps5", "6")):
++        results.append(run(exe, out, "glyphs-" + family, "open\npadtap DOWN\nshot " + family + "-buttons\n",
++                           extra_env={"AOD_PREVIEW_PAD_TYPE": value}))
+     if not args.shots_only:
+         results.extend(run(exe, out, name, script) for name, script in scenarios())
+         results.append(run(exe, out, "menu-test-hook", "frames 80\nexpect-open 0\n", hook=True))

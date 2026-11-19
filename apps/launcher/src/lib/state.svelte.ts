@@ -1,6 +1,7 @@
 // Application state shared by the pages (Svelte 5 runes).
 
 import { api } from './api';
+import { padFamily, type PadFamily } from './controller-glyphs';
 import catalogJson from './settings/catalog.json';
 import { resolveLocale, setLocale } from './i18n.svelte';
 import type { Catalog, CatalogSetting, LauncherState, PageId, Pad, PrepareEvent, SettingValues, SystemInfo, UpdateInfo } from './types';
@@ -17,7 +18,7 @@ class AppState {
   settings = $state<SettingValues>({});
   pads = $state<Pad[]>([]);
   /** The controller family that drives the button hints at the bottom. */
-  hintPad = $state<'xbox' | 'playstation' | 'nintendo' | 'keyboard'>('keyboard');
+  hintPad = $state<PadFamily>('keyboard');
   showAdvanced = $state(false);
   toasts = $state<{ id: number; text: string; tone: 'ok' | 'warn' | 'err' | 'info' }[]>([]);
   prepare = $state<{ running: boolean; stage: number; fraction: number; text: string; elapsed: number; eta: number | null; log: string[]; result: 'done' | 'error' | 'cancelled' | null; error: string | null }>({
@@ -53,9 +54,7 @@ class AppState {
   setPads(p: Pad[]) {
     this.pads = p;
     const first = p[0];
-    if (!first) return;
-    this.hintPad = first.type.startsWith('ps') ? 'playstation' : first.type.startsWith('xbox') ? 'xbox' :
-      first.type === 'standard' || first.type === 'unknown' ? 'xbox' : 'nintendo';
+    this.hintPad = first ? padFamily(first.type) : 'keyboard';
   }
 
   async checkUpdates() {
@@ -69,6 +68,14 @@ class AppState {
       this.update.info = null;
       this.update.error = String(e);
     } finally { this.update.checking = false; }
+  }
+
+  async setDiagnostics(enabled: boolean) {
+    try {
+      this.launcher = await api.setUi({ diagnostics: enabled });
+    } catch (e) {
+      this.toast(String(e), 'err');
+    }
   }
 
   async installUpdate() {

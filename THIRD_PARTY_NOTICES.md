@@ -16,6 +16,8 @@ in `licenses/` of a release and in the engine bundle's `source/THIRD_PARTY_NOTIC
 | Eglantine Ampere lowering, from [Franseven/PokeDinner-a-Eglantine-Fork](https://git.eden-emu.dev/Franseven/PokeDinner-a-Eglantine-Fork) (`1dd40d8`), Copyright Eden Emulator Project | Ampere shader frontend (vendored by the engine) | GPL-3.0-or-later |
 | [SDL 3](https://libsdl.org) | Input, window, audio (game and launcher controllers); built from source with HIDAPI libusb | zlib |
 | [libusb](https://libusb.info) | Wired Switch 2 controllers through SDL (unmodified `libusb-1.0.dll`, MSYS2 package 1.0.30) | LGPL-2.1-or-later |
+| NxToWin by iCosiSenpai (`752b214a047c21fec72253b03a3d308b39165929`) | Switch 2 Pro Controller Bluetooth protocol, motion and rumble code adapted in `apps/nintendo-bridge/Core/` | GPL-3.0-or-later in Age of Decomp |
+| [.NET](https://github.com/dotnet/runtime) | Windows Bluetooth helper and shader translator run with the packaged .NET runtime. Runtime licence and notices are in `engine/licenses/`. | MIT, with separate notices for bundled components |
 | [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | C/C++ toolchain shipped to build the game on the player's PC | Apache-2.0 with LLVM exception, mingw-w64 licences |
 | [Python](https://www.python.org) + numpy, lz4, zstandard, capstone | Generator runtime (Linux: the relocatable [python-build-standalone](https://github.com/astral-sh/python-build-standalone) build; CPython licence in `engine/licenses/python-LICENSE.txt`, the libraries it links in, such as OpenSSL, SQLite and libffi, are listed by that project) | PSF, BSD, BSD, BSD, BSD |
 | [Ninja](https://ninja-build.org) | Build tool | Apache-2.0 |

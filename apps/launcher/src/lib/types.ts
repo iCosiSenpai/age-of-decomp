@@ -12,7 +12,7 @@ export type PageId =
   | 'system';
 
 export type UiLanguage = 'auto' | 'en' | 'it';
-export type BuildStatus = 'none' | 'incomplete' | 'complete';
+export type BuildStatus = 'none' | 'incomplete' | 'stale' | 'complete';
 
 export interface CheckStep {
   id: string;
@@ -74,6 +74,7 @@ export interface UiPrefs {
   check_updates: boolean;
   jobs: number;
   rate_unlock: boolean;
+  diagnostics: boolean | null;
 }
 
 export interface UpdateInfo {
@@ -91,6 +92,7 @@ export interface LauncherState {
   ui: UiPrefs;
   system_locale: { language: string; country: string };
   recomplauncher: boolean;
+  diagnostics_available: boolean;
 }
 
 export type PrepareKind = 'stage' | 'progress' | 'log' | 'done' | 'error' | 'cancelled';

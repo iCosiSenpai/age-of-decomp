@@ -7,8 +7,9 @@
 use crate::config::Config;
 use crate::paths::{self, Paths};
 use serde::Serialize;
+use std::fs;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -199,7 +200,8 @@ pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(
 /// Runs the build and calls `sink` with progress, log lines and the final result. Blocking.
 pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut(Event) + Send) -> Result<(), String> {
     control.cancel.store(false, Ordering::SeqCst);
-    let engine = paths.engine.clone().ok_or("The engine is missing: reinstall Age of Decomp")?;
+    let absolute = |p: &Path| std::path::absolute(p).map_err(|e| e.to_string());
+    let engine = absolute(paths.engine.as_deref().ok_or("The engine is missing: reinstall Age of Decomp")?)?;
     // The bundle's own Python (Windows: NuGet CPython, Linux: python-build-standalone); on Linux the compiler, Ninja
     // and the libraries are the system's, which the engine checks before it starts.
     let python = if cfg!(windows) { engine.join("python").join("python.exe") } else { engine.join("python/bin/python3") };
@@ -209,6 +211,12 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     if !job.nup.is_file() {
         return Err(format!("Game file not found: {}", job.nup.display()));
     }
+    let version = crate::config::prepare_version();
+    let marker = job.output.join(format!("aod-ready-v{version}.json"));
+    match fs::remove_file(&marker) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+        _ => {}
+    }
     stash_early_settings(paths, &job.output)?;
     std::fs::create_dir_all(paths.logs()).map_err(|e| e.to_string())?;
     let log_path = paths.logs().join(format!("prepare-{}.log", paths::stamp()));
@@ -216,16 +224,16 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
 
     let mut cmd = Command::new(&python);
     cmd.arg("-E").arg("-s").arg(engine.join("source/compiler/backend.py")).arg("build");
-    cmd.arg("--bundle").arg(&engine).arg("--nup").arg(&job.nup).arg("--output").arg(&job.output);
+    cmd.arg("--bundle").arg(&engine).arg("--nup").arg(absolute(&job.nup)?).arg("--output").arg(absolute(&job.output)?);
     cmd.arg("--jobs").arg(job.jobs.to_string()).arg("--resolution").arg(&job.resolution);
     if job.unlock {
         cmd.arg("--unlock");
     }
     if let Some(u) = &job.update {
-        cmd.arg("--update-nup").arg(u);
+        cmd.arg("--update-nup").arg(absolute(u)?);
     }
     if let Some(d) = &job.dlc {
-        cmd.arg("--dlc-nup").arg(d);
+        cmd.arg("--dlc-nup").arg(absolute(d)?);
     }
     cmd.current_dir(&engine).env("PYTHONUTF8", "1").env("PYTHONNOUSERSITE", "1");
     cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -319,6 +327,11 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     control.pid.store(0, Ordering::SeqCst);
     let cancelled = control.cancel.swap(false, Ordering::SeqCst);
     if status.success() && complete {
+        let cfg = Config { output: Some(job.output.to_string_lossy().into_owned()), ..Config::default() };
+        crate::settings::merge_pending(&cfg, paths)?;
+        let part = marker.with_extension(format!("{}.part", std::process::id()));
+        let result = serde_json::json!({ "prepare_version": version, "compiler_version": crate::VERSION, "built": paths::stamp() });
+        fs::write(&part, result.to_string()).and_then(|_| fs::rename(part, marker)).map_err(|e| e.to_string())?;
         let mut e = Event::new("done");
         e.fraction = Some(1.0);
         e.elapsed_s = Some(started.elapsed().as_secs_f64());
@@ -328,6 +341,7 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
         sink(Event::new("cancelled"));
         Err("cancelled".into())
     } else {
+        crate::diagnostics::build_failed(paths, stage);
         let errs = err_lines.lock().unwrap();
         let msg = errs
             .iter()

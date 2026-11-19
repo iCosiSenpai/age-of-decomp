@@ -525,6 +525,8 @@ def cmd_stage(args) -> None:
     # rather than shipping the engine fork's development version in the menu.
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     (STAGE / "source/VERSION").write_text(version + "\n", encoding="utf-8")
+    for own in sorted(OWN_SRC.glob("aod_nintendo.*")):
+        shutil.copy2(own, STAGE / "source/runtime" / own.name)
     log(f"source: {n} files")
     copy_tree(TC / "python", STAGE / "python", lambda rel: "__pycache__" in rel or rel.endswith(".pyc") or
               (not WIN and linux_python_skip(rel)))
@@ -536,6 +538,25 @@ def cmd_stage(args) -> None:
         shutil.copy2(TC / "bin" / "ninja.exe", STAGE / "bin" / "ninja.exe")
         shutil.copy2(TC / "bin" / "zlib1.dll", STAGE / "bin" / "zlib1.dll")
         copy_tree(TC / "licenses", STAGE / "licenses")
+        nintendo = STAGE / "nintendo"
+        dotnet = TC / "DotNet/dotnet.exe"
+        run([dotnet, "publish", ROOT / "apps/nintendo-bridge/AgeOfDecomp.Nintendo.csproj", "-c", "Release",
+             "-r", "win-x64", "--self-contained", "true", "-o", nintendo, "-p:RestoreLockedMode=true",
+             f"-p:Version={version}"], cwd=ROOT)
+        deps = json.loads((nintendo / "AgeOfDecomp.Nintendo.deps.json").read_text(encoding="utf-8"))
+        runtime = next(key for key in deps["libraries"] if key.startswith("runtimepack.Microsoft.NETCore.App.Runtime.win-x64/"))
+        pack = "microsoft.netcore.app.runtime.win-x64/" + runtime.split("/", 1)[1]
+        assets = json.loads((ROOT / "apps/nintendo-bridge/obj/project.assets.json").read_text(encoding="utf-8"))
+        for name in ("LICENSE.TXT", "THIRD-PARTY-NOTICES.TXT"):
+            notice = next((Path(folder) / pack / name for folder in assets["packageFolders"]
+                           if (Path(folder) / pack / name).is_file()), None)
+            if not notice:
+                die(f".NET runtime pack is missing {name}")
+            shutil.copy2(notice, STAGE / "licenses" / f"dotnet-{name}")
+        run([TC / "llvm/bin/clang.exe", "-shared", "-O2", "-Wall", "-Wextra", "-Werror", "-DAOD_NINTENDO_DLL",
+             "-D_WIN32_WINNT=0x0A00", "-I", TC / "deps/include", OWN_SRC / "aod_nintendo.c",
+             "-L", TC / "deps/lib", "-lSDL3", "-o", nintendo / "aod_nintendo.dll"], cwd=ROOT)
+        run([nintendo / "AgeOfDecomp.Nintendo.exe", "--self-test"], cwd=ROOT)
     else:
         (STAGE / "licenses").mkdir()
         for lic in sorted((TC / "python" / "lib").glob("python3.*/LICENSE.txt"))[:1]:
@@ -543,6 +564,7 @@ def cmd_stage(args) -> None:
     revision = git("rev-parse", "HEAD").stdout.strip()
     files = {p.relative_to(STAGE).as_posix(): sha256(p) for p in sorted(STAGE.rglob("*")) if p.is_file()}
     manifest = {"format": "hwaoi-compiler-v1", "version": version, "source_revision": revision,
+                "aod_prepare_version": int((ROOT / "packaging/prepare-version.txt").read_text(encoding="ascii")),
                 "aod_upstream": upstream()["commit"], "files": files, "game_content_included": False}
     if dirty:
         manifest["dirty"] = True

@@ -1,0 +1,16 @@
+name = "age-of-decomp-diagnostics"
+main = "worker.mjs"
+compatibility_date = "2026-11-19"
+workers_dev = true
+preview_urls = false
+
+[observability]
+enabled = false
+
+[triggers]
+crons = ["21 3 * * *"]
+
+[[d1_databases]]
+binding = "REPORTS"
+database_name = "age-of-decomp-diagnostics"
+database_id = "00000000-0000-4000-8000-000000000000"

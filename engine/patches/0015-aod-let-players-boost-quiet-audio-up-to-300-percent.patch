@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 03:07:47 +0100
+Subject: [PATCH] aod: let players boost quiet audio up to 300 percent
+
+---
+ runtime/audio_mixer.c | 4 ++--
+ runtime/cfg.c         | 2 +-
+ runtime/ui/menu.cpp   | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/runtime/audio_mixer.c b/runtime/audio_mixer.c
+index 0658026a2ae53381fa2466734a887255a3339239..6e1d986aaabcb084be19900d6fb576c05fdb08ef 100644
+--- a/runtime/audio_mixer.c
++++ b/runtime/audio_mixer.c
+@@ -68,7 +68,7 @@ typedef struct Mixer {
+ 
+ static _Atomic float device_volume = 1.0f;
+ 
+-// TOTK_VOLUME: the player's volume in percent (0..200) on top of the game's own; a live setting (the
++// TOTK_VOLUME: the player's volume in percent (0..300) on top of the game's own; a live setting (the
+ // menu), parsed again when cfg_version changes. Render thread only.
+ static float host_volume(void) {
+     static float v = 1.0f;
+@@ -77,7 +77,7 @@ static float host_volume(void) {
+     if (ver == seen) return v;
+     seen = ver;
+     double pct = cfg_double("TOTK_VOLUME");
+-    v = (float)((pct < 0 ? 0 : pct > 200 ? 200 : pct) / 100);
++    v = (float)((pct < 0 ? 0 : pct > 300 ? 300 : pct) / 100);
+     return v;
+ }
+ static unsigned audio_revision(const AudioRenderer *r) { unsigned byte = r->revision >> 24; return byte >= '0' ? byte - '0' : 0; }
+diff --git a/runtime/cfg.c b/runtime/cfg.c
+index caa8e0d783feb59a22145c56b9e2a853dc34341d..a9967cb9d7999cdeb12b269881878f8ae5a77044 100644
+--- a/runtime/cfg.c
++++ b/runtime/cfg.c
+@@ -128,7 +128,7 @@ static const CfgMeta metas[] = {
+     {"OPERATION_MODE", "docked", "docked|handheld", LIVE},
+     {"ASSUME_FOCUS", "1", "0|1", LIVE},   // read on every focus change (ov_system.c)
+     // Sound, Controls, Menu
+-    {"VOLUME", "100", "0..200", LIVE},
++    {"VOLUME", "100", "0..300", LIVE},
+     {"MOTION", "1", "0|1", LIVE}, {"RUMBLE_STRENGTH", "130", "0..300", LIVE}, {"RUMBLE_CURVE", "0.6", "0.2..1.5", LIVE},
+     {"RUMBLE_TRIGGERS", "0", "0|1", LIVE}, {"PAD_LAYOUT", "auto", "auto|nintendo|xbox|xbox_prompts", LIVE},
+     // Players (input.c assign): auto | keyboard | none | pad:<SDL GUID>:<n>; controller type pro (Pro Controller) | dual (Joy-Con pair)
+diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
+index c1a586f21673a6c026dee53699c6abcb7d13ee36..27678ae72a5c1319388917a8bdee73d7a3fd7347 100644
+--- a/runtime/ui/menu.cpp
++++ b/runtime/ui/menu.cpp
+@@ -743,7 +743,7 @@ static void tab_game(float scale) {
+ 
+ static void tab_sound(float scale) {
+     opt_begin("##sound", scale);
+-    opt_slider("TOTK_VOLUME", UI_MENU_VOLUME, 0, 200, UI_MENU_VOLUME_DESC, 5, "%.0f %%");
++    opt_slider("TOTK_VOLUME", UI_MENU_VOLUME, 0, 300, UI_MENU_VOLUME_DESC, 5, "%.0f %%");
+     opt_end();
+ }
+ 

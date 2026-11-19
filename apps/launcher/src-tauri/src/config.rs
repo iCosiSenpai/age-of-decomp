@@ -12,11 +12,12 @@ pub struct UiPrefs {
     pub check_updates: bool,
     pub jobs: u32,
     pub rate_unlock: bool,
+    pub diagnostics: Option<bool>,
 }
 
 impl Default for UiPrefs {
     fn default() -> Self {
-        UiPrefs { language: "auto".into(), close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false }
+        UiPrefs { language: "auto".into(), close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false, diagnostics: None }
     }
 }
 
@@ -92,12 +93,25 @@ pub fn engine_state(output: &Path) -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
+pub(crate) fn prepare_version() -> u64 {
+    include_str!("../../../../packaging/prepare-version.txt")
+        .trim().parse().expect("prepare-version.txt must contain a number")
+}
+
+pub fn rebuild_required(state: &serde_json::Value) -> bool {
+    // Releases before the compatibility marker require one migration build.
+    // UI-only releases keep this number unchanged.
+    state["aod_prepare_version"].as_u64().unwrap_or(0) < prepare_version()
+}
+
 pub fn game_state(cfg: &Config, paths: &Paths) -> GameState {
     let output = cfg.output(paths);
     let st = engine_state(&output);
     let exe = paths::game_exe(&output);
     let status = match st.as_ref().and_then(|s| s.get("status")).and_then(|s| s.as_str()) {
-        Some("complete") if exe.is_file() => "complete",
+        Some("complete") if exe.is_file() => {
+            if st.as_ref().is_some_and(rebuild_required) { "stale" } else { "complete" }
+        }
         Some(_) => "incomplete",
         None => "none",
     };
@@ -120,6 +134,15 @@ pub fn game_state(cfg: &Config, paths: &Paths) -> GameState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_changes_to_the_setup_contract_require_rebuilding() {
+        let required = prepare_version();
+        assert!(rebuild_required(&serde_json::json!({"status": "complete", "source_revision": "old"})));
+        assert!(rebuild_required(&serde_json::json!({"aod_prepare_version": required - 1})));
+        assert!(!rebuild_required(&serde_json::json!({"aod_prepare_version": required, "source_revision": "old"})));
+        assert!(!rebuild_required(&serde_json::json!({"aod_prepare_version": required + 1})));
+    }
 
     #[test]
     fn invalid_config_is_preserved_before_using_defaults() {

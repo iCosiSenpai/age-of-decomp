@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "apps/launcher/src/lib/settings/catalog.json"
 TAURI = ROOT / "apps/launcher/src-tauri"
 MANIFEST = ROOT / "packaging/recomplauncher.json"
+PREPARE_VERSION = (ROOT / "packaging/prepare-version.txt").read_text(encoding="ascii").strip()
 BUILD_ID = "659cb288b5c5b2b49853add616c0d5bf4ea4e1ba"  # update NCM 196608 exefs/main ModuleId (ADR-005)
 GAME_DIR = "{install}/game"
 INI = GAME_DIR + "/work/build/hwaoi196608/hwaoi.ini"
@@ -88,8 +89,8 @@ def manifest() -> dict:
             "args": ["cli", "prepare", "--game", "{game}", "--out", GAME_DIR, "--dlc={input:dlc}"],
             "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
             "timeout": 14400,
-            "version": "3",
-            "done": [GAME_DIR + "/aod-ready.json"],
+            "version": PREPARE_VERSION,
+            "done": [GAME_DIR + f"/aod-ready-v{PREPARE_VERSION}.json"],
         },
         "start": {
             "program": ["AgeOfDecomp.exe", "AgeOfDecomp-x86_64.AppImage"],
@@ -110,7 +111,7 @@ def manifest() -> dict:
         ],
         "exit_codes": {
             "0": "ok",
-            "64": "The game is not built yet, or the build is incomplete. Press Set Up Again.",
+            "64": "Build or rebuild the game for this version. Press Set Up Again.",
             "65": "Your .nup file has moved or changed since the build. Put it back where it was, or set up again.",
         },
         "looks": {"allowed": False,
@@ -177,6 +178,8 @@ def release_info(allow_dirty: bool, engine: Path) -> dict:
     runtime_version = (engine / "source/VERSION").read_text(encoding="utf-8").strip()
     if bundle.get("version") != version() or runtime_version != version():
         sys.exit("engine/compiler versions differ; run tools/engine.py stage again")
+    if bundle.get("aod_prepare_version") != int(PREPARE_VERSION):
+        sys.exit("engine/setup versions differ; run tools/engine.py stage again")
     return {"compiler_version": version(), "repository_revision": git("rev-parse", "HEAD"), "engine_source_revision": bundle["source_revision"],
             "dirty": dirty, "engine_dirty": bool(bundle.get("dirty", False))}
 

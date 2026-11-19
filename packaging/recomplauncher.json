@@ -42,9 +42,9 @@
     ],
     "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
     "timeout": 14400,
-    "version": "3",
+    "version": "4",
     "done": [
-      "{install}/game/aod-ready.json"
+      "{install}/game/aod-ready-v4.json"
     ]
   },
   "start": {
@@ -717,7 +717,7 @@
       "slider": {
         "key": "volume",
         "min": 0,
-        "max": 200,
+        "max": 300,
         "step": 5,
         "format": "%.0f"
       },
@@ -1275,7 +1275,7 @@
   ],
   "exit_codes": {
     "0": "ok",
-    "64": "The game is not built yet, or the build is incomplete. Press Set Up Again.",
+    "64": "Build or rebuild the game for this version. Press Set Up Again.",
     "65": "Your .nup file has moved or changed since the build. Put it back where it was, or set up again."
   },
   "looks": {

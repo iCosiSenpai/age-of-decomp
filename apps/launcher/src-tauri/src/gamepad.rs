@@ -127,7 +127,7 @@ enum Req {
     List(Sender<Vec<PadInfo>>),
     State(u32, Sender<Option<PadState>>),
     Rumble(u32, f32, f32, u32, Sender<bool>),
-    Suspend(bool),
+    Suspend(bool, Sender<Option<crate::nintendo::Handoff>>),
 }
 
 #[derive(Clone)]
@@ -167,7 +167,8 @@ impl Gamepads {
                     return;
                 };
                 let _ = ready_tx.send(true);
-                run(api, rx, on_change, on_nav);
+                let nintendo = crate::nintendo::Nintendo::load(&candidates);
+                run(api, rx, on_change, on_nav, nintendo);
             })
             .ok()?;
         ready_rx.recv_timeout(Duration::from_secs(5)).ok().filter(|ok| *ok).map(|_| Gamepads { tx })
@@ -188,9 +189,11 @@ impl Gamepads {
         let _ = self.tx.send(Req::Rumble(id, low, high, ms, t));
         r.recv_timeout(Duration::from_secs(1)).unwrap_or(false)
     }
-    /// Releases every controller (true) for the game, or takes them back (false).
-    pub fn suspend(&self, on: bool) {
-        let _ = self.tx.send(Req::Suspend(on));
+    /// Transfers controller input to the game (true), or takes it back (false).
+    pub fn suspend(&self, on: bool) -> Option<crate::nintendo::Handoff> {
+        let (tx, rx) = channel();
+        self.tx.send(Req::Suspend(on, tx)).ok()?;
+        rx.recv_timeout(Duration::from_secs(4)).ok().flatten()
     }
 }
 
@@ -219,7 +222,7 @@ fn init(api: &Api) -> bool {
         ("SDL_JOYSTICK_HIDAPI_COMBINE_JOY_CONS", "1"),
         ("SDL_JOYSTICK_HIDAPI_GAMECUBE", "1"),
         ("SDL_HIDAPI_LIBUSB", "1"),
-        ("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1"),
+        ("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "0"),
         ("SDL_JOYSTICK_HIDAPI_SWITCH_HOME_LED", "0"),
     ] {
         hint(api, k, v);
@@ -283,8 +286,10 @@ fn describe(api: &Api, id: u32, h: *mut c_void) -> (PadInfo, bool) {
     }
 }
 
-fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: impl Fn(&'static str, bool)) {
+fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: impl Fn(&'static str, bool),
+       nintendo: Option<crate::nintendo::Nintendo>) {
     let mut active = init(&api);
+    if active && let Some(bridge) = &nintendo { bridge.start(); }
     let mut open: Vec<Open> = Vec::new();
     let mut last_scan = Instant::now() - Duration::from_secs(10);
     let mut held: HashMap<&'static str, bool> = HashMap::new();
@@ -307,11 +312,16 @@ fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: im
                 });
                 let _ = t.send(ok);
             }
-            Ok(Req::Suspend(on)) => {
+            Ok(Req::Suspend(on, done)) => {
+                let mut handoff = None;
                 if on && active {
                     for o in open.drain(..) {
                         // SAFETY: closing handles we opened.
                         unsafe { (api.SDL_CloseGamepad)(o.handle) };
+                    }
+                    if let Some(bridge) = &nintendo {
+                        handoff = bridge.lend();
+                        if handoff.is_none() { bridge.stop(); }
                     }
                     // SAFETY: shuts SDL down on the thread that initialised it.
                     unsafe { (api.SDL_Quit)() };
@@ -320,8 +330,10 @@ fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: im
                     on_change(Vec::new());
                 } else if !on && !active {
                     active = init(&api);
+                    if active && let Some(bridge) = &nintendo { bridge.start(); }
                     last_scan = Instant::now() - Duration::from_secs(10);
                 }
+                let _ = done.send(handoff);
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
@@ -329,6 +341,7 @@ fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: im
         if !active {
             continue;
         }
+        if let Some(bridge) = &nintendo { bridge.tick(); }
         // SAFETY: SDL event pump and gamepad update on the SDL thread.
         unsafe {
             (api.SDL_PumpEvents)();
@@ -371,6 +384,9 @@ fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: im
             }
         }
     }
+    if let Some(bridge) = &nintendo { bridge.stop(); }
+    for o in open { unsafe { (api.SDL_CloseGamepad)(o.handle); } }
+    if active { unsafe { (api.SDL_Quit)(); } }
 }
 
 fn rescan(api: &Api, open: &mut Vec<Open>) {

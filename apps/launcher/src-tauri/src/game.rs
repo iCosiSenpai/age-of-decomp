@@ -47,6 +47,9 @@ pub fn check(cfg: &Config, paths: &Paths) -> Result<(), LaunchError> {
     if state.get("status").and_then(|s| s.as_str()) != Some("complete") || !paths::game_exe(&output).is_file() {
         return Err(LaunchError::NotBuilt("The game build is incomplete: open Setup and continue the build".into()));
     }
+    if config::rebuild_required(&state) {
+        return Err(LaunchError::NotBuilt("The engine was updated. Open Setup and rebuild the game before playing.".into()));
+    }
     let nup = state.get("nup").and_then(|s| s.as_str())
         .ok_or_else(|| LaunchError::NotBuilt("The build does not record its game file".into()))?;
     let recorded = state.get("nup_identity").cloned().unwrap_or_default();
@@ -70,7 +73,7 @@ pub struct Launched {
     pub log: std::path::PathBuf,
 }
 
-pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched, LaunchError> {
+pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&crate::nintendo::Handoff>) -> Result<Launched, LaunchError> {
     check(cfg, paths)?;
     // The child runs from its bin directory. Resolve CLI-relative paths before changing
     // its working directory, including resource and save paths passed in the environment.
@@ -141,6 +144,12 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool) -> Result<Launched,
     for (k, v) in env {
         cmd.env(k, v);
     }
+    if let Some(engine) = &paths.engine {
+        let helper = engine.join("nintendo/AgeOfDecomp.Nintendo.exe");
+        if cfg!(windows) && helper.is_file() { cmd.env("AOD_NINTENDO_BRIDGE", helper); }
+    }
+    cmd.env_remove("AOD_NINTENDO_HANDOFF");
+    if let Some(handoff) = handoff { handoff.pass_to(&mut cmd); }
     cmd.stdin(Stdio::null()).stdout(Stdio::from(log)).stderr(Stdio::from(log2));
     #[cfg(windows)]
     {

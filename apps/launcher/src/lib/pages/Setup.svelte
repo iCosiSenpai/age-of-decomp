@@ -15,6 +15,7 @@
 
   let step = $state(app.prepare.running ? 4 : app.launcher?.game.status === 'complete' ? 5 : 0);
   let nup = $state<string | null>(app.launcher?.game.nup ?? null);
+  let stale = $derived(app.launcher?.game.status === 'stale');
   let updateNup = $state<string | null>(app.launcher?.game.update_nup ?? null);
   let dlcNup = $state<string | null>(app.launcher?.game.dlc_nup ?? null);
   let output = $state(app.launcher?.game.output ?? '');
@@ -131,7 +132,16 @@
   <div class="steptrack"><div class="stepfill" style:width="{(step / (STEPS.length - 1)) * 100}%"></div></div>
 
   <div class="panel card">
-    {#if step === 0}
+    {#if step === 0 && stale}
+      <h2>{tr('Rebuild required')}</h2>
+      <p class="lead">{tr('The engine was updated. Rebuild to use it. Your existing game files, settings and saves are kept.')}</p>
+      <div class="actions">
+        {#if nup && app.launcher?.game.nup_present}
+          <button class="btn primary" data-autofocus onclick={startBuild}>{tr('Rebuild the game')} <Icon name="refresh" size={18} /></button>
+        {/if}
+        <button class="btn" onclick={() => (step = 1)}>{tr('Choose game file')} <Icon name="arrow" size={18} /></button>
+      </div>
+    {:else if step === 0}
       <h2>{tr('Welcome')}</h2>
       <p class="lead">{tr('Age of Decomp turns your own copy of Hyrule Warriors: Age of Imprisonment into a native PC game. Nothing from the game is included: it is built here, from your file, and stays on this PC.')}</p>
       <ul class="facts">

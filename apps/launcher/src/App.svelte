@@ -71,6 +71,16 @@
   <TitleBar version={app.launcher?.version ?? ''} />
   {#if ready}
     <Updates startup />
+    {#if app.launcher?.diagnostics_available && app.launcher.ui.diagnostics === null}
+      <aside class="consent" aria-label={tr('Anonymous diagnostics')}>
+        <div>
+          <strong>{tr('Help improve Age of Decomp')}</strong>
+          <p>{tr('Share crash categories, build failures and rounded frame rates with the developer. Personal files and full logs stay on this PC. You can turn this off in System.')}</p>
+        </div>
+        <button class="btn" onclick={() => app.setDiagnostics(false)}>{tr('Keep disabled')}</button>
+        <button class="btn" onclick={() => app.setDiagnostics(true)}>{tr('Share diagnostics')}</button>
+      </aside>
+    {/if}
     <div class="body">
       <NavRail />
       <main bind:this={main} aria-label={tr('Content')}>
@@ -113,6 +123,16 @@
     display: flex;
     min-height: 0;
   }
+  .consent {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .consent div { flex: 1; }
+  .consent p { margin: 4px 0 0; color: var(--text-faint); }
   main {
     flex: 1;
     overflow-y: auto;

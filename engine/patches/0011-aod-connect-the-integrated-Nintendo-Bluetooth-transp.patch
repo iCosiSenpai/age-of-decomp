@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 02:07:37 +0100
+Subject: [PATCH] aod: connect the integrated Nintendo Bluetooth transport to
+ input
+
+---
+ runtime/input.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/runtime/input.c b/runtime/input.c
+index a9b75f2d39c924f2edc2546aa2128fe5319ca464..a2bdfa8000bbfe2f6a0614fb742c72423b5635aa 100644
+--- a/runtime/input.c
++++ b/runtime/input.c
+@@ -17,6 +17,13 @@
+ #include "host.h"
+ #include "input.h"
+ #include "input_map.h"
++#if __has_include("aod_nintendo.h")
++#include "aod_nintendo.h"
++#else
++static inline int aod_nintendo_start(const char *path, int test) { (void)path; (void)test; return 0; }
++static inline void aod_nintendo_tick(void) {}
++static inline void aod_nintendo_stop(void) {}
++#endif
+ #include "input_wsys.h"
+ #include "nvn_api.h"
+ #include "ui/menu.h"
+@@ -342,6 +349,7 @@ static void scan_pads(void) {
+ 
+ // Under lock: look for gamepads plugged in or out (once a second) and read the open ones' current reports.
+ static void pads_tick(void) {
++    aod_nintendo_tick();
+     uint64_t now_ms = plat_now_ns() / 1000000u;
+     if (now_ms >= next_scan) {
+         next_scan = now_ms + RESCAN_MS;
+@@ -508,6 +516,7 @@ static void start(void) {
+     hidapi_hints();
+     if (!SDL_Init(SDL_INIT_GAMEPAD)) { state = -1; rt_log("input: SDL gamepad init failed (%s), keyboard only", SDL_GetError()); }
+     else state = 1;
++    if (state == 1 && aod_nintendo_start(getenv("AOD_NINTENDO_BRIDGE"), 0)) atexit(aod_nintendo_stop);
+     if (state == 1) test_pad_attach();
+     if (state == 1) {
+         scan_pads();

@@ -184,7 +184,7 @@
     },
     {
       "key": "volume", "section": "audio", "group": "audio", "kind": "slider", "label": "Master volume", "default": "100",
-      "min": 0, "max": 200, "step": 5, "format": "%.0f", "unit": "%", "help": "Above 100 % boosts quiet speakers."
+      "min": 0, "max": 300, "step": 5, "format": "%.0f", "unit": "%", "help": "Above 100 % boosts quiet speakers."
     },
     {
       "key": "player1_device", "section": "input", "group": "controls", "kind": "dynamic", "source": "pads",

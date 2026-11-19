@@ -101,7 +101,7 @@ const params = typeof location !== 'undefined' ? new URLSearchParams(location.se
 const demoBuilt = params.get('built') !== '0';
 
 const demoState: LauncherState = {
-  version: '0.1.1',
+  version: '0.1.2',
   engine_dir: 'C:\\Games\\AgeOfDecomp\\engine',
   data_dir: 'C:\\Users\\Player\\AppData\\Local\\AgeOfDecomp',
   game: {
@@ -113,9 +113,10 @@ const demoState: LauncherState = {
     built_at: demoBuilt ? '2026-11-16T19:42:00Z' : null,
     nup_present: true,
   },
-  ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false },
+  ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false, diagnostics: null },
   system_locale: { language: 'it', country: 'IT' },
   recomplauncher: false,
+  diagnostics_available: false,
 };
 
 let demoSettings: SettingValues = { output_res: '1920x1080', fps_limit: '60', render_scale: '100' };
@@ -128,7 +129,7 @@ const demoPads: Pad[] = [
 ];
 
 async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
-  if (cmd === 'check_updates') return { current: '0.1.1', latest: params.has('update') ? 'v0.2.0' : 'v0.1.1', available: params.has('update'), previous_error: null };
+  if (cmd === 'check_updates') return { current: '0.1.2', latest: params.has('update') ? 'v0.2.0' : 'v0.1.2', available: params.has('update'), previous_error: null };
   if (cmd === 'install_update') throw new Error('Update installation is available in the desktop compiler.');
   await new Promise((r) => setTimeout(r, 120));
   switch (cmd) {

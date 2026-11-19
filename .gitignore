@@ -76,3 +76,8 @@ desktop.ini
 *.log
 *.dmp
 logs/
+# Integrated controller transport build outputs
+apps/nintendo-bridge/bin/
+apps/nintendo-bridge/obj/
+tools/diagnostics/wrangler.toml
+tools/diagnostics/.wrangler/

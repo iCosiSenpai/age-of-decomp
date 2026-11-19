@@ -9,7 +9,7 @@
 //! `prepare` prints `progress <0..1> <text>` lines on stdout (RecompLauncher protocol) and the engine's own output on
 //! stderr; exit 0 = built. Exit codes: 2 bad arguments, 3 wrong game file, 4 build failed, 5 cancelled.
 
-use aod_launcher_lib::{config::Config, paths::Paths, prepare, settings};
+use aod_launcher_lib::{config::Config, paths::Paths, prepare};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,16 +86,18 @@ fn prepare_cmd(args: &[String]) -> i32 {
             return 2;
         }
     };
-    let marker_path = PathBuf::from(&out).join("aod-ready.json");
-    if let Err(e) = std::fs::remove_file(&marker_path)
-        && e.kind() != std::io::ErrorKind::NotFound
-    {
-        eprintln!("Could not remove {}: {e}", marker_path.display());
-        return 4;
-    }
+    let absolute = |value: &str| std::path::absolute(value).map(|p| p.to_string_lossy().into_owned());
+    let (game, out) = match (absolute(&game), absolute(&out)) {
+        (Ok(game), Ok(out)) => (game, out),
+        _ => { eprintln!("Could not resolve the game or output path"); return 2; }
+    };
     let paths = Paths::detect();
-    let update = arg(args, "--update").filter(|s| !s.is_empty());
-    let dlc = arg(args, "--dlc").filter(|s| !s.is_empty());
+    let update = arg(args, "--update").filter(|s| !s.is_empty()).map(|v| absolute(&v)).transpose();
+    let dlc = arg(args, "--dlc").filter(|s| !s.is_empty()).map(|v| absolute(&v)).transpose();
+    let (update, dlc) = match (update, dlc) {
+        (Ok(update), Ok(dlc)) => (update, dlc),
+        _ => { eprintln!("Could not resolve the update or DLC path"); return 2; }
+    };
     println!("progress 0.00 Checking your game file");
     match verify(&game, update.as_deref()) {
         Ok(r) if r.ok => {}
@@ -144,17 +146,7 @@ fn prepare_cmd(args: &[String]) -> i32 {
             cfg.dlc_nup = dlc;
             cfg.output = Some(out);
             let _ = cfg.save(&paths);
-            let _ = settings::merge_pending(&cfg, &paths);
-            // RecompLauncher's `prepare.done` marker: present only after a complete build.
-            let marker = serde_json::json!({ "version": aod_launcher_lib::VERSION, "built": aod_launcher_lib::paths::stamp() });
-            let part = marker_path.with_file_name("aod-ready.json.part");
-            match std::fs::write(&part, marker.to_string()).and_then(|_| std::fs::rename(&part, &marker_path)) {
-                Ok(()) => 0,
-                Err(e) => {
-                    eprintln!("Could not write {}: {e}", marker_path.display());
-                    4
-                }
-            }
+            0
         }
         Err(e) if e == "cancelled" => 5,
         Err(e) => {

@@ -6,6 +6,7 @@
   import { tr } from '../i18n.svelte';
   import { app } from '../state.svelte';
   import Icon from '../components/Icon.svelte';
+  import { buttonImage, buttonLabel, padFamily, physicalButton } from '../controller-glyphs';
   import type { Pad, PadState } from '../types';
 
   let selected = $state<number | null>(null);
@@ -54,7 +55,7 @@
 <section class="page">
   <header>
     <h2>{tr('Controllers')}</h2>
-    <p class="muted">{tr('Xbox, DualSense, DualShock 4, Switch Pro, Joy-Con, Switch 2 Pro Controller, Joy-Con 2 and GameCube controllers work natively, wired or Bluetooth, with rumble and motion where the controller has them.')}</p>
+    <p class="muted">{tr('Controller support follows the connection and model. On Windows, Pro Controller 2 Bluetooth connects through the Nintendo transport included with Age of Decomp. Close other controller bridge apps and press Sync.')}</p>
   </header>
 
   {#if !app.pads.length}
@@ -108,7 +109,11 @@
           </div>
           <div class="buttons">
             {#each BUTTONS as [k, label] (k)}
-              <span class="b" class:on={live?.buttons[k]}>{label}</span>
+              <span class="b" class:on={live?.buttons[k]}>
+                {#if buttonImage(padFamily(pad.type), physicalButton(padFamily(pad.type), k))}
+                  <img width="40" height="40" src={buttonImage(padFamily(pad.type), physicalButton(padFamily(pad.type), k))} alt={buttonLabel(padFamily(pad.type), physicalButton(padFamily(pad.type), k))} />
+                {:else}{label}{/if}
+              </span>
             {/each}
           </div>
           {#if pad.has_gyro}
