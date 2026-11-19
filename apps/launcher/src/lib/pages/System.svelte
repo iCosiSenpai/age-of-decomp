@@ -54,7 +54,7 @@
         {#if !app.launcher?.diagnostics_available}<div class="faint">{tr('The diagnostics service is unavailable in this build.')}</div>{/if}
       </div>
       {#if app.launcher?.diagnostics_available}
-        <Toggle label={tr('Share diagnostics')} checked={app.launcher.ui.diagnostics === true}
+        <Toggle label={tr('Share diagnostics')} checked={app.launcher.diagnostics === true}
           onchange={(v) => app.setDiagnostics(v)} />
       {/if}
     </div>

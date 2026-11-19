@@ -2,6 +2,8 @@
 
 Age of Decomp asks for your choice on first launch when the diagnostics service is available. You can change it
 in **System → Anonymous diagnostics**. Diagnostics start disabled. Turning them off removes pending reports.
+The choice is stored separately from ordinary preferences, so saving settings in another window cannot
+turn sharing back on.
 
 A report contains the compiler version, the operating system family, a fixed event category and a fixed detail
 code. A completed game may also report average frame rate rounded to the nearest 5 FPS. With consent, an

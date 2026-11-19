@@ -37,15 +37,17 @@ fn hidden(cmd: &mut Command) -> &mut Command {
     cmd
 }
 
-fn client() -> Result<Client, String> {
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(reqwest::header::ACCEPT, "application/vnd.github+json".parse().unwrap());
-    // Use the user's existing GitHub login. No credentials are written to launcher.json or to the release.
-    let token = std::env::var("GH_TOKEN").or_else(|_| std::env::var("GITHUB_TOKEN")).ok().or_else(|| {
+fn existing_github_token() -> Option<String> {
+    std::env::var("GH_TOKEN").or_else(|_| std::env::var("GITHUB_TOKEN")).ok().or_else(|| {
         hidden(Command::new("gh").args(["auth", "token", "--hostname", "github.com"]))
             .stdin(Stdio::null()).stderr(Stdio::null()).output().ok()
             .filter(|o| o.status.success()).and_then(|o| String::from_utf8(o.stdout).ok())
-    });
+    })
+}
+
+fn client(token: Option<&str>) -> Result<Client, String> {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert(reqwest::header::ACCEPT, "application/vnd.github+json".parse().unwrap());
     if let Some(token) = token {
         let mut value = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token.trim()))
             .map_err(|_| "Invalid GitHub credentials")?;
@@ -57,9 +59,12 @@ fn client() -> Result<Client, String> {
         .build().map_err(|e| e.to_string())
 }
 
-fn releases(client: &Client) -> Result<Vec<Release>, String> {
-    let response = client.get(format!("{API}/releases?per_page=100")).timeout(Duration::from_secs(20))
-        .send().map_err(|_| "Could not reach GitHub. Check your connection and try again.")?;
+fn release_response(client: &Client) -> Result<reqwest::blocking::Response, String> {
+    client.get(format!("{API}/releases?per_page=100")).timeout(Duration::from_secs(20))
+        .send().map_err(|_| "Could not reach GitHub. Check your connection and try again.".into())
+}
+
+fn parse_releases(response: reqwest::blocking::Response) -> Result<Vec<Release>, String> {
     if response.status() == reqwest::StatusCode::NOT_FOUND || response.status() == reqwest::StatusCode::UNAUTHORIZED {
         return Err("GitHub could not access the releases. Check your GitHub credentials and try again.".into());
     }
@@ -67,6 +72,21 @@ fn releases(client: &Client) -> Result<Vec<Release>, String> {
     let mut bytes = Vec::new();
     response.take(2 * 1024 * 1024).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
     serde_json::from_slice(&bytes).map_err(|_| "GitHub returned an invalid release list".into())
+}
+
+fn release_feed() -> Result<(Client, Vec<Release>), String> {
+    // Public releases need no login. Only look for an existing credential if GitHub
+    // denies the anonymous request (for example for a private repo or rate limit).
+    let public = client(None)?;
+    let response = release_response(&public)?;
+    if matches!(response.status().as_u16(), 401 | 403 | 404 | 429)
+        && let Some(token) = existing_github_token()
+    {
+        let authenticated = client(Some(&token))?;
+        let list = parse_releases(release_response(&authenticated)?)?;
+        return Ok((authenticated, list));
+    }
+    Ok((public, parse_releases(response)?))
 }
 
 fn newest(releases: &[Release]) -> Option<(&Release, Version)> {
@@ -81,7 +101,7 @@ fn asset_name(tag: &str) -> String {
 }
 
 pub fn check() -> Result<UpdateInfo, String> {
-    let list = releases(&client()?)?;
+    let (_, list) = release_feed()?;
     let latest = newest(&list);
     let current = Version::parse(crate::VERSION).map_err(|e| e.to_string())?;
     Ok(UpdateInfo { current: crate::VERSION.into(), latest: latest.as_ref().map(|(r, _)| r.tag_name.clone()),
@@ -156,8 +176,7 @@ pub fn stage(mut progress: impl FnMut(f64)) -> Result<(), String> {
     if !destination.join("build-info.json").is_file() || !destination.join("engine/bundle.json").is_file() {
         return Err("Run the compiler from the downloaded release folder to install updates.".into());
     }
-    let client = client()?;
-    let list = releases(&client)?;
+    let (client, list) = release_feed()?;
     let (release, version) = newest(&list).ok_or("No compatible release is available")?;
     if version <= Version::parse(crate::VERSION).map_err(|e| e.to_string())? { return Err("The compiler is already up to date.".into()); }
     let asset = release.assets.iter().find(|a| a.name == asset_name(&release.tag_name)).unwrap();
@@ -340,8 +359,7 @@ mod tests {
     #[test]
     #[ignore = "requires a published Windows release and GitHub access"]
     fn verifies_and_extracts_published_package() {
-        let client = client().unwrap();
-        let list = releases(&client).unwrap();
+        let (client, list) = release_feed().unwrap();
         let (release, _) = newest(&list).expect("published compatible release");
         let asset = release.assets.iter().find(|a| a.name == asset_name(&release.tag_name)).unwrap();
         let root = std::env::temp_dir().join(format!("aod-live-update-test-{}", std::process::id()));

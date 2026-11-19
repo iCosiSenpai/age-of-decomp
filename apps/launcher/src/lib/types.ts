@@ -74,7 +74,6 @@ export interface UiPrefs {
   check_updates: boolean;
   jobs: number;
   rate_unlock: boolean;
-  diagnostics: boolean | null;
 }
 
 export interface UpdateInfo {
@@ -93,6 +92,7 @@ export interface LauncherState {
   system_locale: { language: string; country: string };
   recomplauncher: boolean;
   diagnostics_available: boolean;
+  diagnostics: boolean | null;
 }
 
 export type PrepareKind = 'stage' | 'progress' | 'log' | 'done' | 'error' | 'cancelled';

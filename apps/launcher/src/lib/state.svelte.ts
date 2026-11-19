@@ -72,7 +72,7 @@ class AppState {
 
   async setDiagnostics(enabled: boolean) {
     try {
-      this.launcher = await api.setUi({ diagnostics: enabled });
+      this.launcher = await api.setDiagnostics(enabled);
     } catch (e) {
       this.toast(String(e), 'err');
     }

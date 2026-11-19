@@ -51,6 +51,7 @@ export const api = {
   onUpdateProgress: (cb: (fraction: number) => void) => listen<number>('update-progress', cb),
   state: () => invoke<LauncherState>('get_state'),
   setUi: (patch: Partial<UiPrefs>) => invoke<LauncherState>('set_ui', { patch }),
+  setDiagnostics: (enabled: boolean) => invoke<LauncherState>('set_diagnostics', { enabled }),
   systemInfo: () => invoke<SystemInfo>('system_info'),
   diskInfo: (path: string) => invoke<DiskInfo>('disk_info', { path }),
   findNups: () => invoke<string[]>('find_nups'),
@@ -113,10 +114,11 @@ const demoState: LauncherState = {
     built_at: demoBuilt ? '2026-11-16T19:42:00Z' : null,
     nup_present: true,
   },
-  ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false, diagnostics: null },
+  ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false },
   system_locale: { language: 'it', country: 'IT' },
   recomplauncher: false,
   diagnostics_available: false,
+  diagnostics: null,
 };
 
 let demoSettings: SettingValues = { output_res: '1920x1080', fps_limit: '60', render_scale: '100' };

@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_EXT = {".nup", ".nsp", ".nsz", ".xci", ".xcz", ".nca", ".ncz", ".nso", ".nro", ".npdm", ".keys", ".tik",
-                 ".bfres", ".sarc", ".zs", ".bntx", ".bfsha", ".g1t", ".g1m", ".ktsl2stbin", ".rdb", ".fdata"}
+                 ".bfres", ".sarc", ".zs", ".bntx", ".bfsha", ".g1t", ".g1m", ".ktf2", ".ktsl2stbin", ".rdb", ".fdata"}
 FORBIDDEN_NAMES = {"prod.keys", "title.keys", "dev.keys", "hwaoi.exe", "hwaoi"}
 FORBIDDEN_DIRS = ("work/", ".cache/", "out/", "build/", "generated/", "refs/", "plan&activity/")
 ALLOW_LARGE = {".ttf", ".png", ".ico", ".icns", ".svg"}

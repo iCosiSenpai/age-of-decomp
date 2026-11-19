@@ -38,7 +38,8 @@ INI = GAME_DIR + "/work/build/hwaoi196608/hwaoi.ini"
 SAVES = GAME_DIR + "/work/saves/hwaoi196608"
 # Extensions that must never be in a release (game content, keys, dumps).
 FORBIDDEN = {".nup", ".nsp", ".nsz", ".xci", ".xcz", ".nca", ".ncz", ".nso", ".nro", ".npdm", ".keys", ".tik", ".bfres",
-             ".sarc", ".zs", ".bntx", ".bfsha"}
+             ".sarc", ".zs", ".bntx", ".bfsha", ".g1t", ".g1m", ".ktf2", ".ktsl2stbin", ".rdb", ".fdata"}
+FORBIDDEN_NAMES = {"prod.keys", "title.keys", "dev.keys", "hwaoi.exe", "hwaoi"}
 
 
 def version() -> str:
@@ -155,7 +156,7 @@ def cmd_manifest(_a) -> None:
 def check(folder: Path) -> list[str]:
     bad = []
     for p in folder.rglob("*"):
-        if p.is_file() and (p.suffix.lower() in FORBIDDEN or p.name.lower() in ("prod.keys", "title.keys")):
+        if p.is_file() and (p.suffix.lower() in FORBIDDEN or p.name.lower() in FORBIDDEN_NAMES):
             bad.append(str(p.relative_to(folder)))
     return bad
 

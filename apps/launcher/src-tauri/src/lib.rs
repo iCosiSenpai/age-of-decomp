@@ -43,6 +43,7 @@ struct LauncherState {
     system_locale: Locale,
     recomplauncher: bool,
     diagnostics_available: bool,
+    diagnostics: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -63,6 +64,7 @@ fn state_of(app: &App) -> LauncherState {
         system_locale: Locale { language, country },
         recomplauncher: std::env::var_os("RECOMPLAUNCHER").is_some(),
         diagnostics_available: diagnostics::available(),
+        diagnostics: diagnostics::choice(&app.paths),
     }
 }
 
@@ -75,9 +77,8 @@ fn get_state(app: tauri::State<'_, App>) -> LauncherState {
 
 #[tauri::command]
 fn set_ui(app: tauri::State<'_, App>, patch: serde_json::Value) -> Res<LauncherState> {
-    let changed = {
+    {
         let mut cfg = app.cfg.lock().unwrap();
-        let previous = cfg.ui.diagnostics;
         let mut ui = serde_json::to_value(&cfg.ui).map_err(|e| e.to_string())?;
         if let (Some(dst), Some(src)) = (ui.as_object_mut(), patch.as_object()) {
             for (k, v) in src {
@@ -88,13 +89,13 @@ fn set_ui(app: tauri::State<'_, App>, patch: serde_json::Value) -> Res<LauncherS
         next.ui = serde_json::from_value(ui).map_err(|e| e.to_string())?;
         next.save(&app.paths)?;
         *cfg = next;
-        (previous != cfg.ui.diagnostics).then_some(cfg.ui.diagnostics)
-    };
-    match changed {
-        Some(Some(true)) => diagnostics::start(&app.paths),
-        Some(_) => diagnostics::disable(&app.paths),
-        None => {}
     }
+    Ok(state_of(&app))
+}
+
+#[tauri::command]
+fn set_diagnostics(app: tauri::State<'_, App>, enabled: bool) -> Res<LauncherState> {
+    diagnostics::set_choice(&app.paths, enabled)?;
     Ok(state_of(&app))
 }
 
@@ -265,7 +266,7 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
     };
     *running = true;
     let _ = handle.emit("game", serde_json::json!({ "kind": "started" }));
-    let observe_exit = diagnostics::available() && cfg.ui.diagnostics == Some(true);
+    let observe_exit = diagnostics::enabled(&app.paths);
     if cfg.ui.close_on_play && !observe_exit {
         if let Some(handoff) = handoff {
             std::thread::spawn(move || {
@@ -395,7 +396,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            get_state, set_ui, system_info, disk_info, find_nups, inspect_nup, set_game, start_prepare, cancel_prepare,
+            get_state, set_ui, set_diagnostics, system_info, disk_info, find_nups, inspect_nup, set_game, start_prepare, cancel_prepare,
             get_settings, set_setting, reset_settings, list_pads, pad_state, pad_rumble, play, open_folder, log_tail,
             licenses, check_updates, install_update
         ])

@@ -71,7 +71,7 @@
   <TitleBar version={app.launcher?.version ?? ''} />
   {#if ready}
     <Updates startup />
-    {#if app.launcher?.diagnostics_available && app.launcher.ui.diagnostics === null}
+    {#if app.launcher?.diagnostics_available && app.launcher.diagnostics === null}
       <aside class="consent" aria-label={tr('Anonymous diagnostics')}>
         <div>
           <strong>{tr('Help improve Age of Decomp')}</strong>

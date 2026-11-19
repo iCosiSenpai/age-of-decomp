@@ -12,12 +12,11 @@ pub struct UiPrefs {
     pub check_updates: bool,
     pub jobs: u32,
     pub rate_unlock: bool,
-    pub diagnostics: Option<bool>,
 }
 
 impl Default for UiPrefs {
     fn default() -> Self {
-        UiPrefs { language: "auto".into(), close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false, diagnostics: None }
+        UiPrefs { language: "auto".into(), close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false }
     }
 }
 

@@ -11,6 +11,7 @@ use std::time::Duration;
 const ENDPOINT: Option<&str> = option_env!("AOD_DIAGNOSTICS_URL");
 const QUEUE: [&str; 4] = ["launcher_crash", "game_crash", "build_failure", "game_session"];
 static SEND: Mutex<()> = Mutex::new(());
+static SAVE_CHOICE: Mutex<()> = Mutex::new(());
 
 fn version_ok(version: &str) -> bool {
     version.len() <= 20 && semver::Version::parse(version).is_ok_and(|v| {
@@ -48,10 +49,40 @@ pub fn available() -> bool {
     })
 }
 
-fn enabled(paths: &Paths) -> bool {
-    available() && fs::read(paths.config_file()).ok()
-        .and_then(|bytes| serde_json::from_slice::<crate::config::Config>(&bytes).ok())
-        .is_some_and(|cfg| cfg.ui.diagnostics == Some(true))
+pub fn choice(paths: &Paths) -> Option<bool> {
+    let file = fs::File::open(paths.data.join("diagnostics-consent")).ok()?;
+    let mut value = String::new();
+    file.take(16).read_to_string(&mut value).ok()?;
+    match value.as_str() {
+        "enabled\n" => Some(true),
+        "disabled\n" => Some(false),
+        _ => None,
+    }
+}
+
+pub fn enabled(paths: &Paths) -> bool {
+    available() && choice(paths) == Some(true)
+}
+
+fn save_choice(paths: &Paths, enabled: bool) -> Result<(), String> {
+    let _guard = SAVE_CHOICE.lock().map_err(|_| "Could not save diagnostics preference")?;
+    fs::create_dir_all(&paths.data).map_err(|e| e.to_string())?;
+    let part = paths.data.join(format!("diagnostics-consent.{}.part", std::process::id()));
+    let value = if enabled { "enabled\n" } else { "disabled\n" };
+    fs::write(&part, value).and_then(|_| fs::rename(part, paths.data.join("diagnostics-consent")))
+        .map_err(|e| e.to_string())
+}
+
+pub fn set_choice(paths: &Paths, enabled: bool) -> Result<(), String> {
+    if enabled && !available() { return Err("Diagnostics are unavailable in this build".into()); }
+    save_choice(paths, enabled)?;
+    if enabled {
+        let paths = paths.clone();
+        let _ = std::thread::spawn(move || start(&paths));
+    } else {
+        disable(paths);
+    }
+    Ok(())
 }
 
 fn process_start(pid: u32) -> Option<u64> {
@@ -93,7 +124,7 @@ pub fn start(paths: &Paths) {
         let _ = fs::remove_file(file.path());
     }
     let pid = std::process::id();
-    if let Some(started) = process_start(pid) {
+    if enabled(paths) && let Some(started) = process_start(pid) {
         let session = Session { pid, started, version: VERSION.into() };
         if let Ok(bytes) = serde_json::to_vec(&session) { let _ = fs::write(marker(paths), bytes); }
     }
@@ -105,7 +136,7 @@ pub fn finish(paths: &Paths) {
     let _ = fs::remove_file(marker(paths));
 }
 
-pub fn disable(paths: &Paths) {
+fn disable(paths: &Paths) {
     for file in fs::read_dir(dir(paths)).into_iter().flatten().flatten() {
         let name = file.file_name();
         let Some(name) = name.to_str() else { continue; };
@@ -169,6 +200,7 @@ fn flush_now(paths: &Paths) {
         if bytes.len() > 1024 { continue; }
         // Reconstruct the wire fields before upload, even if another process edited the local queue.
         let Some(body) = wire_report(&bytes, event) else { continue; };
+        if !enabled(paths) { return; }
         let accepted = client.post(endpoint).json(&body).send().is_ok_and(|r| r.status() == 204);
         if accepted && fs::read(&file).is_ok_and(|current| current == bytes) { let _ = fs::remove_file(file); }
     }
@@ -205,5 +237,18 @@ mod tests {
         assert!(!wire.to_string().contains("Tester"));
         let invalid = br#"{"version":"0.1.2","os":"windows","event":"game_crash","detail":"C:\\Users\\Tester"}"#;
         assert!(wire_report(invalid, "game_crash").is_none());
+    }
+
+    #[test]
+    fn an_old_settings_snapshot_cannot_reenable_diagnostics() {
+        let root = std::env::temp_dir().join(format!("aod-consent-test-{}", std::process::id()));
+        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None, portable: true };
+        assert_eq!(choice(&paths), None);
+        save_choice(&paths, true).unwrap();
+        let old_config = crate::config::Config::load(&paths);
+        save_choice(&paths, false).unwrap();
+        old_config.save(&paths).unwrap();
+        assert_eq!(choice(&paths), Some(false));
+        fs::remove_dir_all(root).unwrap();
     }
 }
