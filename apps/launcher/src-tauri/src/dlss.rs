@@ -17,6 +17,7 @@ const URL: &str = "https://raw.githubusercontent.com/NVIDIA/DLSS/v310.9.16/lib/W
 pub const LICENSE_URL: &str = "https://github.com/NVIDIA/DLSS/blob/v310.9.16/LICENSE.txt";
 const SIZE: u64 = 58_956_912;
 const SHA256: &str = "d00b5b0ab29c3ca101b70c3a5ecb3a01b7ef33766a3383a28a18623083e6123e";
+#[cfg(windows)] // the Authenticode check exists only on Windows
 const SIGNER: &str = "NVIDIA Corporation";
 /// A picked file larger than this is not a DLSS library.
 const PICK_MAX: u64 = 512 << 20;
