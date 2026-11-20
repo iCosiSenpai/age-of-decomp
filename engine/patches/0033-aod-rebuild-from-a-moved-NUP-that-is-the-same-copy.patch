@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Fri, 20 Nov 2026 21:23:33 +0100
+Subject: [PATCH] aod: rebuild from a moved NUP that is the same copy
+
+A build folder recorded the source NUP's path, and a rebuild refused
+the same copy from another place ("This output belongs to a different
+source NUP or update NUP. Choose a new output folder."). A player who
+moved their .nup could then not rebuild after an update that needs a
+new build, and RecompLauncher's setup has no other folder to choose.
+
+The copy's identity (header, TOC, size and update) still has to match.
+The state records the new path, and the resource cache, which checks
+its source path, is made again from there.
+---
+ compiler/backend.py | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/compiler/backend.py b/compiler/backend.py
+index bfd8810562c9349056a22144e98900a63fd5f3e6..adfe8730f31c65d5050756ad0694a77bc61dc573 100644
+--- a/compiler/backend.py
++++ b/compiler/backend.py
+@@ -245,9 +245,12 @@ def build(bundle, nup, output, jobs=0, resolution="1920x1080", unlock=False, upd
+     if existing is None:
+         output = fresh_output(output, bundle, nup, allow_lock=True, extra_nups=(update_nup, dlc_nup))
+     else:
+-        require(isinstance(existing, dict) and existing.get("format") == "hwaoi-local-build-v1" and existing.get("nup_identity") == identity and
+-                Path(existing.get("nup", "")).resolve() == nup,
++        # The same copy (identity: header, TOC, size, update) may have moved since the last build: the state and the
++        # resource cache then follow it (the cache is made again from the new place).
++        require(isinstance(existing, dict) and existing.get("format") == "hwaoi-local-build-v1" and existing.get("nup_identity") == identity,
+                 "This output belongs to a different source NUP or update NUP. Choose a new output folder.")
++        if Path(existing.get("nup", "")).resolve() != nup:
++            print(f"  The source NUP moved since the last build: now {nup}", flush=True)
+         require(not output.is_relative_to(bundle) and not bundle.is_relative_to(output) and not nup.is_relative_to(output),
+                 "Choose an output folder outside the compiler and source NUP")
+         require(shutil.disk_usage(output).free >= 2 << 30, "Updating needs at least 2 GiB free")
+@@ -256,8 +259,7 @@ def build(bundle, nup, output, jobs=0, resolution="1920x1080", unlock=False, upd
+         # Recheck after acquiring the lock, before replacing managed source files.
+         if marker.is_file():
+             current = json.loads(marker.read_text(encoding="utf-8"))
+-            require(current.get("nup_identity") == identity and current.get("format") == "hwaoi-local-build-v1" and
+-                    Path(current.get("nup", "")).resolve() == nup,
++            require(current.get("nup_identity") == identity and current.get("format") == "hwaoi-local-build-v1",
+                     "Output identity changed while waiting for its lock")
+             existing = current
+         else:

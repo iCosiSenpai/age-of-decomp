@@ -59,6 +59,8 @@ Build the game again once after installing this version. Setup keeps your settin
 - Leaving the Display page while NVIDIA's DLSS file downloads no longer hides the download: the progress, then the
   result, are there when you come back.
 - The first D-pad press is no longer lost on a page whose first control is disabled.
+- Setup builds the game again after you move your .nup to another folder or drive. Before, it stopped with "This
+  output belongs to a different source NUP". It still has to be the same copy.
 
 ### Still being worked on
 Thank you for these reports too:

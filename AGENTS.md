@@ -140,7 +140,9 @@ through NVIDIA Streamline (`temporal=dlaa`, the key upstream's FSR work proposes
 Patch `0031` copies the pipeline cache only between pipeline builds on Intel's Windows driver (its
 `vkGetPipelineCacheData` faulted during the cold-boot prebuild; `vk_caps.intel_win`, `cache_rw` in `vk_pipeline.c`).
 Patch `0032` reports a fault outside the executable (driver, C runtime, SDL) with module, thread and calling frames,
-exit 71, instead of a silent 0xC0000005 (`crash_unhandled` in `platform/win32.c`).
+exit 71, instead of a silent 0xC0000005 (`crash_unhandled` in `platform/win32.c`). Patch `0033` lets a rebuild use the
+same copy from a new place (`compiler/backend.py`: the NUP identity must match; the state follows the new path and the
+resource cache is made again).
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
 llvm-mingw 20261020, Ninja 1.13.2, Python 3.14.9 (NuGet layout) + `numpy lz4 zstandard capstone`, SDL 3.4.20 mingw
