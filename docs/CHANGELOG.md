@@ -61,6 +61,9 @@ Build the game again once after installing this version. Setup keeps your settin
 - The first D-pad press is no longer lost on a page whose first control is disabled.
 - Setup builds the game again after you move your .nup to another folder or drive. Before, it stopped with "This
   output belongs to a different source NUP". It still has to be the same copy.
+- The launcher asks once whether to share anonymous diagnostics: counts of crash and build-failure kinds and frame
+  rates rounded to 5, with no logs and nothing personal. It stays off until you say yes, and System → Anonymous
+  diagnostics changes it.
 
 ### Still being worked on
 Thank you for these reports too:

@@ -26,6 +26,15 @@
 > keys or firmware. You need your own dump of the game as a **`.nup` file with the base game and update 3.0.0
 > (NCM 196608)**. The game is built **on your PC**; the result is for your own use and must not be shared.
 
+> [!TIP]
+> **Help make it better.** Age of Decomp is early, and two things help most:
+> - **Share anonymous diagnostics** when the launcher asks at its first start (or in *System → Anonymous
+>   diagnostics*). It sends only counts: the version, the system family, the kind of crash or build failure and the
+>   frame rate rounded to 5. They go only to the developer, to find what to fix. Your logs, files, names and addresses
+>   stay on your PC ([what is sent](docs/DIAGNOSTICS.md)).
+> - **Send the log with your report.** On RecompLauncher, leave the log attached when you write a report. On GitHub,
+>   attach the newest `game-*.log` from the game folder's `logs`.
+
 ## What it is
 
 The game's ARM64 code is translated to C ahead of time and compiled for your processor, with a runtime that provides
