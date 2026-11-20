@@ -12,6 +12,13 @@ Build the game again once after installing this version. Setup keeps your settin
   Kingdom save data, so it gives the bonus items it has for them as the story goes on. Off until you turn it on.
   Thanks to @Konia1234-Pega for asking (#1).
 
+### Overlay
+- The frame rate counter (F10) sits just under the game's small "NORMAL" label in the top right corner instead of
+  covering it.
+
+### Downloads
+- `SHA256SUMS.txt` has Unix line ends, so `sha256sum -c` on Linux checks the download.
+
 ## 0.1.2 (2026-11-20)
 
 Build the game again once after installing this version. Setup keeps your settings and saves.

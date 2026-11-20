@@ -144,7 +144,8 @@ exit 71, instead of a silent 0xC0000005 (`crash_unhandled` in `platform/win32.c`
 same copy from a new place (`compiler/backend.py`: the NUP identity must match; the state follows the new path and the
 resource cache is made again). Patch `0034` answers other games' save data for the data-link bonuses (`linked_saves`,
 off by default: `fs_host.c` says the three titles the game reads exist and mounts an empty `<profile>/linked/<id>/`;
-the game only checks that the mount works).
+the game only checks that the mount works). Patch `0035` draws the frame rate overlay under the game's own top-right
+"NORMAL" label (`menu.cpp` `PERF_TOP`), which the box used to cover.
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
 llvm-mingw 20261020, Ninja 1.13.2, Python 3.14.9 (NuGet layout) + `numpy lz4 zstandard capstone`, SDL 3.4.20 mingw
