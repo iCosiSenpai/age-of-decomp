@@ -287,7 +287,8 @@ def cmd_windows(a) -> None:
                     zf.write(p, Path(name) / p.relative_to(out))
         verify_zip(z, out, name)
         sums = out.parent / "SHA256SUMS.txt"
-        sums.write_text(f"{sha256(z)}  {z.name}\n", encoding="ascii")
+        # LF line ends: `sha256sum -c` on Linux reads a CRLF line's name with the CR and finds no file.
+        sums.write_text(f"{sha256(z)}  {z.name}\n", encoding="ascii", newline="\n")
         print(f"zip {z.relative_to(ROOT)} ({z.stat().st_size / 2**20:.0f} MiB), {sums.name}")
 
 
@@ -370,7 +371,8 @@ def cmd_linux(a) -> None:
         tarball = dest / f"{name}.tar.xz"
         pack_tarball(out, tarball, name)
         sums = dest / "SHA256SUMS-Linux.txt"
-        sums.write_text(f"{sha256(image)}  {image.name}\n{sha256(tarball)}  {tarball.name}\n", encoding="ascii")
+        sums.write_text(f"{sha256(image)}  {image.name}\n{sha256(tarball)}  {tarball.name}\n", encoding="ascii",
+                        newline="\n")
         print(f"AppImage {image} ({image.stat().st_size / 2**20:.0f} MiB), {tarball.name} "
               f"({tarball.stat().st_size / 2**20:.0f} MiB), {sums.name}")
 
