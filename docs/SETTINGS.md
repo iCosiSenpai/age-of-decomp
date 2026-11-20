@@ -40,6 +40,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `menu_lang` | In-game menu language — The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system. | `(empty)` Automatic, `en` English, `it` Italiano, `ru` Русский | `(empty)` |  |
 | `operation_mode` | Console mode — Docked is the TV mode. Handheld uses the console's portable settings, lighter on slower PCs. | `docked` Docked, `handheld` Handheld | `docked` |  |
 | `assume_focus` | Keep running in the background — Off pauses the game when you switch to another window. | `0` off, `1` on | `1` |  |
+| `linked_saves` | Bonuses for other games' saves — Tells the game you have Age of Calamity and Tears of the Kingdom saves, for their bonus items. | `0` off, `1` on | `0` |  |
 
 ## Audio
 

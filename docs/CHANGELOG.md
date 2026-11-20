@@ -3,6 +3,15 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
+## 0.1.3 (not released yet)
+
+Build the game again once after installing this version. Setup keeps your settings and saves.
+
+### Game
+- New: Bonuses for other games' saves (Settings → Game). It tells the game you have Age of Calamity and Tears of the
+  Kingdom save data, so it gives the bonus items it has for them as the story goes on. Off until you turn it on.
+  Thanks to @Konia1234-Pega for asking (#1).
+
 ## 0.1.2 (2026-11-20)
 
 Build the game again once after installing this version. Setup keeps your settings and saves.

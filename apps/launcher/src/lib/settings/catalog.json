@@ -185,6 +185,10 @@
       "help": "Off pauses the game when you switch to another window."
     },
     {
+      "key": "linked_saves", "section": "language", "group": "game", "kind": "toggle", "label": "Bonuses for other games' saves", "default": "0",
+      "help": "Tells the game you have Age of Calamity and Tears of the Kingdom saves, for their bonus items."
+    },
+    {
       "key": "volume", "section": "audio", "group": "audio", "kind": "slider", "label": "Master volume", "default": "100",
       "min": 0, "max": 300, "step": 5, "format": "%.0f", "unit": "%", "help": "Above 100 % boosts quiet speakers."
     },

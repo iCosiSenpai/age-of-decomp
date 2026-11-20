@@ -63,9 +63,9 @@
     ],
     "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
     "timeout": 14400,
-    "version": "4",
+    "version": "5",
     "done": [
-      "{install}/game/aod-ready-v4.json"
+      "{install}/game/aod-ready-v5.json"
     ]
   },
   "start": {
@@ -725,6 +725,29 @@
       ],
       "defaults": {
         "assume_focus": "1"
+      }
+    },
+    {
+      "id": "linked_saves",
+      "label": "Bonuses for other games' saves",
+      "help": "Tells the game you have Age of Calamity and Tears of the Kingdom saves, for their bonus items.",
+      "group": "Game",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "linked_saves": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "linked_saves": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "linked_saves": "0"
       }
     },
     {
