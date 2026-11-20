@@ -209,6 +209,11 @@ Validate before every release with RecompLauncher's own Developer-tab checks, no
 only warnings are "no copy set up yet" and "saves isn't there yet" on an unbuilt folder. RecompLauncher writes
 `hwaoi.ini` as soon as a setting changes, even before setup: `prepare.rs stash_early_settings` moves such a lone file
 into the pending settings so the engine still gets an empty folder, and `settings::merge_pending` restores it.
+The developer hub's "Launcher features" shows 4 of 6 for this manifest, on purpose. "Checks the player's copy" counts
+only `game.dumps` (known dumps by size + CRC32) or `game.check.ids` (`support_local` in RecompLauncher's `lib.rs`): it
+needs the `game` section we cannot use (above) and a list of good `.nup` files that nobody has; our build ID check
+stays in `prepare`. "Mods" needs a Thunderstore or GameBanana section with one of RecompLauncher's loaders (`nrm`,
+`otr`, `hmm`), and the game has no mod loader. Add neither just to get the tick.
 
 ## Controllers
 
