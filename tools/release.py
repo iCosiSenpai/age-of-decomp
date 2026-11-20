@@ -75,27 +75,36 @@ def manifest() -> dict:
         "format": 1,
         "name": "Age of Decomp",
         "repo": "iCosiSenpai/age-of-decomp",
-        "game": {
-            "kind": "iso_or_folder",
-            "label": "Your Hyrule Warriors: Age of Imprisonment (Nintendo Switch 2) dump as one .nup file with the base "
-                     "game and update 3.0.0 (NCM 196608).",
-            "check": {"nup_build_id": BUILD_ID},
-        },
+        # The player's copy is a named input, not a `game` section. RecompLauncher's Easy Setup (0.90 beta 65 and 66,
+        # ui/setup-steps.js stepsRun) runs a profile with named inputs through setup_inputs_run, which refuses a
+        # `game` profile whose copy was only picked in that window ("That copy didn't work: Choose your copy of the
+        # game first", player report RL-1). Named inputs carry no content check, so `aod-cli prepare` checks the
+        # build ID itself first (exit 3 with the reason, shown by RecompLauncher as the setup's error).
         "inputs": [
+            # Short: Easy Setup shows the label as the box's title and again under it until a file is chosen.
+            {"id": "nup", "label": "Your Age of Imprisonment .nup with update 3.0.0", "role": "game",
+             "formats": [{"type": "file", "extensions": ["nup"]}]},
             {"id": "dlc", "label": "Your DLC dump (.nup), if you have it", "role": "dlc", "optional": True,
              "formats": [{"type": "file", "extensions": ["nup"]}]},
+            # DLAA (temporal = dlaa): on RTX PCs RecompLauncher fetches NVIDIA's nvngx_dlss.dll from NVIDIA's DLSS
+            # repo, checks NVIDIA's signature and hands its path to --play (never shipped by us; other PCs skip it,
+            # and the argument with {input:dlss} is left out).
+            {"id": "dlss", "label": "NVIDIA DLSS", "role": "runtime", "shared": "nvidia.dlss", "optional": True},
         ],
         "prepare": {
             "program": ["aod-cli.exe", "AgeOfDecomp-x86_64.AppImage"],
-            "args": ["cli", "prepare", "--game", "{game}", "--out", GAME_DIR, "--dlc={input:dlc}"],
+            "args": ["cli", "prepare", "--game", "{input:nup}", "--out", GAME_DIR, "--dlc={input:dlc}"],
             "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
             "timeout": 14400,
             "version": PREPARE_VERSION,
             "done": [GAME_DIR + f"/aod-ready-v{PREPARE_VERSION}.json"],
         },
+        # The copy in start too: the game reads the player's .nup while it plays (raw RomFS members stay in it);
+        # --play checks it is the copy of the build and hands where it is now to the game (game.rs, HWAOI_NUP_PATH).
+        # One argument, as the SDK guide asks.
         "start": {
             "program": ["AgeOfDecomp.exe", "AgeOfDecomp-x86_64.AppImage"],
-            "args": ["--play", "--game-dir", GAME_DIR],
+            "args": ["--play", "--game-dir", GAME_DIR, "--game={input:nup}", "--dlss={input:dlss}"],
         },
         # `new`: the engine's own first hwaoi.ini (compiler/backend.py), used if RecompLauncher has to create the file
         # (a setting changed before setup): aod-cli prepare moves such an early file aside and merges it back after
@@ -113,7 +122,10 @@ def manifest() -> dict:
         "exit_codes": {
             "0": "ok",
             "64": "Build or rebuild the game for this version. Press Set Up Again.",
-            "65": "Your .nup file has moved or changed since the build. Put it back where it was, or set up again.",
+            "65": "Your .nup is missing or isn't the copy the game was built from. Pick that copy, or set up again.",
+            # the runtime's rt_fatal (dispatch.c) and crash handler (main.c); the log's end is also on stderr (--play)
+            "70": "The game stopped on an error. Its log says why: send the newest game-*.log from Logs with your report.",
+            "71": "The game crashed. Send the newest game-*.log from Logs with your report.",
         },
         "looks": {"allowed": False,
                   "reason": "Age of Decomp has its own picture settings and AMD FSR; ReShade's Vulkan layer is not tested with its renderer yet."},
@@ -166,6 +178,34 @@ def sha256(p: Path) -> str:
         return hashlib.file_digest(f, "sha256").hexdigest()
 
 
+def verify_engine(engine: Path) -> int:
+    """The copied engine must be exactly what `engine.py stage` hashed into bundle.json: nothing added after staging
+    (logs, saves, generated C, a test's leftovers), nothing missing or changed. Python bytecode caches, which running
+    the staged Python writes, are dropped from the copy. Returns the number of files."""
+    files = json.loads((engine / "bundle.json").read_text(encoding="utf-8"))["files"]
+    for cache in sorted(engine.rglob("__pycache__"), reverse=True):
+        if cache.is_dir() and not cache.is_symlink():
+            shutil.rmtree(cache)
+    found = {p.relative_to(engine).as_posix() for p in engine.rglob("*") if p.is_file()} - {"bundle.json"}
+    problems = ([f"added after staging: {rel}" for rel in sorted(found - files.keys())] +
+                [f"missing: {rel}" for rel in sorted(files.keys() - found)] +
+                [f"changed: {rel}" for rel in sorted(found & files.keys()) if sha256(engine / rel) != files[rel]])
+    if problems:
+        sys.exit("the engine bundle differs from its bundle.json; run tools/engine.py stage again:\n" +
+                 "\n".join(problems[:40]) + (f"\n… {len(problems) - 40} more" if len(problems) > 40 else ""))
+    return len(files)
+
+
+def verify_zip(z: Path, folder: Path, top: str) -> None:
+    """The archive holds exactly the release folder, and every member reads back with its CRC."""
+    want = {f"{top}/{p.relative_to(folder).as_posix()}" for p in folder.rglob("*") if p.is_file()}
+    with zipfile.ZipFile(z) as zf:
+        names = {n for n in zf.namelist() if not n.endswith("/")}
+        broken = zf.testzip()
+    if names != want or broken:
+        sys.exit(f"{z.name} does not match {folder.name}: {len(names ^ want)} differing entries, first bad member {broken}")
+
+
 def release_info(allow_dirty: bool, engine: Path) -> dict:
     def git(*args):
         return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
@@ -205,6 +245,7 @@ def cmd_windows(a) -> None:
     shutil.copy2(exe, out / "AgeOfDecomp.exe")
     shutil.copy2(cli, out / "aod-cli.exe")
     shutil.copytree(engine, out / "engine")
+    print(f"engine: {verify_engine(out / 'engine')} files match bundle.json")
     cmd_manifest(a)
     shutil.copy2(MANIFEST, out / "recomplauncher.json")
     shutil.copy2(ROOT / "LICENSE", out / "LICENSE.txt")
@@ -238,6 +279,7 @@ def cmd_windows(a) -> None:
             for p in sorted(out.rglob("*")):
                 if p.is_file():
                     zf.write(p, Path(name) / p.relative_to(out))
+        verify_zip(z, out, name)
         sums = out.parent / "SHA256SUMS.txt"
         sums.write_text(f"{sha256(z)}  {z.name}\n", encoding="ascii")
         print(f"zip {z.relative_to(ROOT)} ({z.stat().st_size / 2**20:.0f} MiB), {sums.name}")
@@ -267,6 +309,7 @@ def cmd_linux(a) -> None:
         shutil.copyfile(src, out / dst)
         os.chmod(out / dst, 0o755)
     shutil.copytree(engine, out / "engine", symlinks=True)
+    print(f"engine: {verify_engine(out / 'engine')} files match bundle.json")
     shutil.copyfile(linux / "age-of-decomp.desktop", out / "age-of-decomp.desktop")
     shutil.copyfile(TAURI / "icons/128x128@2x.png", out / "age-of-decomp.png")   # 256x256
     (out / ".DirIcon").symlink_to("age-of-decomp.png")

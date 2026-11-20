@@ -1,0 +1,156 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iCosiSenpai <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 18:27:21 +0100
+Subject: [PATCH] aod: jitter scene draws by a sub-pixel offset for temporal
+ anti-aliasing
+
+DLAA and FSR need a camera that moves by a fraction of a pixel every frame, and this game never does that: its
+view-projection is the same in every frame, at native scale and on its own path. With TOTK_AA_JITTER=1 (a developer
+switch, off by default) every scene draw (depth-tested, into a pass of the native scene's size, not a full-screen
+triangle or quad) gets the frame's Halton(2,3) offset, eight phases within half a pixel, added to its viewport
+origin. Lighting and post-processing passes keep their viewport, and the game's own path, which has no native scene
+size, is never jittered. vk_aa_jitter() hands the offset to the anti-aliasing pass that follows; the frame dump marks
+jittered draws, and a log line every 600 frames counts them.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ runtime/vk.h           |  2 ++
+ runtime/vk_dump.c      |  4 +--
+ runtime/vk_exec.h      |  1 +
+ runtime/vk_exec_draw.c | 65 ++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 70 insertions(+), 2 deletions(-)
+
+diff --git a/runtime/vk.h b/runtime/vk.h
+index 0267bf7ed7db35456ef20b6fb53fbab1d379c7c3..84e6790009eddfe3a3a06934a0f7ec0512e5d9eb 100644
+--- a/runtime/vk.h
++++ b/runtime/vk.h
+@@ -535,6 +535,8 @@ VkPipeline vk_pipeline_compute(const GfxShader *cs, const VkPipeInfo **info);
+ // write masks and references; vertex buffers with vkCmdBindVertexBuffers2 (strides NULL when
+ // vk_pipeline_vertex_input_dynamic(), else from VkPipeState.vstream).
+ void vk_pipeline_set_dynamic(VkCommandBuffer cb, const VkPipeState *s);
++// TOTK_AA_JITTER: 1 and this frame's sub-pixel offset of scene draws (pixels, x right, y down); 0 when off.
++int vk_aa_jitter(float px[2]);
+ int vk_pipeline_vertex_input_dynamic(void);    // 1: vertex input is VK_EXT_vertex_input_dynamic_state
+ // Translator answers from the bound state: attr_type from the vertex attribute formats (vs), frag_out_type from the
+ // colour target formats (fs). Other fields are left as they are; either pointer may be NULL.
+diff --git a/runtime/vk_dump.c b/runtime/vk_dump.c
+index 7dccae5af2443c5305aa156bdbe5dffa2626481c..728c46ea061fbf87c50b980eed67fdb9cd65fcf4 100644
+--- a/runtime/vk_dump.c
++++ b/runtime/vk_dump.c
+@@ -743,12 +743,12 @@ void vk_dump_draw(VkExec *ex, const VkPipeState *s, VkPipeline p, const VkPipeIn
+     VkRect2D sc = vk_exec_scissor(ex);
+     sp(&b, "    state: viewport%s %g %g %g %g depth %g..%g; scissor %d %d %u %u; "
+            "depth test %u write %u func %u; stencil %u; cull %u front %u discard %u; "
+-           "blend-mask %#x write-mask %#x\n",
++           "blend-mask %#x write-mask %#x%s\n",
+        ex->has_vp ? "" : " (default)", ex->vp[0][0], ex->vp[0][1], ex->vp[0][2], ex->vp[0][3],
+        ex->depth_range[0], ex->depth_range[1], sc.offset.x, sc.offset.y, sc.extent.width, sc.extent.height,
+        (unsigned)s->ds.dt, (unsigned)s->ds.dw, (unsigned)s->ds.df, (unsigned)s->ds.st,
+        (unsigned)s->poly.cull, (unsigned)s->poly.front, s->raster_discard,
+-       (unsigned)s->color.blend_en, s->chmask.mask);
++       (unsigned)s->color.blend_en, s->chmask.mask, ex->aa_jit ? "; jitter" : "");
+     if (dump_ubo) {
+         // NVN2 inline root words feed synthesized c0, outside the ordinary UBO list.
+         // Keep the exact bit pattern; guessing which words are floats loses addresses.
+diff --git a/runtime/vk_exec.h b/runtime/vk_exec.h
+index ee5265e9ffd6cc423534e6dc7dfaabfddf4e215f..79af7a460e5e1ef8b3bcedb2558f493367ac1ad3 100644
+--- a/runtime/vk_exec.h
++++ b/runtime/vk_exec.h
+@@ -62,6 +62,7 @@ typedef struct VkExec {
+     // ---- fixed-function state (vk_exec.c keeps it; vk_exec_draw.c records it before draws)
+     float vp[16][6];                     // OP_VIEWPORTS: x, y, w, h, near, far
+     int has_vp;                          // a viewport was set; else the render area
++    uint8_t aa_jit, aa_jit_rec;          // this draw carries the frame's sub-pixel jitter; the recorded viewport does
+     p_scissor scissor;                   // OP_SCISSOR (scissor 0)
+     int has_scissor;                     // a scissor was set; else unbounded
+     float depth_range[2];                // OP_DEPTH_RANGE: overrides the viewports' near and far
+diff --git a/runtime/vk_exec_draw.c b/runtime/vk_exec_draw.c
+index 85bcba1441e3a1b71f4f0a513444ae85fc849a96..fcb7a3c5e84da908511182c6bd702648c0b36d2f 100644
+--- a/runtime/vk_exec_draw.c
++++ b/runtime/vk_exec_draw.c
+@@ -2798,6 +2798,67 @@ static void bind_pipeline(VkExec *ex, VkPipelineBindPoint bp, VkPipeline p) {
+     if (!k) B.st_valid = 0;
+ }
+ 
++// ---- sub-pixel jitter for temporal anti-aliasing (DLAA / FSR need it; the game never jitters its camera)
++// TOTK_AA_JITTER=1 (developer switch, off by default): a scene draw — depth-tested, into a pass of the native scene's
++// size, not a full-screen triangle or quad — gets this frame's Halton(2,3) offset (8 phases, -0.5..0.5 px) added to
++// its viewport origin, as a camera jitter would; lighting and post-processing passes stay in place. vk_aa_jitter()
++// gives that offset to the anti-aliasing pass (pixels; x right, y down). The game's own path (no native scene size)
++// is never jittered: it has its own temporal upscaler.
++static int aa_mode = -1;                       // -1 not read yet
++static uint64_t aa_frame = ~0ull;              // gfx_counters.frames of aa_px
++static float aa_px[2];
++static unsigned aa_scene[2];
++static uint64_t aa_draws, aa_jittered;         // scene-size draws, and the jittered ones, since the last report
++static uint64_t aa_no_test, aa_no_depth, aa_full;   // the others: no depth test, no depth target, full-screen
++
++static float halton(uint32_t i, uint32_t base) {
++    float f = 1, r = 0;
++    for (; i; i /= base) f /= (float)base, r += f * (float)(i % base);
++    return r;
++}
++
++static void aa_frame_begin(void) {
++    uint64_t f = __atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED);
++    if (f == aa_frame) return;
++    if (aa_frame != ~0ull && f / 600 != aa_frame / 600 && aa_draws) {
++        rt_log("aa: frame %llu: jitter %.3f %.3f px; %llu of %llu scene-size draws jittered since the last report "
++               "(not: %llu without depth test, %llu without a depth target, %llu full-screen)",
++               (unsigned long long)f, aa_px[0], aa_px[1], (unsigned long long)aa_jittered, (unsigned long long)aa_draws,
++               (unsigned long long)aa_no_test, (unsigned long long)aa_no_depth, (unsigned long long)aa_full);
++        aa_draws = aa_jittered = aa_no_test = aa_no_depth = aa_full = 0;
++    }
++    aa_frame = f;
++    uint32_t i = (uint32_t)(f % 8) + 1;
++    aa_px[0] = halton(i, 2) - .5f;
++    aa_px[1] = halton(i, 3) - .5f;
++    unsigned out[2];
++    res_sizes(out, aa_scene);
++}
++
++int vk_aa_jitter(float px[2]) {
++    if (aa_mode <= 0) return 0;
++    px[0] = aa_px[0], px[1] = aa_px[1];
++    return 1;
++}
++
++static uint8_t aa_jitter_draw(const VkExec *ex, const VkPipeState *s, uint32_t count, const VkRect2D *sc) {
++    if (aa_mode < 0) {
++        const char *e = cfg_get("TOTK_AA_JITTER");
++        aa_mode = e && *e && strcmp(e, "0") != 0;
++        if (aa_mode) rt_log("aa: sub-pixel jitter of scene draws on (TOTK_AA_JITTER)");
++    }
++    if (!aa_mode) return 0;
++    aa_frame_begin();
++    if (!aa_scene[0] || ex->pass_w != aa_scene[0] || ex->pass_h != aa_scene[1]) return 0;
++    aa_draws++;
++    if (!s->ds.dt) return aa_no_test++, 0;
++    if (!s->depth_fmt) return aa_no_depth++, 0;
++    if (count <= 6 && (uint64_t)sc->extent.width * sc->extent.height * 2 >= (uint64_t)ex->pass_w * ex->pass_h)
++        return aa_full++, 0;
++    aa_jittered++;
++    return 1;
++}
++
+ static void record_fixed(VkExec *ex) {
+     VkCommandBuffer cb = ex->cb;
+     if (ex->dirty & VK_EXEC_DIRTY_VIEWPORT) {
+@@ -2805,6 +2866,8 @@ static void record_fixed(VkExec *ex) {
+         if (ex->has_vp) x = ex->vp[0][0], y = ex->vp[0][1], w = ex->vp[0][2], h = ex->vp[0][3];
+         if (w < 1) w = 1;
+         if (h < 1) h = 1;
++        if (ex->aa_jit) x += aa_px[0], y += aa_px[1];
++        ex->aa_jit_rec = ex->aa_jit;
+         VkViewport v = {x, y + h, w, -h, ex->depth_range[0], ex->depth_range[1]};   // the y flip: negative height
+         vkCmdSetViewportWithCount(cb, 1, &v);
+         ex->recorded++;
+@@ -3272,6 +3335,8 @@ static int prepare_draw(VkExec *ex, int prim, int32_t count, int restart) {
+         ex->recorded++;
+         B.st = s, B.st_valid = 1;
+     }
++    ex->aa_jit = aa_jitter_draw(ex, &s, count, &sc);
++    if (ex->aa_jit != ex->aa_jit_rec) ex->dirty |= VK_EXEC_DIRTY_VIEWPORT;   // jittered and plain draws share a pass
+     record_fixed(ex);
+     repeat_stats(ex, info);
+     bind_resources(ex, info);

@@ -4,7 +4,7 @@ import { api } from './api';
 import { padFamily, type PadFamily } from './controller-glyphs';
 import catalogJson from './settings/catalog.json';
 import { resolveLocale, setLocale } from './i18n.svelte';
-import type { Catalog, CatalogSetting, LauncherState, PageId, Pad, PrepareEvent, SettingValues, SystemInfo, UpdateInfo } from './types';
+import type { Catalog, CatalogSetting, DlssStatus, LauncherState, PageId, Pad, PrepareEvent, SettingValues, SystemInfo, UpdateInfo } from './types';
 
 export const catalog = catalogJson as unknown as Catalog;
 
@@ -25,13 +25,23 @@ class AppState {
     running: false, stage: 0, fraction: 0, text: '', elapsed: 0, eta: null, log: [], result: null, error: null,
   });
   game = $state<{ running: boolean; lastExit: number | null; fps: number | null }>({ running: false, lastExit: null, fps: null });
+  /** NVIDIA's DLSS file for DLAA (src-tauri/src/dlss.rs): its status, the download or the check of a file the player
+   *  chose, the download's progress and the error. Kept here so the Display page shows them again after a page
+   *  change. */
+  dlss = $state<{ status: DlssStatus | null; downloading: boolean; checking: boolean; progress: number; error: string | null }>({
+    status: null, downloading: false, checking: false, progress: 0, error: null,
+  });
 
   private toastId = 0;
+  // Not reactive on purpose: the Display page's $effect calls loadDlss, and a reactive flag would run that effect again
+  // each time a failed read clears it.
+  private dlssLoading = false;
 
   async init() {
     this.launcher = await api.state();
     setLocale(resolveLocale(this.launcher.ui.language, this.launcher.system_locale));
     api.onUpdateProgress((fraction) => (this.update.progress = fraction));
+    api.onDlssProgress((fraction) => (this.dlss.progress = fraction));
     if (this.launcher.ui.check_updates) void this.checkUpdates();
     if (this.launcher.game.status !== 'complete') this.page = 'setup';
     const params = new URLSearchParams(location.search);
@@ -85,6 +95,36 @@ class AppState {
     this.update.error = null;
     try { await api.installUpdate(); }
     catch (e) { this.update.error = String(e); this.update.installing = false; }
+  }
+
+  /** Reads the DLSS file's status the first time the Display page needs it; a download or a file check replaces it. */
+  async loadDlss() {
+    if (this.dlss.status || this.dlss.downloading || this.dlss.checking || this.dlssLoading) return;
+    this.dlssLoading = true;
+    try { this.dlss.status = await api.dlssStatus(); }
+    catch { /* no status: the page shows no DLSS block */ }
+    finally { this.dlssLoading = false; }
+  }
+
+  /** Downloads NVIDIA's DLSS file; the Display page calls it once the player has accepted NVIDIA's licence. */
+  async downloadDlss() {
+    if (this.dlss.downloading || this.dlss.checking) return;
+    this.dlss.downloading = true;
+    this.dlss.progress = 0;
+    this.dlss.error = null;
+    try { this.dlss.status = await api.dlssDownload(); }
+    catch (e) { this.dlss.error = String(e); }
+    finally { this.dlss.downloading = false; }
+  }
+
+  /** Checks a copy of NVIDIA's DLSS file the player chose and keeps it when it is NVIDIA's. */
+  async pickDlss(file: string) {
+    if (this.dlss.downloading || this.dlss.checking) return;
+    this.dlss.checking = true;
+    this.dlss.error = null;
+    try { this.dlss.status = await api.dlssPick(file); }
+    catch (e) { this.dlss.error = String(e); }
+    finally { this.dlss.checking = false; }
   }
 
   onPrepare(e: PrepareEvent) {

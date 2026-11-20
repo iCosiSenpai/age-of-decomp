@@ -1,6 +1,6 @@
 // Controller-first navigation: D-pad / left stick / arrow keys move focus spatially, A (or Enter) activates, B (or Esc)
 // goes back, LB/RB (PageUp/PageDown) switch pages, Start jumps to Play. Gamepad input is turned into the same keyboard
-// events so every control behaves the same. Two gamepad sources: the backend's SDL 3 (`pad-input` events; every pad
+// events so every control behaves the same. Two gamepad sources: the backend's SDL 3 (`pad-nav` events; every pad
 // the game supports, Switch 2 included) and, in a plain browser, the WebView Gamepad API.
 // Spatial focus logic adapted from the maintainer's Deluxe8 launcher.
 
@@ -33,7 +33,8 @@ export function moveFocus(dir: Dir): boolean {
   const all = candidates();
   const current = document.activeElement as HTMLElement | null;
   if (!current || current === document.body || !all.includes(current)) {
-    const first = scopeRoot().querySelector<HTMLElement>('[data-autofocus]') ?? all[0];
+    // The page's data-autofocus control only while it can take focus: a disabled Play falls through to the first one.
+    const first = all.find((el) => el.hasAttribute('data-autofocus')) ?? all[0];
     first?.focus();
     return !!first;
   }

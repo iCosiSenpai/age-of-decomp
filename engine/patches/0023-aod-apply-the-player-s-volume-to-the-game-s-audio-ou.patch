@@ -1,0 +1,347 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 12:58:19 +0100
+Subject: [PATCH] aod: apply the player's volume to the game's audio output
+
+The game plays through IAudioOut, whose SDL gain followed only the game's own
+SetAudioOutVolume, so the master volume of the launcher, RecompLauncher and the
+in-game menu changed nothing. The gain is now the game's volume times the
+player's (0..300 %, live), and two Sound options join it: mute while the game
+window is in the background, and an audio buffer of 10, 20 or 40 ms for
+outputs that crackle. The AudioOut tests find the SDL headers of the project
+toolchain and cover the new gain and device periods.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ runtime/audout.c             | 46 ++++++++++++++++++++++++++++++-----
+ runtime/cfg.c                |  9 ++++---
+ runtime/ui/menu.cpp          |  4 +++
+ runtime/ui_text.c            | 18 ++++++++++++++
+ runtime/ui_text.h            |  3 +++
+ tests/hwaoi/audout_fixture.c | 47 ++++++++++++++++++++++++++++++++++++
+ tests/hwaoi/test_audout.py   | 13 +++++++++-
+ 7 files changed, 129 insertions(+), 11 deletions(-)
+
+diff --git a/runtime/audout.c b/runtime/audout.c
+index c9d820cbbe6d4bbf45bad6dd958e34c8c0776b82..8098453b56018c29101b6aeb5a6b4480e36abb7a 100644
+--- a/runtime/audout.c
++++ b/runtime/audout.c
+@@ -7,6 +7,9 @@
+ // one SDL/PipeWire period (1024 frames), so every period ended in silence.
+ // Explicit AUDIO=none or an unavailable audio device uses a real-time sample clock instead.
+ // Only the default device is exposed; unsupported formats/modes fail visibly.
++// The SDL gain is the game's own volume (SetAudioOutVolume) times the player's: TOTK_VOLUME (0..300 %, the launcher's
++// and the menu's master volume) and, with TOTK_MUTE_UNFOCUSED=1, silence while the game window is not in front. Both
++// are live; TOTK_AUDIO_LATENCY=low|normal|high (10, 20, 40 ms device periods) applies when the output opens.
+ #include <math.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -27,7 +30,10 @@ typedef struct {
+     volatile int32_t running;
+     uint32_t event, state, rate, channels, lead;
+     uint64_t played, last_ns, fraction, submitted, consumed;
+-    float volume;
++    float volume;              // the game's own (SetAudioOutVolume, 0..1)
++    float host, gain;          // the player's factor (volume and background mute), and the gain SDL has
++    unsigned host_seen;        // cfg_version the player's volume was read at
++    int mute_unfocused;        // TOTK_MUTE_UNFOCUSED at that version
+     OutBuffer pending[OUT_MAX_BUFFERS];
+     uint64_t released[OUT_MAX_BUFFERS];
+     unsigned npending, nreleased;
+@@ -39,6 +45,31 @@ typedef struct {
+ static void out_need(int ok, const char *what) {
+     if (!ok) { ipc_backtrace(); rt_fatal("audout: %s", what); }
+ }
++int gfx_window_focused(void);   // gfx.h: 1 while the game window has the input focus
++
++// The stream's SDL gain: the game's volume times the player's (see the top of the file). Called with o->lock held on
++// open, on SetAudioOutVolume and on every append, so a changed setting or focus reaches the sound within a buffer.
++static void out_apply_gain(AudioOut *o) {
++    unsigned version = cfg_version();
++    if (version != o->host_seen) {
++        o->host_seen = version;
++        double pct = cfg_double("TOTK_VOLUME");
++        o->host = (float)((pct > 0 ? (pct < 300 ? pct : 300) : 0) / 100);
++        o->mute_unfocused = cfg_bool("TOTK_MUTE_UNFOCUSED");
++    }
++    float gain = o->volume * o->host;
++    if (o->mute_unfocused && !gfx_window_focused()) gain = 0;
++    if (o->stream && gain != o->gain) {
++        out_need(SDL_SetAudioStreamGain(o->stream, gain), "SDL gain failed");
++        o->gain = gain;
++    }
++}
++
++// SDL device period for TOTK_AUDIO_LATENCY: low 480 frames (10 ms at 48 kHz, the default), normal 960, high 1920.
++static const char *out_latency_frames(void) {
++    const char *v = cfg_value("TOTK_AUDIO_LATENCY");
++    return !strcmp(v, "high") ? "1920" : !strcmp(v, "normal") ? "960" : "480";
++}
+ static IpcBuffer out_input(const IpcRequest *rq) {
+     if (rq->na && rq->a[0].size) return rq->a[0];
+     return rq->nx ? rq->x[0] : (IpcBuffer){0};
+@@ -187,7 +218,7 @@ static void out_handler(IpcSession *s, const IpcRequest *rq, IpcResponse *rs) {
+         // an explicit Flush. No buffer is falsely reported as played on Stop.
+         if (o->stream) out_need(SDL_PauseAudioStreamDevice(o->stream), "SDL pause failed");
+         o->state = 1; o->fraction = 0; break;
+-    case 3: case 7: out_append(o, rq); break;
++    case 3: case 7: out_append(o, rq); out_apply_gain(o); break;
+     case 4: rs->copy[rs->ncopy++] = kern_event_readable(o->event); break;
+     case 5: case 8: {
+         IpcBuffer out = out_output(rq, rs);
+@@ -221,8 +252,8 @@ static void out_handler(IpcSession *s, const IpcRequest *rq, IpcResponse *rs) {
+     case 12: {
+         float v = IPC_ARG(rq, float, 0);
+         out_need(isfinite(v) && v >= 0 && v <= 1, "volume outside 0..1");
+-        if (o->stream) out_need(SDL_SetAudioStreamGain(o->stream, v), "SDL gain failed");
+-        o->volume = v; break;
++        o->volume = v;
++        out_apply_gain(o); break;
+     }
+     case 13: IPC_OUT(rs, o->volume); break;
+     default: plat_mutex_unlock(&o->lock); ipc_unimplemented(s, rq);
+@@ -259,6 +290,7 @@ void audout_manager_handler(IpcSession *s, const IpcRequest *rq, IpcResponse *rs
+         AudioOut *o = calloc(1, sizeof *o);
+         out_need(o != NULL, "state allocation");
+         o->state = 1; o->rate = rate; o->channels = channels; o->volume = 1;
++        o->host = 1; o->gain = 1; o->host_seen = ~0u;   // SDL streams start at gain 1; the first apply reads the setting
+         o->last_ns = kern_now_ns(); o->event = kern_event_new();
+         o->tr_ns = o->last_ns; o->tr_min = ~0ull; o->tr_low = -1;
+         plat_mutex_init(&o->lock);
+@@ -267,9 +299,10 @@ void audout_manager_handler(IpcSession *s, const IpcRequest *rq, IpcResponse *rs
+         if (!silent) {
+             if (SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+                 SDL_AudioSpec spec = {SDL_AUDIO_S16, (int)channels, (int)rate};
+-                // A 10-ms device period keeps the lead short. An explicit SDL hint still wins.
++                // A 10-ms device period keeps the lead short; AUDIO_LATENCY trades it for fewer underruns on slow
++                // or Bluetooth outputs. An explicit SDL hint still wins.
+                 if (!SDL_GetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES))
+-                    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "480");
++                    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, out_latency_frames());
+                 o->stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+             }
+             if (!o->stream) rt_log("audout: no usable SDL audio device (%s); playing without sound", SDL_GetError());
+@@ -288,6 +321,7 @@ void audout_manager_handler(IpcSession *s, const IpcRequest *rq, IpcResponse *rs
+             out_need(lead <= OUT_MAX_BYTES, "unsupported audio device period");
+             o->lead = (uint32_t)lead;
+         }
++        out_apply_gain(o);   // the player's volume from the first sample (no other thread has o yet)
+         o->running = 1;
+         o->thread = plat_thread_new(out_worker, o, "audout");
+         out_need(o->thread != NULL, "worker creation");
+diff --git a/runtime/cfg.c b/runtime/cfg.c
+index db8658fed6ca678a55b2b396eb832d52bfe30152..e377c0e4e1d7e5c727ded7be2ec737b652b022c4 100644
+--- a/runtime/cfg.c
++++ b/runtime/cfg.c
+@@ -30,7 +30,7 @@ static int save_ok = 1;                         // the last cfg_save_to wrote (o
+ // Every name the runtime reads (and the patch sets in generated/), without the prefix. A file key outside this list is
+ // logged as unknown. A new variable goes here too, or its ini key logs a harmless "unknown key" line.
+ static const char *const known[] = {
+-    "AB", "APP_POOL", "ASPECT", "ASPECT_PATCH", "ASSUME_FOCUS", "ASTC", "ASTC_BC", "ASTC_TIME", "ASYNC_PREEMPT", "AUDIO", "AUDIO_OFF", "AUDIO_PREFILL_MS",
++    "AB", "APP_POOL", "ASPECT", "ASPECT_PATCH", "ASSUME_FOCUS", "ASTC", "ASTC_BC", "ASTC_TIME", "ASYNC_PREEMPT", "AUDIO", "AUDIO_LATENCY", "AUDIO_OFF", "AUDIO_PREFILL_MS",
+     "BACKGROUND_WINDOW", "BARRIER_ELIDE", "BIND_A", "BIND_B", "BIND_DOWN", "BIND_L", "BIND_LCLICK", "BIND_LEFT", "BIND_LSTICK_DOWN", "BIND_LSTICK_LEFT",
+     "BIND_LSTICK_RIGHT", "BIND_LSTICK_UP", "BIND_MENU", "BIND_MINUS",
+     "BIND_PLUS", "BIND_R", "BIND_RCLICK", "BIND_RIGHT", "BIND_RSTICK_DOWN", "BIND_RSTICK_LEFT", "BIND_RSTICK_RIGHT", "BIND_RSTICK_UP",
+@@ -40,7 +40,7 @@ static const char *const known[] = {
+     "FLIGHT_THUMBS", "FOV", "FOV_PATCH", "FPS60", "FPS_LIMIT", "FREEZE_IDLE", "FREE_CORES", "FULLSCREEN", "GPL", "GPL_DRAW_BUILD", "GPU",
+     "EXPERIMENTAL_RATE", "RATE_DIAG", "RATE_UNLOCK", "FS_DIAG", "GPU_INDEX", "GPU_NAME", "GPU_WRITE_DIAG", "HIGHFPS_FIX", "INPUT", "INPUT_FEED", "INPUT_RECORD", "INPUT_SCRIPT", "LANG", "LIB_PREBUILD",
+     "LIB_PREBUILD_KEEP", "LIB_PREBUILD_THREADS", "LOCALE", "LOD_GUARD", "MEMORY", "MENU_LANG", "MENU_TEST",
+-    "MENU_TEST_DIR", "MENU_TEST_SET", "MINIMAL_LAYOUT", "MIRROR_GAP", "MOTION", "MOUSE_SENS", "MOVIE_HOST", "MOVIE_PACE", "NX2_READ_NOWAIT",
++    "MENU_TEST_DIR", "MENU_TEST_SET", "MINIMAL_LAYOUT", "MIRROR_GAP", "MOTION", "MOUSE_SENS", "MOVIE_HOST", "MOVIE_PACE", "MUTE_UNFOCUSED", "NX2_READ_NOWAIT",
+     "NVN2_MODE_TRACE", "NVN2_MODE_TRACE_START_MS", "NVN2_MODE_TRACE_DURATION_MS", "ONE_PER_CORE", "OPERATION_MODE", "OUTPUT_RES",
+     "P2_BIND_A", "P2_BIND_B", "P2_BIND_X", "P2_BIND_Y", "P2_BIND_LCLICK", "P2_BIND_RCLICK", "P2_BIND_L", "P2_BIND_R", "P2_BIND_ZL", "P2_BIND_ZR", "P2_BIND_PLUS", "P2_BIND_MINUS", "P2_BIND_LEFT", "P2_BIND_UP", "P2_BIND_RIGHT", "P2_BIND_DOWN", "P2_BIND_LSTICK_LEFT", "P2_BIND_LSTICK_UP", "P2_BIND_LSTICK_RIGHT", "P2_BIND_LSTICK_DOWN", "P2_BIND_RSTICK_LEFT", "P2_BIND_RSTICK_UP", "P2_BIND_RSTICK_RIGHT", "P2_BIND_RSTICK_DOWN", "P2_BIND_MENU",
+     "PAD_LAYOUT", "PATCH_OUTPUT", "PATCH_SCENE", "PERF_OVERLAY", "PERF_SLOW_GPU_MS", "PERF_SLOW_MS", "PIPELINE_CACHE", "PIPE_MEMO", "PIPE_PREBUILD", "PIPE_SCENE", "PIPE_SKIP", "PIPE_SYNC", "PIPE_WAIT", "PLAYER1_DEVICE", "PLAYER1_TYPE", "PLAYER2_DEVICE", "PLAYER2_TYPE",
+@@ -66,7 +66,7 @@ static const struct { const char *key, *section; } sections[] = {
+     {"COLOR_GAMMA", "display"},
+     {"DEVICE_PROFILE", "display"}, {"ASSUME_FOCUS", "display"},
+     {"MENU_LANG", "language"}, {"LANG", "language"}, {"OPERATION_MODE", "language"},
+-    {"VOLUME", "audio"},
++    {"VOLUME", "audio"}, {"MUTE_UNFOCUSED", "audio"}, {"AUDIO_LATENCY", "audio"},
+     {"MOTION", "input"}, {"RUMBLE_STRENGTH", "input"}, {"RUMBLE_CURVE", "input"}, {"RUMBLE_TRIGGERS", "input"},
+     {"P2_BIND_A", "input"}, {"P2_BIND_B", "input"}, {"P2_BIND_X", "input"}, {"P2_BIND_Y", "input"}, {"P2_BIND_LCLICK", "input"}, {"P2_BIND_RCLICK", "input"}, {"P2_BIND_L", "input"}, {"P2_BIND_R", "input"}, {"P2_BIND_ZL", "input"}, {"P2_BIND_ZR", "input"}, {"P2_BIND_PLUS", "input"}, {"P2_BIND_MINUS", "input"}, {"P2_BIND_LEFT", "input"}, {"P2_BIND_UP", "input"}, {"P2_BIND_RIGHT", "input"}, {"P2_BIND_DOWN", "input"}, {"P2_BIND_LSTICK_LEFT", "input"}, {"P2_BIND_LSTICK_UP", "input"}, {"P2_BIND_LSTICK_RIGHT", "input"}, {"P2_BIND_LSTICK_DOWN", "input"}, {"P2_BIND_RSTICK_LEFT", "input"}, {"P2_BIND_RSTICK_UP", "input"}, {"P2_BIND_RSTICK_RIGHT", "input"}, {"P2_BIND_RSTICK_DOWN", "input"}, {"P2_BIND_MENU", "input"},
+     {"BINDS_PLAYER", "input"}, {"PAD_LAYOUT", "input"}, {"PLAYER1_DEVICE", "input"}, {"PLAYER1_TYPE", "input"}, {"PLAYER2_DEVICE", "input"},
+@@ -128,7 +128,8 @@ static const CfgMeta metas[] = {
+     {"OPERATION_MODE", "docked", "docked|handheld", LIVE},
+     {"ASSUME_FOCUS", "1", "0|1", LIVE},   // read on every focus change (ov_system.c)
+     // Sound, Controls, Menu
+-    {"VOLUME", "100", "0..300", LIVE},
++    {"VOLUME", "100", "0..300", LIVE}, {"MUTE_UNFOCUSED", "0", "0|1", LIVE},
++    {"AUDIO_LATENCY", "low", "low|normal|high", RESTART},
+     {"MOTION", "1", "0|1", LIVE}, {"RUMBLE_STRENGTH", "130", "0..300", LIVE}, {"RUMBLE_CURVE", "0.6", "0.2..1.5", LIVE},
+     {"RUMBLE_TRIGGERS", "0", "0|1", LIVE}, {"PAD_LAYOUT", "auto", "auto|nintendo|xbox|xbox_prompts", LIVE},
+     // Players (input.c assign): auto | keyboard | none | pad:<SDL GUID>:<n>; controller type pro (Pro Controller) | dual (Joy-Con pair)
+diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
+index f30d500c154a3d62c6976ffea8de4ac4d7d94b6d..9ecd0380bfe9849770e95c81fa2beba0f292936e 100644
+--- a/runtime/ui/menu.cpp
++++ b/runtime/ui/menu.cpp
+@@ -742,6 +742,10 @@ static void tab_game(float scale) {
+ static void tab_sound(float scale) {
+     opt_begin("##sound", scale);
+     opt_slider("TOTK_VOLUME", UI_MENU_VOLUME, 0, 300, UI_MENU_VOLUME_DESC, 5, "%.0f %%");
++    opt_toggle("TOTK_MUTE_UNFOCUSED", UI_MENU_MUTE_UNFOCUSED, UI_MENU_MUTE_UNFOCUSED_DESC);
++    static const UiTextId latency[] = {UI_MENU_AUDIO_LATENCY_LOW, UI_MENU_AUDIO_LATENCY_NORMAL,
++                                       UI_MENU_AUDIO_LATENCY_HIGH};
++    opt_choice("TOTK_AUDIO_LATENCY", UI_MENU_AUDIO_LATENCY, latency, 3, UI_MENU_AUDIO_LATENCY_DESC);
+     opt_end();
+ }
+ 
+diff --git a/runtime/ui_text.c b/runtime/ui_text.c
+index 2156449537e55758096d11161f503c6b09823724..382923ae38beefff74996eda66bacc3b37bcb8c6 100644
+--- a/runtime/ui_text.c
++++ b/runtime/ui_text.c
+@@ -134,6 +134,12 @@ static const char *const text_en[UI_TEXT_COUNT] = {
+                                   "way can stop for good.",
+ 
+     [UI_MENU_VOLUME] = "Volume", [UI_MENU_VOLUME_DESC] = "Master volume of the game.",
++    [UI_MENU_MUTE_UNFOCUSED] = "Mute in the background",
++    [UI_MENU_MUTE_UNFOCUSED_DESC] = "Silences the game while another window is in front.",
++    [UI_MENU_AUDIO_LATENCY] = "Audio buffer",
++    [UI_MENU_AUDIO_LATENCY_DESC] = "Raise it if the sound crackles or drops out. Low reacts fastest.",
++    [UI_MENU_AUDIO_LATENCY_LOW] = "Low (10 ms)", [UI_MENU_AUDIO_LATENCY_NORMAL] = "Normal (20 ms)",
++    [UI_MENU_AUDIO_LATENCY_HIGH] = "High (40 ms)",
+ 
+     [UI_MENU_MOTION] = "Motion controls", [UI_MENU_MOTION_DESC] = "Aiming with the controller's gyroscope.",
+     [UI_MENU_RUMBLE_STRENGTH] = "Vibration strength",
+@@ -437,6 +443,12 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
+                                   "может остановиться насовсем.",
+ 
+     [UI_MENU_VOLUME] = "Громкость", [UI_MENU_VOLUME_DESC] = "Общая громкость игры.",
++    [UI_MENU_MUTE_UNFOCUSED] = "Без звука в фоне",
++    [UI_MENU_MUTE_UNFOCUSED_DESC] = "Отключает звук игры, пока на переднем плане другое окно.",
++    [UI_MENU_AUDIO_LATENCY] = "Аудиобуфер",
++    [UI_MENU_AUDIO_LATENCY_DESC] = "Увеличьте, если звук трещит или прерывается. Низкий реагирует быстрее всего.",
++    [UI_MENU_AUDIO_LATENCY_LOW] = "Низкий (10 мс)", [UI_MENU_AUDIO_LATENCY_NORMAL] = "Обычный (20 мс)",
++    [UI_MENU_AUDIO_LATENCY_HIGH] = "Высокий (40 мс)",
+ 
+     [UI_MENU_MOTION] = "Управление движением", [UI_MENU_MOTION_DESC] = "Прицеливание гироскопом контроллера.",
+     [UI_MENU_RUMBLE_STRENGTH] = "Сила вибрации",
+@@ -752,6 +764,12 @@ static const char *const text_it[UI_TEXT_COUNT] = {
+                                   "finché il gioco non torna in primo piano. Se disattivato, si mette in pausa quando "
+                                   "perde il focus, come sulla console premendo Home; un caricamento interrotto può bloccarsi.",
+     [UI_MENU_VOLUME] = "Volume", [UI_MENU_VOLUME_DESC] = "Volume generale del gioco.",
++    [UI_MENU_MUTE_UNFOCUSED] = "Silenzia in background",
++    [UI_MENU_MUTE_UNFOCUSED_DESC] = "Silenzia il gioco mentre un'altra finestra è in primo piano.",
++    [UI_MENU_AUDIO_LATENCY] = "Buffer audio",
++    [UI_MENU_AUDIO_LATENCY_DESC] = "Aumentalo se l'audio gracchia o si interrompe. Basso risponde più in fretta.",
++    [UI_MENU_AUDIO_LATENCY_LOW] = "Basso (10 ms)", [UI_MENU_AUDIO_LATENCY_NORMAL] = "Normale (20 ms)",
++    [UI_MENU_AUDIO_LATENCY_HIGH] = "Alto (40 ms)",
+ 
+     [UI_MENU_MOTION] = "Comandi di movimento",
+     [UI_MENU_MOTION_DESC] = "Mira usando il giroscopio del controller.",
+diff --git a/runtime/ui_text.h b/runtime/ui_text.h
+index 731bf9e64262a6591665efb83e9e50aa02b5b452..e1d832b2e5acaedfe39db9985b8ced8597f66d5c 100644
+--- a/runtime/ui_text.h
++++ b/runtime/ui_text.h
+@@ -62,6 +62,9 @@ typedef enum {
+ 
+     // Sound
+     UI_MENU_VOLUME, UI_MENU_VOLUME_DESC,
++    UI_MENU_MUTE_UNFOCUSED, UI_MENU_MUTE_UNFOCUSED_DESC,
++    UI_MENU_AUDIO_LATENCY, UI_MENU_AUDIO_LATENCY_DESC, UI_MENU_AUDIO_LATENCY_LOW, UI_MENU_AUDIO_LATENCY_NORMAL,
++    UI_MENU_AUDIO_LATENCY_HIGH,
+ 
+     // Controls
+     UI_MENU_MOTION, UI_MENU_MOTION_DESC,
+diff --git a/tests/hwaoi/audout_fixture.c b/tests/hwaoi/audout_fixture.c
+index a29bfc2a1acba830f6a54785e0cba1038bbf13f4..e7b3353fa56381fab699b8d868c4812768454af4 100644
+--- a/tests/hwaoi/audout_fixture.c
++++ b/tests/hwaoi/audout_fixture.c
+@@ -59,6 +59,16 @@ const char *cfg_get(const char *name) {
+     TASSERT(!strcmp(name, "TOTK_AUDIO") || !strcmp(name, "TOTK_AUDIO_OFF"));
+     return !strcmp(name, "TOTK_AUDIO") ? audio_mode : NULL;
+ }
++/* The player's settings and the window focus the gain follows. */
++static unsigned cfg_ver = 1;
++static double host_volume_pct = 100;
++static int mute_unfocused, window_focused = 1;
++static const char *audio_latency = "low";
++unsigned cfg_version(void) { return cfg_ver; }
++double cfg_double(const char *name) { TASSERT(!strcmp(name, "TOTK_VOLUME")); return host_volume_pct; }
++int cfg_bool(const char *name) { TASSERT(!strcmp(name, "TOTK_MUTE_UNFOCUSED")); return mute_unfocused; }
++const char *cfg_value(const char *name) { TASSERT(!strcmp(name, "TOTK_AUDIO_LATENCY")); return audio_latency; }
++int gfx_window_focused(void) { return window_focused; }
+ uint64_t kern_now_ns(void) { return clock_ns; }
+ int kern_core_away(void) { return 0; }
+ void kern_core_back(int *away) { TASSERT(*away == 0); }
+@@ -465,6 +475,41 @@ static void test_controls(void) {
+     kern_handle_close(h); _aligned_free(p); clean();
+ }
+ 
++/* The SDL gain is the game's volume times the player's (VOLUME, 0..300 %, live) and is 0 while the window is behind
++   others with MUTE_UNFOCUSED on. The game still reads back its own volume. */
++static void test_player_volume(void) {
++    audio_mode = "sdl"; host_volume_pct = 200; cfg_ver++;
++    uint32_t h = open_out(3, 48000, 2); IpcSession *s = session(h); AudioOut *o = s->state;
++    TASSERT(o->stream->gain == 2.0f);
++    float value = 0.25f; IpcRequest q = {.cmd = 12, .data = (uint8_t *)&value, .data_size = 4};
++    (void)call(s, q); TASSERT(o->stream->gain == 0.5f);
++    IpcResponse r = command(s, 13); TASSERT(r.data_size == 4); memcpy(&value, r.data, 4); TASSERT(value == 0.25f);
++    unsigned char *p = samples(4096);
++    host_volume_pct = 50; cfg_ver++; append(s, 1, p, 4096, 8, 0); TASSERT(o->stream->gain == 0.125f);
++    host_volume_pct = 999; cfg_ver++; append(s, 2, p, 4096, 8, 0); TASSERT(o->stream->gain == 0.75f);
++    host_volume_pct = -5; cfg_ver++; append(s, 3, p, 4096, 8, 0); TASSERT(o->stream->gain == 0.0f);
++    host_volume_pct = 300; cfg_ver++; append(s, 4, p, 4096, 8, 0); TASSERT(o->stream->gain == 0.75f);
++    mute_unfocused = 1; cfg_ver++; window_focused = 0; append(s, 5, p, 4096, 8, 0); TASSERT(o->stream->gain == 0.0f);
++    window_focused = 1; append(s, 6, p, 4096, 8, 0); TASSERT(o->stream->gain == 0.75f);
++    mute_unfocused = 0; cfg_ver++; window_focused = 0; append(s, 7, p, 4096, 8, 0); TASSERT(o->stream->gain == 0.75f);
++    kern_handle_close(h); _aligned_free(p); clean();
++    host_volume_pct = 100; window_focused = 1; cfg_ver++;
++}
++
++/* AUDIO_LATENCY picks the SDL device period (10, 20 or 40 ms at 48 kHz); the lead follows the period SDL reports. */
++static void test_latency(void) {
++    audio_mode = "sdl";
++    static const char *const levels[] = {"low", "normal", "high", "unknown"};
++    static const int frames[] = {480, 960, 1920, 480};
++    for (int i = 0; i < 4; i++) {
++        audio_latency = levels[i]; period_hint[0] = 0; device_period = frames[i];
++        uint32_t h = open_out(3, 48000, 2); IpcSession *s = session(h); AudioOut *o = s->state;
++        TASSERT(atoi(period_hint) == frames[i] && o->lead == (2u * (unsigned)frames[i] + 240) * 4);
++        kern_handle_close(h); clean();
++    }
++    audio_latency = "low"; device_period = 480; period_hint[0] = 0;
++}
++
+ int main(int argc, char **argv) {
+     TASSERT(argc == 2);
+     if (!strcmp(argv[1], "manager")) test_manager();
+@@ -478,6 +523,8 @@ int main(int argc, char **argv) {
+     else if (!strcmp(argv[1], "fifo")) test_fifo();
+     else if (!strcmp(argv[1], "event-life")) test_event_life();
+     else if (!strcmp(argv[1], "controls")) test_controls();
++    else if (!strcmp(argv[1], "player-volume")) test_player_volume();
++    else if (!strcmp(argv[1], "latency")) test_latency();
+     else TASSERT(0);
+     puts("audout fixture check passed");
+     return 0;
+diff --git a/tests/hwaoi/test_audout.py b/tests/hwaoi/test_audout.py
+index 7f5aab6f290c7a160ad0c2692df5be7b38baacb6..7fbad24632c3d60f32ac0abeda1d43ed3638a2da 100644
+--- a/tests/hwaoi/test_audout.py
++++ b/tests/hwaoi/test_audout.py
+@@ -11,7 +11,12 @@ import unittest
+ 
+ ROOT = Path(__file__).resolve().parents[2]
+ CLANG = Path(os.environ.get("HWAOI_TOOLS", "F:") + "/llvm-mingw/bin/clang.exe")
+-SDL_INCLUDE = Path("F:/TotKDependencies/runtime/deps/include")
++# SDL3 headers: HWAOI_SDL_INCLUDE, else the Age of Decomp toolchain beside this checkout
++# (<project>/.cache/engine/hwaoi-recomp -> <project>/.cache/toolchain/windows/deps/include), else the upstream layout.
++SDL_CANDIDATES = [Path(p) for p in (os.environ.get("HWAOI_SDL_INCLUDE"),) if p] + [
++    ROOT.parent.parent / "toolchain" / "windows" / "deps" / "include",
++    Path("F:/TotKDependencies/runtime/deps/include")]
++SDL_INCLUDE = next((p for p in SDL_CANDIDATES if (p / "SDL3/SDL.h").is_file()), SDL_CANDIDATES[-1])
+ 
+ 
+ @unittest.skipUnless(os.name == "nt" and CLANG.is_file()
+@@ -76,6 +81,12 @@ class AudioOutTests(unittest.TestCase):
+     def test_flush_volume_and_command_failure_paths(self):
+         self.run_case("controls")
+ 
++    def test_player_volume_and_background_mute_scale_the_game_volume(self):
++        self.run_case("player-volume")
++
++    def test_audio_latency_sets_the_device_period(self):
++        self.run_case("latency")
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

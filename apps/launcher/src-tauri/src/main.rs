@@ -6,7 +6,15 @@ fn main() {
     if args.iter().any(|a| a == "--play") {
         // RecompLauncher's `start`: play directly, no launcher window.
         let game_dir = args.iter().position(|a| a == "--game-dir").and_then(|i| args.get(i + 1)).map(std::path::PathBuf::from);
-        std::process::exit(aod_launcher_lib::play_headless(game_dir));
+        // The player's copy (RecompLauncher's {input:nup}): `--game=<nup>` or `--game <nup>`.
+        let copy = args.iter().find_map(|a| a.strip_prefix("--game=").map(str::to_string))
+            .or_else(|| args.iter().position(|a| a == "--game").and_then(|i| args.get(i + 1)).cloned())
+            .filter(|c| !c.is_empty()).map(std::path::PathBuf::from);
+        // The player's NVIDIA DLSS file (RecompLauncher's {input:dlss}, only on RTX PCs): `--dlss=<file>`.
+        let dlss = args.iter().find_map(|a| a.strip_prefix("--dlss=").map(str::to_string))
+            .or_else(|| args.iter().position(|a| a == "--dlss").and_then(|i| args.get(i + 1)).cloned())
+            .filter(|d| !d.is_empty()).map(std::path::PathBuf::from);
+        std::process::exit(aod_launcher_lib::play_headless(game_dir, copy, dlss));
     }
     aod_launcher_lib::run()
 }

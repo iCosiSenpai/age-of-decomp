@@ -19,6 +19,9 @@ const FILE_SIZE: usize = 0x50;
 const TOC_HEADER: usize = 0x30;
 /// TOCs larger than this are refused (the HWAoI TOC is 389 KiB for 4228 files).
 const MAX_TOC: u64 = 256 << 20;
+/// A dump holds the base game, its update and DLC: a few packages. Their metadata all stays in memory.
+const MAX_PACKAGES: usize = 256;
+const MAX_META_TOTAL: u64 = 64 << 20;
 const MAX_READ_ALL: u64 = 512 << 20;
 const MAX_READ_RESERVE: u64 = 64 << 20;
 const NONE: u32 = u32::MAX;
@@ -190,6 +193,9 @@ impl Nup {
         if package_count == 0 {
             return corrupt("no packages");
         }
+        if package_count > MAX_PACKAGES {
+            return corrupt("too many packages");
+        }
         let header_sha256: [u8; 32] = Sha256::digest(sb).into();
         file.seek(SeekFrom::Start(toc_offset))?;
         let mut toc = vec![0u8; toc_size as usize];
@@ -232,6 +238,10 @@ impl Nup {
             pool: (pool_off as usize, pool_size as usize),
             packages: Vec::new(),
         };
+        let meta_total: u64 = (0..package_count).map(|i| u32_at(&nup.toc, TOC_HEADER + i * PACKAGE_SIZE + 0x28) as u64).sum();
+        if meta_total > MAX_META_TOTAL {
+            return corrupt("package metadata too large");
+        }
         for index in 0..package_count {
             let pkg = nup.read_package(index)?;
             nup.packages.push(pkg);
@@ -669,6 +679,23 @@ mod tests {
             profile.modules.insert("main".into(), hex::encode(entry.sha256));
             assert!(matches!(profile::check(nup, None, &profile), Err(Error::Corrupt(s)) if s.contains("too large to read whole")));
         });
+    }
+
+    #[test]
+    fn rejects_too_many_packages_and_oversized_metadata() {
+        let path = std::env::temp_dir().join(format!("aod-nup-limits-{}.nup", std::process::id()));
+        let mut bytes = synthetic();
+        bytes[0x48..0x4c].copy_from_slice(&300u32.to_le_bytes());
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(matches!(Nup::open(&path), Err(Error::Corrupt(s)) if s == "too many packages"));
+        let mut bytes = synthetic();
+        let package = SUPERBLOCK_SIZE + TOC_HEADER;
+        bytes[package + 0x20..package + 0x28].copy_from_slice(&(SUPERBLOCK_SIZE as u64).to_le_bytes());
+        bytes[package + 0x28..package + 0x2c].copy_from_slice(&(100u32 << 20).to_le_bytes());
+        rehash_toc(&mut bytes);
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(matches!(Nup::open(&path), Err(Error::Corrupt(s)) if s == "package metadata too large"));
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]

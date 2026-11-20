@@ -3,6 +3,7 @@
 
 pub mod config;
 mod diagnostics;
+mod dlss;
 pub mod game;
 pub mod gamepad;
 mod nintendo;
@@ -17,7 +18,7 @@ use config::{Config, GameState, UiPrefs};
 use paths::Paths;
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 
@@ -126,6 +127,50 @@ async fn install_update(handle: tauri::AppHandle) -> Res<()> {
 #[tauri::command]
 async fn system_info() -> system::SystemInfo {
     tauri::async_runtime::spawn_blocking(system::system_info).await.unwrap_or_else(|_| system::system_info())
+}
+
+/// NVIDIA DLSS for DLAA in the standalone compiler (dlss.rs): is the player's file there, is there an RTX card.
+#[tauri::command]
+async fn dlss_status(app: tauri::State<'_, App>) -> Res<dlss::Status> {
+    let paths = app.paths.clone();
+    tauri::async_runtime::spawn_blocking(move || dlss::status(&paths, &system::system_info().gpus))
+        .await.map_err(|e| e.to_string())
+}
+
+/// Downloads NVIDIA's file from NVIDIA's GitHub; the UI calls it only after the player accepted NVIDIA's licence.
+/// Event `dlss-progress`: 0..1, at most once per percent.
+#[tauri::command]
+async fn dlss_download(app: tauri::State<'_, App>, handle: tauri::AppHandle) -> Res<dlss::Status> {
+    let paths = app.paths.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut shown = -1i64;
+        dlss::download(&paths, |p| {
+            let percent = (p * 100.0) as i64;
+            if percent != shown {
+                shown = percent;
+                let _ = handle.emit("dlss-progress", p);
+            }
+        })?;
+        Ok(dlss::status(&paths, &system::system_info().gpus))
+    }).await.map_err(|e| e.to_string())?
+}
+
+/// Opens NVIDIA's DLSS licence page (a fixed address) in the browser, the way open_folder opens folders.
+#[tauri::command]
+fn dlss_license() -> Res<()> {
+    let opener = if cfg!(windows) { "explorer" } else { "xdg-open" };
+    std::process::Command::new(opener).arg(dlss::LICENSE_URL).spawn().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// A copy the player picked: kept only when it is NVIDIA's (pinned, or signed by NVIDIA Corporation).
+#[tauri::command]
+async fn dlss_pick(app: tauri::State<'_, App>, path: String) -> Res<dlss::Status> {
+    let paths = app.paths.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        dlss::pick(&paths, Path::new(&path))?;
+        Ok(dlss::status(&paths, &system::system_info().gpus))
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -255,7 +300,10 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
     let bigpicture = std::env::var("RECOMPLAUNCHER_MODE").is_ok_and(|m| m == "bigpicture");
     let pads = app.pads.lock().unwrap().clone();
     let handoff = pads.as_ref().and_then(|p| p.suspend(true));
-    let launched = match game::launch(&cfg, &app.paths, bigpicture, handoff.as_ref()) {
+    let observe_exit = diagnostics::enabled(&app.paths);
+    // The in-game Restart needs this process to wait for the game: not when it closes as the game starts.
+    let restart = !(cfg.ui.close_on_play && !observe_exit);
+    let launched = match game::launch(&cfg, &app.paths, bigpicture, handoff.as_ref(), restart, None, None) {
         Ok(l) => l,
         Err(e) => {
             if let Some(p) = &pads {
@@ -266,7 +314,6 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
     };
     *running = true;
     let _ = handle.emit("game", serde_json::json!({ "kind": "started" }));
-    let observe_exit = diagnostics::enabled(&app.paths);
     if cfg.ui.close_on_play && !observe_exit {
         if let Some(handoff) = handoff {
             std::thread::spawn(move || {
@@ -284,8 +331,28 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
     }
     let close_on_play = cfg.ui.close_on_play;
     std::thread::spawn(move || {
-        let mut child = launched.child;
-        let code = child.wait().ok().and_then(|s| s.code());
+        let mut launched = launched;
+        let mut code = launched.child.wait().ok().and_then(|s| s.code());
+        // Restart from the in-game menu: the game again with the settings it just wrote, the controllers handed over
+        // as on Play.
+        while launched.wants_restart(code) {
+            let Some(app) = handle.try_state::<App>() else { break };
+            let cfg = app.cfg.lock().unwrap().clone();
+            let pads = app.pads.lock().unwrap().clone();
+            if let Some(p) = &pads { let _ = p.suspend(false); }
+            let handoff = pads.as_ref().and_then(|p| p.suspend(true));
+            match game::launch(&cfg, &app.paths, bigpicture, handoff.as_ref(), true, None, None) {
+                Ok(l) => {
+                    launched = l;
+                    code = launched.child.wait().ok().and_then(|s| s.code());
+                }
+                Err(e) => {
+                    write_last_error(&app.paths, &e.to_string());
+                    code = Some(e.exit_code());
+                    break;
+                }
+            }
+        }
         let fps = game::session_fps(&launched.log);
         if let Some(fps) = fps {
             let _ = handle.emit("game", serde_json::json!({ "kind": "perf", "fps": fps }));
@@ -368,6 +435,7 @@ pub fn run() {
             let (h1, h2) = (handle.clone(), handle.clone());
             let pads = gamepad::Gamepads::start(
                 gamepad::sdl_candidates(paths.engine.as_deref(), &paths.exe_dir),
+                paths.engine.clone(),
                 move |list| {
                     let _ = h1.emit("pads", list);
                 },
@@ -398,7 +466,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_state, set_ui, set_diagnostics, system_info, disk_info, find_nups, inspect_nup, set_game, start_prepare, cancel_prepare,
             get_settings, set_setting, reset_settings, list_pads, pad_state, pad_rumble, play, open_folder, log_tail,
-            licenses, check_updates, install_update
+            licenses, check_updates, install_update, dlss_status, dlss_download, dlss_pick, dlss_license
         ])
         .build(tauri::generate_context!())
         .expect("error while building Age of Decomp")
@@ -411,27 +479,68 @@ pub fn run() {
 
 // ── headless entry points (RecompLauncher) ──────────────────────────────────────────────────────────────────────────
 
-/// `AgeOfDecomp --play [--game-dir DIR]`: starts the built game without a window and returns its exit code.
-pub fn play_headless(game_dir: Option<PathBuf>) -> i32 {
+/// `AgeOfDecomp --play [--game-dir DIR] [--game=NUP] [--dlss=FILE]`: starts the built game without a window and returns
+/// its exit code. `--game`: where the player's copy is now (RecompLauncher's `{input:nup}`), when it has moved since the
+/// build. `--dlss`: the player's nvngx_dlss.dll (RecompLauncher's `{input:dlss}`) for DLAA.
+pub fn play_headless(game_dir: Option<PathBuf>, copy: Option<PathBuf>, dlss: Option<PathBuf>) -> i32 {
     let paths = Paths::detect();
     let mut cfg = Config::load(&paths);
     if let Some(d) = game_dir {
         cfg.output = Some(d.to_string_lossy().into_owned());
     }
     let bigpicture = std::env::var("RECOMPLAUNCHER_MODE").is_ok_and(|m| m == "bigpicture");
-    match game::launch(&cfg, &paths, bigpicture, None) {
+    match game::launch(&cfg, &paths, bigpicture, None, true, copy.as_deref(), dlss.as_deref()) {
         Ok(mut l) => {
             diagnostics::flush(&paths);
-            let code = l.child.wait().ok().and_then(|s| s.code()).unwrap_or(1);
+            let mut code = l.child.wait().ok().and_then(|s| s.code());
+            // Restart from the in-game menu: one process for RecompLauncher, the game started again inside it.
+            while l.wants_restart(code) {
+                match game::launch(&cfg, &paths, bigpicture, None, true, copy.as_deref(), dlss.as_deref()) {
+                    Ok(next) => {
+                        l = next;
+                        code = l.child.wait().ok().and_then(|s| s.code());
+                    }
+                    Err(e) => {
+                        play_failed(&paths, &cfg, &e.to_string());
+                        return e.exit_code();
+                    }
+                }
+            }
+            let code = code.unwrap_or(1);
+            if code != 0 { print_log_end(&l.log, code); }
             diagnostics::game_finished(&paths, code, game::session_fps(&l.log), &l.log);
             code
         }
         Err(e) => {
-            eprintln!("{e}");
-            write_last_error(&paths, &e.to_string());
+            play_failed(&paths, &cfg, &e.to_string());
             // Distinct code for "the game is not set up" (shown by RecompLauncher through exit_codes).
             e.exit_code()
         }
+    }
+}
+
+/// Play could not start the game: the reason on stderr (RecompLauncher keeps what a game prints), in the launcher's
+/// last-error.log, and as a log in the game folder's `logs`, where RecompLauncher finds the log it sends with a report.
+fn play_failed(paths: &Paths, cfg: &Config, e: &str) {
+    eprintln!("{e}");
+    write_last_error(paths, e);
+    let logs = paths::game_logs_dir(&cfg.output(paths));
+    if std::fs::create_dir_all(&logs).is_ok() {
+        let _ = std::fs::write(logs.join(format!("launch-{}.log", paths::stamp())),
+                               format!("Age of Decomp {VERSION}: Play stopped before the game started.\n{e}\n"));
+    }
+}
+
+/// The game ended with an error: the end of its log on stderr, so the reason (a "fatal:" line, a crash report) is in
+/// what RecompLauncher keeps of the game's output too. The whole log stays in the game folder's `logs`.
+fn print_log_end(log: &Path, code: i32) {
+    let Ok(bytes) = std::fs::read(log) else { return };
+    let tail = &bytes[bytes.len().saturating_sub(16 * 1024)..];
+    let text = String::from_utf8_lossy(tail);
+    let lines: Vec<&str> = text.lines().collect();
+    eprintln!("Age of Decomp {VERSION}: the game ended with code {code}. The end of {}:", log.display());
+    for line in &lines[lines.len().saturating_sub(60)..] {
+        eprintln!("{line}");
     }
 }
 

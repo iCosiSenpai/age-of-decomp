@@ -236,3 +236,19 @@ pin. Patch 0016 uses the reproduction from
 check against Vulkan's requirements. It preserves the existing fatal checks for malformed metadata. When
 aliasing cannot be ruled out, it keeps command ordering and skips the copy. The policy is covered by synthetic
 fixtures; the reporter's full co-op mission still needs a hardware run.
+
+## NVIDIA DLSS file in the standalone compiler (2026-11-20)
+
+`apps/launcher/src-tauri/src/dlss.rs` is own code. What it checks follows the behaviour of RecompLauncher's
+`src-tauri/src/dlss.rs` (elripalda/RecompLauncher, GPL-3.0-or-later, read at `baecaf4`): the same NVIDIA file
+(`NVIDIA/DLSS` v310.9.16 `lib/Windows_x86_64/rel/nvngx_dlss.dll`, 58,956,912 bytes), only NVIDIA's GitHub as the
+source, and Windows' own `Get-AuthenticodeSignature` verdict naming NVIDIA Corporation for a file the player picks.
+No code was copied; the SHA-256 pin and the download/pick flow are ours.
+
+## Intel pipeline cache and crash reports (engine patches 0031–0032, 2026-11-20)
+
+Both are own code, written from our own diagnosis on an Intel Xe iGPU (driver 101.9175): a debugger backtrace put
+the boot crash inside the driver's `vkGetPipelineCacheData`, called by the runtime's pipeline cache autosave while
+other threads were building pipelines. `0031` serialises that copy with the builds on Intel's Windows driver only;
+`0032` adds a Windows top-level exception filter so a fault outside the executable is reported with its module,
+thread and calling frames. No third-party code was read or copied for either.

@@ -12,7 +12,7 @@ so RecompLauncher's team must enable its beta before catalog installation is ava
 
 Alternatively extract the ZIP and import the folder through **Settings → Developers → Add a build**.
 The `recomplauncher.json` embedded in the release belongs beside `AgeOfDecomp.exe` and `aod-cli.exe`.
-The profile exposes 44 settings, preparation, direct Play, save paths and log folders. Setup version 3 asks
+The profile exposes 45 settings, preparation, direct Play, save paths and log folders. Setup version 4 asks
 existing installations to rebuild for the new engine runtime.
 
 ## Catalog submission
@@ -34,6 +34,15 @@ player's build ID through its NUP reader. A new folder normally reports that no 
 saves exist yet. It must otherwise report level 3 and zero errors.
 
 The expected commands are `aod-cli.exe cli prepare --game <nup> --out <install>/game` and
-`AgeOfDecomp.exe --play --game-dir <install>/game`. Exit 64 means the build is absent/incomplete; exit 65 means
-the player's NUP moved or changed. Updates preserve player settings and saves. Rebuild through Setup when the
-profile's preparation version changes.
+`AgeOfDecomp.exe --play --game-dir <install>/game --game=<nup>`. The profile asks for the player's NUP as the named
+input `nup` (`{input:nup}`), not as a `game` section: RecompLauncher's Easy Setup (0.90 beta 65 and 66) refuses a
+profile that has both a `game` section and named inputs when the copy is chosen in its own window ("That copy didn't
+work: Choose your copy of the game first"). Named inputs get no content check from RecompLauncher, so the setup step
+checks the build first and stops with exit 3 and the reason, which RecompLauncher shows as the setup's error. The game
+reads the player's NUP while it plays, so `start` passes it too. `--game` may point to the copy's new place; it must be
+the copy of the build (same header, TOC and size), and the game then reads it there.
+Exit 64 means the build is absent/incomplete; exit 65 means the player's NUP is missing or is another file. Updates
+preserve player settings and saves. Rebuild through Setup when the profile's preparation version changes.
+
+The in-game menu's Restart (a setting read only at start was changed) ends the game with exit 75; `--play`, `aod-cli
+play` and the launcher window start it again in the same process, so RecompLauncher sees one session.

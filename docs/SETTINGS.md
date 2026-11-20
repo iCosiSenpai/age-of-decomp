@@ -11,13 +11,13 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `output_res` | Resolution — What the game draws at. 1080p is the tested baseline; 1440p and 4K are experimental (menus and movies may not scale yet). | `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p (experimental), `3840x2160` 4K (experimental) | `1920x1080` | yes |
 | `fullscreen` | Fullscreen — Fill the screen. F11 switches it while you play. | `0` off, `1` on | `0` |  |
 | `window_size` | Window size — The size of the window when not in fullscreen. | `1280x720` 1280 × 720, `1600x900` 1600 × 900, `1920x1080` 1920 × 1080, `2560x1440` 2560 × 1440 | `1280x720` |  |
-| `fps_limit` | Frame rate — 60 is the game's own speed. 30 saves power. 90 and 120 also speed the game up (gameplay advances one step per frame): for smoother motion keep 60 and use frame generation. | `30` 30 FPS, `60` 60 FPS, `90` 90 FPS (faster game), `120` 120 FPS (faster game) | `60` |  |
+| `fps_limit` | Frame rate — 60 is the game's normal speed. 30 saves power. | `30` 30 FPS, `60` 60 FPS | `60` |  |
 | `vk_present` | V-Sync — Mailbox shows the newest frame without tearing. V-Sync waits for the screen. Immediate has the lowest latency but can tear. | `mailbox` Mailbox, `fifo` V-Sync, `immediate` Off (tearing) | `mailbox` |  |
-| `render_scale` | 3D resolution — Native draws the 3D scene at the full resolution. Dynamic lets the game lower it in busy scenes, as on the console. | `100` Native, `game` Dynamic | `100` | yes |
+| `render_scale` | 3D resolution — Native draws the 3D scene at the full resolution: sharpest, with no smoothing of edges. Console is the game's own: a 1600×900 scene its upscaler brings to 1080p, softer with steadier edges, lower in busy scenes. Console always draws at 1080p. | `100` Native, `game` Console (1080p) | `100` | yes |
+| `temporal` | Anti-aliasing — Smooths jagged, shimmering edges in the 3D scene at Native 3D resolution. NVIDIA DLAA needs an RTX card and NVIDIA's own DLSS file. | `off` Off, `dlaa` NVIDIA DLAA | `off` | yes |
 | `upscaler` | Upscaling — How the picture is fitted to your screen. AMD FSR keeps it sharp on any graphics card. | `fsr` AMD FSR 1, `bilinear` Bilinear | `fsr` |  |
 | `sharpness` | Sharpness — FSR sharpening. 0 is soft, 100 is crisp. | 0 – 100 (step 5) | `80` |  |
 | `aspect` | Aspect ratio — Keep 16:9 adds borders on other screens. Stretch fills them. | `fit` Keep 16:9, `stretch` Stretch | `fit` |  |
-| `fov` | Field of view — Camera field of view compared with the console (100 %). | 70 – 140 (step 5) | `100` |  |
 | `perf_overlay` | Performance overlay — Frame rate and timings in a corner of the game. F10 cycles it while you play. | `off` Off, `fps` FPS, `full` Full | `off` |  |
 | `gpu_index` | Graphics card — Which graphics card runs the game. Automatic picks the fastest. | empty = automatic, or the Vulkan device index | `(empty)` | yes |
 | `device_profile` | Device profile — Steam Deck uses lighter defaults for handheld PCs. | `auto` Automatic, `desktop` Desktop, `deck` Steam Deck | `auto` | yes |
@@ -46,6 +46,8 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
 | `volume` | Master volume — Above 100 % boosts quiet speakers. | 0 – 300 (step 5) | `100` |  |
+| `mute_unfocused` | Mute in the background — Silences the game while another window is in front. | `0` off, `1` on | `0` |  |
+| `audio_latency` | Audio buffer — Raise it if the sound crackles or drops out. Low reacts fastest. | `low` Low (10 ms), `normal` Normal (20 ms), `high` High (40 ms) | `low` | yes |
 
 ## Controls
 

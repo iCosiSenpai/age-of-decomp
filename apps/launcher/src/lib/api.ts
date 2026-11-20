@@ -3,6 +3,7 @@
 
 import type {
   DiskInfo,
+  DlssStatus,
   GameEvent,
   LauncherState,
   NupReport,
@@ -85,6 +86,17 @@ export const api = {
   openFolder: (kind: 'game' | 'saves' | 'logs' | 'data' | 'engine') => invoke<void>('open_folder', { kind }),
   logTail: (kind: 'prepare' | 'game') => invoke<string>('log_tail', { kind }),
   licenses: () => invoke<string>('licenses'),
+  dlssStatus: () => invoke<DlssStatus>('dlss_status'),
+  dlssDownload: () => invoke<DlssStatus>('dlss_download'),
+  onDlssProgress: (cb: (fraction: number) => void) => listen<number>('dlss-progress', cb),
+  dlssPick: (path: string) => invoke<DlssStatus>('dlss_pick', { path }),
+  dlssLicense: () => invoke<void>('dlss_license'),
+  pickDlssFile: async (title: string): Promise<string | null> => {
+    if (!isTauri) return 'D:\\Games\\Some game\\nvngx_dlss.dll';
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const r = await open({ title, multiple: false, directory: false, filters: [{ name: 'NVIDIA DLSS', extensions: ['dll'] }] });
+    return typeof r === 'string' ? r : null;
+  },
   windowAction: async (action: 'minimize' | 'maximize' | 'close') => {
     if (!isTauri) return;
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
@@ -202,12 +214,33 @@ async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknow
       return '[demo] no log in the browser preview';
     case 'licenses':
       return 'Age of Decomp — GPL-3.0-or-later (demo)';
+    case 'dlss_status':
+      return { ...demoDlss };
+    case 'dlss_download':
+      for (let i = 1; i <= 10; i++) {
+        await new Promise((r) => setTimeout(r, 150));
+        demoListeners['dlss-progress']?.(i / 10);
+      }
+      demoDlss.ready = true;
+      return { ...demoDlss };
+    case 'dlss_pick':
+      demoDlss.ready = true;
+      return { ...demoDlss };
+    case 'dlss_license':
+      return;
     default:
       return null;
   }
 }
 
 let demoCancelled = false;
+// `?dlss=none` previews a PC without an RTX card, `?dlss=ready` one with the file already there.
+const demoDlss: DlssStatus = {
+  ready: params.get('dlss') === 'ready',
+  rtx: params.get('dlss') !== 'none',
+  version: '310.9.16',
+  license_url: 'https://github.com/NVIDIA/DLSS/blob/v310.9.16/LICENSE.txt',
+};
 function demoPrepare() {
   demoCancelled = false;
   const emit = (e: PrepareEvent) => demoListeners['prepare']?.(e);

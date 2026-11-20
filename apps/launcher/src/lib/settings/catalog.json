@@ -38,12 +38,10 @@
     },
     {
       "key": "fps_limit", "section": "frame rate", "group": "display", "kind": "choice", "label": "Frame rate", "default": "60",
-      "help": "60 is the game's own speed. 30 saves power. 90 and 120 also speed the game up (gameplay advances one step per frame): for smoother motion keep 60 and use frame generation.",
+      "help": "60 is the game's normal speed. 30 saves power.",
       "choices": [
         { "value": "30", "label": "30 FPS" },
-        { "value": "60", "label": "60 FPS" },
-        { "value": "90", "label": "90 FPS (faster game)" },
-        { "value": "120", "label": "120 FPS (faster game)" }
+        { "value": "60", "label": "60 FPS" }
       ]
     },
     {
@@ -57,10 +55,19 @@
     },
     {
       "key": "render_scale", "section": "display", "group": "display", "kind": "choice", "restart": true, "label": "3D resolution", "default": "100",
-      "help": "Native draws the 3D scene at the full resolution. Dynamic lets the game lower it in busy scenes, as on the console.",
+      "help": "Native draws the 3D scene at the full resolution: sharpest, with no smoothing of edges. Console is the game's own: a 1600×900 scene its upscaler brings to 1080p, softer with steadier edges, lower in busy scenes. Console always draws at 1080p.",
       "choices": [
         { "value": "100", "label": "Native" },
-        { "value": "game", "label": "Dynamic" }
+        { "value": "game", "label": "Console (1080p)" }
+      ]
+    },
+    {
+      "key": "temporal", "section": "display", "group": "display", "kind": "choice", "restart": true, "label": "Anti-aliasing",
+      "default": "off",
+      "help": "Smooths jagged, shimmering edges in the 3D scene at Native 3D resolution. NVIDIA DLAA needs an RTX card and NVIDIA's own DLSS file.",
+      "choices": [
+        { "value": "off", "label": "Off" },
+        { "value": "dlaa", "label": "NVIDIA DLAA" }
       ]
     },
     {
@@ -83,11 +90,6 @@
         { "value": "fit", "label": "Keep 16:9" },
         { "value": "stretch", "label": "Stretch" }
       ]
-    },
-    {
-      "key": "fov", "section": "display", "group": "display", "kind": "slider", "label": "Field of view", "default": "100",
-      "min": 70, "max": 140, "step": 5, "format": "%.0f", "unit": "%",
-      "help": "Camera field of view compared with the console (100 %)."
     },
     {
       "key": "perf_overlay", "section": "display", "group": "display", "kind": "choice", "label": "Performance overlay", "default": "off",
@@ -185,6 +187,19 @@
     {
       "key": "volume", "section": "audio", "group": "audio", "kind": "slider", "label": "Master volume", "default": "100",
       "min": 0, "max": 300, "step": 5, "format": "%.0f", "unit": "%", "help": "Above 100 % boosts quiet speakers."
+    },
+    {
+      "key": "mute_unfocused", "section": "audio", "group": "audio", "kind": "toggle", "label": "Mute in the background",
+      "default": "0", "help": "Silences the game while another window is in front."
+    },
+    {
+      "key": "audio_latency", "section": "audio", "group": "audio", "kind": "choice", "restart": true, "label": "Audio buffer",
+      "default": "low", "help": "Raise it if the sound crackles or drops out. Low reacts fastest.",
+      "choices": [
+        { "value": "low", "label": "Low (10 ms)" },
+        { "value": "normal", "label": "Normal (20 ms)" },
+        { "value": "high", "label": "High (40 ms)" }
+      ]
     },
     {
       "key": "player1_device", "section": "input", "group": "controls", "kind": "dynamic", "source": "pads",

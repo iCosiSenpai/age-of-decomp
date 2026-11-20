@@ -1,5 +1,5 @@
 //! Windows BLE transport bundled with Age of Decomp; virtual pads live only in our SDL instance.
-use std::path::PathBuf;
+use std::path::Path;
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 
@@ -38,35 +38,31 @@ pub struct Nintendo {
 pub struct Nintendo;
 
 impl Nintendo {
+    /// The bridge of the selected engine bundle only (`<engine>/nintendo`, the folder `game::launch` hands to the
+    /// game), never a DLL from a folder around the installation.
     #[cfg(windows)]
-    pub fn load(candidates: &[PathBuf]) -> Option<Self> {
-        for candidate in candidates {
-            for parent in candidate.ancestors().skip(1).take(4) {
-                let folder = parent.join("nintendo");
-                let helper = folder.join("AgeOfDecomp.Nintendo.exe");
-                let library = folder.join("aod_nintendo.dll");
-                if !helper.is_file() || !library.is_file() { continue; }
-                // SAFETY: our bundled adapter and its fixed C ABI; the SDL DLL is already loaded.
-                let loaded = unsafe {
-                    (|| -> Option<Self> {
-                        let lib = libloading::Library::new(library).ok()?;
-                        Some(Self {
-                            helper: std::ffi::CString::new(helper.to_str()?).ok()?,
-                            start: *lib.get(b"aod_nintendo_start\0").ok()?,
-                            tick: *lib.get(b"aod_nintendo_tick\0").ok()?,
-                            stop: *lib.get(b"aod_nintendo_stop\0").ok()?,
-                            lend: *lib.get(b"aod_nintendo_lend\0").ok()?,
-                            _lib: lib,
-                        })
-                    })()
-                };
-                if loaded.is_some() { return loaded; }
-            }
+    pub fn load(engine: Option<&Path>) -> Option<Self> {
+        let folder = engine?.join("nintendo");
+        let helper = folder.join("AgeOfDecomp.Nintendo.exe");
+        let library = folder.join("aod_nintendo.dll");
+        if !helper.is_file() || !library.is_file() { return None; }
+        // SAFETY: our bundled adapter and its fixed C ABI; the SDL DLL is already loaded.
+        unsafe {
+            (|| -> Option<Self> {
+                let lib = libloading::Library::new(&library).ok()?;
+                Some(Self {
+                    helper: std::ffi::CString::new(helper.to_str()?).ok()?,
+                    start: *lib.get(b"aod_nintendo_start\0").ok()?,
+                    tick: *lib.get(b"aod_nintendo_tick\0").ok()?,
+                    stop: *lib.get(b"aod_nintendo_stop\0").ok()?,
+                    lend: *lib.get(b"aod_nintendo_lend\0").ok()?,
+                    _lib: lib,
+                })
+            })()
         }
-        None
     }
     #[cfg(not(windows))]
-    pub fn load(_candidates: &[PathBuf]) -> Option<Self> { None }
+    pub fn load(_engine: Option<&Path>) -> Option<Self> { None }
 
     #[cfg(windows)]
     pub fn start(&self) { unsafe { (self.start)(self.helper.as_ptr(), false); } }

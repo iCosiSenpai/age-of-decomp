@@ -76,6 +76,14 @@ export interface UiPrefs {
   rate_unlock: boolean;
 }
 
+/** NVIDIA's DLSS file for DLAA in the standalone compiler (src-tauri/src/dlss.rs). */
+export interface DlssStatus {
+  ready: boolean;
+  rtx: boolean;
+  version: string;
+  license_url: string;
+}
+
 export interface UpdateInfo {
   current: string;
   latest: string | null;

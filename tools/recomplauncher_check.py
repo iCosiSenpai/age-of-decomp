@@ -15,6 +15,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -75,9 +76,12 @@ def main() -> int:
     if not (release / "recomplauncher.json").is_file():
         sys.exit(f"{release} has no recomplauncher.json: run tools/release.py first")
     rev = prepare_worktree()
-    manifest = json.loads((release / "recomplauncher.json").read_text(encoding="utf-8"))
-    env = dict(os.environ, AOD_RELEASE=str(release), CARGO_TARGET_DIR=str(TARGET),
-               AOD_BUILD_ID=manifest["game"]["check"]["nup_build_id"])
+    # The manifest asks for the copy as a named input (no content check there), so the build the setup step
+    # accepts comes from the release tool.
+    found = re.search(r'^BUILD_ID = "([0-9a-f]+)"', (ROOT / "tools/release.py").read_text(encoding="utf-8"), re.M)
+    if not found:
+        sys.exit("tools/release.py has no BUILD_ID")
+    env = dict(os.environ, AOD_RELEASE=str(release), CARGO_TARGET_DIR=str(TARGET), AOD_BUILD_ID=found.group(1))
     if args.nup:
         env["AOD_NUP"] = str(args.nup.resolve())
     test = ["cargo", "test", "--lib", "aod_check", "--", "--nocapture", "--test-threads=1"]

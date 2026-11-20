@@ -3,7 +3,7 @@
 //!
 //!   aod-cli verify  --game <file.nup> [--update <file.nup>]
 //!   aod-cli prepare --game <file.nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution WxH] [--unlock]
-//!   aod-cli play    [--out <dir>]
+//!   aod-cli play    [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>]
 //!   aod-cli info
 //!
 //! `prepare` prints `progress <0..1> <text>` lines on stdout (RecompLauncher protocol) and the engine's own output on
@@ -29,7 +29,7 @@ fn parse_jobs(args: &[String]) -> Result<u32, String> {
 }
 
 fn usage() -> i32 {
-    eprintln!("usage: aod-cli verify --game <nup> [--update <nup>] | prepare --game <nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution WxH] [--unlock] | play [--out <dir>] | info");
+    eprintln!("usage: aod-cli verify --game <nup> [--update <nup>] | prepare --game <nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution WxH] [--unlock] | play [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>] | info");
     2
 }
 
@@ -66,7 +66,9 @@ fn main() {
             },
         },
         Some("prepare") => prepare_cmd(&args),
-        Some("play") => aod_launcher_lib::play_headless(arg(&args, "--out").map(PathBuf::from)),
+        Some("play") => aod_launcher_lib::play_headless(arg(&args, "--out").map(PathBuf::from),
+                                                  arg(&args, "--game").filter(|g| !g.is_empty()).map(PathBuf::from),
+                                                  arg(&args, "--dlss").filter(|d| !d.is_empty()).map(PathBuf::from)),
         Some("info") => {
             let p = Paths::detect();
             println!("version {}\nengine  {:?}\ndata    {}", aod_launcher_lib::VERSION, p.engine, p.data.display());

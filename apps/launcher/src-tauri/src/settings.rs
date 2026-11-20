@@ -102,6 +102,11 @@ pub fn ini_path(cfg: &Config, paths: &Paths) -> PathBuf {
 pub fn read(cfg: &Config, paths: &Paths) -> BTreeMap<String, String> {
     let mut v = Ini::load(&paths.pending_ini()).map(|i| i.values()).unwrap_or_default();
     v.extend(Ini::load(&ini_path(cfg, paths)).map(|i| i.values()).unwrap_or_default());
+    for (key, old, new) in RETIRED {
+        if let Some(value) = v.get_mut(*key).filter(|value| old.contains(&value.as_str())) {
+            *value = (*new).to_string();
+        }
+    }
     v
 }
 
@@ -131,6 +136,24 @@ pub fn reset(cfg: &Config, paths: &Paths, keys: &[String]) -> Result<(), String>
         ini.save(&path).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// Values earlier versions offered and this one no longer does, with the value that replaces them.
+const RETIRED: &[(&str, &[&str], &str)] = &[("fps_limit", &["90", "120"], "60")];
+
+/// Before the game starts: rewrite retired values (from an older launcher or RecompLauncher) to their replacement.
+pub fn retire_values(path: &Path) -> Result<(), String> {
+    let Some(mut ini) = existing_ini(path)? else { return Ok(()) };
+    let values = ini.values();
+    let mut changed = false;
+    for (key, old, new) in RETIRED {
+        if values.get(*key).is_some_and(|v| old.contains(&v.as_str())) {
+            let s = validate(key, new)?;
+            ini.set(key, new, &s.section);
+            changed = true;
+        }
+    }
+    if changed { ini.save(path).map_err(|e| e.to_string()) } else { Ok(()) }
 }
 
 /// After a build: settings chosen before the game existed go into its hwaoi.ini.
@@ -213,6 +236,24 @@ mod tests {
         std::fs::write(paths.pending_ini(), b"\xff").unwrap();
         assert!(reset(&cfg, &paths, &["volume".to_string()]).is_err());
         assert_eq!(std::fs::read_to_string(path).unwrap(), "volume=150\n");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn retired_frame_rates_become_60() {
+        let (root, cfg, paths) = setup("retired");
+        let path = ini_path(&cfg, &paths);
+        retire_values(&path).unwrap();
+        assert!(!path.exists());
+        std::fs::write(&path, "[frame rate]\nTOTK_FPS_LIMIT = 120\n[audio]\nvolume=150\n").unwrap();
+        assert_eq!(read(&cfg, &paths).get("fps_limit").map(String::as_str), Some("60"));
+        assert!(std::fs::read_to_string(&path).unwrap().contains("TOTK_FPS_LIMIT = 120"));
+        retire_values(&path).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "[frame rate]\nTOTK_FPS_LIMIT = 60\n[audio]\nvolume=150\n");
+        std::fs::write(&path, "fps_limit = 30\n").unwrap();
+        retire_values(&path).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "fps_limit = 30\n");
+        assert!(validate("fps_limit", "90").is_err() && validate("fps_limit", "120").is_err());
         let _ = std::fs::remove_dir_all(root);
     }
 

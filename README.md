@@ -37,7 +37,7 @@ packaging for Windows and Linux, and RecompLauncher integration.
 | | |
 |---|---|
 | 🧭 **Five-step setup** | Pick your `.nup` (it is also found automatically), see every check pass, choose a folder, press *Build*: one progress bar, a list of stages, time left. Stop any time; continuing reuses everything already done. About **7 minutes** on a Core Ultra 7 265K. |
-| 🖥️ **Every setting** | Resolution (720p–4K), window, V-Sync mode, frame rate, 3D resolution, FSR upscaling and sharpness, aspect, field of view, colour (presets or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume, players, controller type, button layout, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
+| 🖥️ **Every setting** | Resolution (720p–4K), window, V-Sync mode, frame rate, 3D resolution, FSR upscaling and sharpness, aspect, colour (presets or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume (up to 300 %), mute in the background, audio buffer, players, controller type, button layout, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
 | 🎮 **Controllers, natively** | SDL 3 supports Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro, Joy-Con and GameCube controllers. Switch 2 Pro and Joy-Con 2 work over USB with our SDL build. On Windows, the Switch 2 Pro Controller can also connect over Bluetooth through the included transport. The compiler and its in-game settings menu show controller-specific button images. |
 | 🚀 **RecompLauncher ready** | Each release carries `recomplauncher.json`: one-click setup from your `.nup` (recognised by its build ID), the settings on the game's page, Big Picture mode, save backups. |
 | 🌐 **English and Italian** | Follows your system; switch any time. |
@@ -61,9 +61,12 @@ packaging for Windows and Linux, and RecompLauncher integration.
 
 Early. The game builds, boots, plays its opening and reaches exploration and combat at 1080p / 60 FPS on tested PCs
 (engine status: [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp#current-status)). Known limits inherited from
-the engine: 90/120 FPS also speed the game up; 1440p and 4K are experimental; a full playthrough is not verified yet. The v0.1.1 engine also includes the unmerged upstream RDNA 3 recorder
+the engine: 1440p and 4K are experimental; a full playthrough is not verified yet. The frame rate is 30 or 60 FPS,
+because above 60 the whole game runs faster. The v0.1.1 engine also includes the unmerged upstream RDNA 3 recorder
 workaround from [PR #20](https://github.com/Alano6678/hwaoi-recomp/pull/20); synthetic policy tests passed, while
-physical AMD validation here is pending.
+physical AMD validation here is pending. Players report that on an AMD Radeon RX 9070 XT the game can lose the GPU
+about a minute into the first field ([upstream issue #21](https://github.com/Alano6678/hwaoi-recomp/issues/21)); no
+fix yet. On Intel GPUs the first start could stop after two seconds; 0.1.2 fixes it (tested on an Intel Xe iGPU).
 Linux: the AppImage builds the game from your `.nup` and boots it to its first menu (tested under WSL with a software
 renderer); speed on real Linux PCs and on the Steam Deck is not tested yet.
 

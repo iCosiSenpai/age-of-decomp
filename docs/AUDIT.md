@@ -268,3 +268,27 @@ our own `libSDL3.so.0` (X-6), the real RecompLauncher app (R-3b), the controller
    150\n`, `Ini::load` → `set("motion","0","input")` → `save`; the file then reads `[input]\nmotion = 0` only.
 2. `pad_value_with_newline_injects_a_key`: `settings::validate("player1_device", "pad:00ff\nfps_limit = 120:1")` is
    `Ok`; after `set` + `save`, `Ini::values()` holds `fps_limit = 120:1`.
+
+## Second audit (2026-11-19)
+
+An independent read-only review by codex-cli (gpt-6.2-astra) of revision e612ffb. Each finding below was checked in
+the code before it was fixed; severity is ours. Findings A-28 to A-35 are recorded but not yet verified.
+
+| ID | Finding | Severity | Status |
+|---|---|---|---|
+| A-20 | The tag release build never received `AOD_DIAGNOSTICS_URL`, so CI binaries could not report even after the endpoint exists | Medium | Fixed — repository variable `AOD_DIAGNOSTICS_URL`, unset or empty keeps diagnostics off |
+| A-21 | The Windows Bluetooth bridge DLL was searched up to four folders above each SDL location, outside the installation | Medium | Fixed — only `<engine>/nintendo`, the folder the game launch already uses |
+| A-22 | The packager copied the whole staged engine and only checked names and extensions | Medium | Fixed — the copy must match `bundle.json` exactly (bytecode caches dropped), the ZIP is read back against the folder |
+| A-23 | The pre-commit guard listed staged names but read working-tree bytes | Medium | Fixed — sizes and contents come from the index blobs |
+| A-24 | Moving early RecompLauncher settings could follow a link out of the chosen game folder before deleting the file | Medium | Fixed — links are never followed and count as other files |
+| A-25 | `engine.py fetch` accepted any branch `aod` on the pin, even a partial or stale patch queue | Medium | Fixed — commits are compared with `engine/patches` by patch id in `fetch` and `stage` |
+| A-26 | A re-run of the release workflow could replace assets of a published release | Medium | Fixed — uploads go only into a draft, and the tag must equal `v` + `VERSION` |
+| A-27 | NUP metadata was limited per package only | Low | Fixed — at most 256 packages and 64 MiB of metadata in total |
+| A-33 | The menu preview test named one maintainer's toolchain folder | Low | Fixed — engine patch 0021: `AOD_TOOLCHAIN_DIR` or the toolchain beside the checkout |
+| A-28 | Turning diagnostics off may race an upload already authorised | Medium | Open — to verify |
+| A-29 | `hwaoi.ini` and config writes use fixed temporary names without a cross-process lock | Medium | Open — to verify |
+| A-30 | Play forced `HWAOI_PIPE_PREBUILD=1`, so "Prepare shaders early" could not be turned off | Medium | Fixed — no override; the runtime default stays on and `hwaoi.ini` decides |
+| A-31 | A colour profile chosen in the launcher or RecompLauncher wrote only `color_preset`, which the picture ignored | Medium | Fixed — engine patch 0022: a named profile sets the four values, custom uses the player's |
+| A-32 | Patch 0016 counts a skipped depth/stencil copy as handled | Medium | Open — to verify |
+| A-34 | Setup: repeated NUP scan without results, Vulkan 1.3 shown as passed without a GPU, cancel lost during preflight | Medium | Open — to verify |
+| A-35 | Smaller items: NUP index checks, optimistic UI after a failed save, ninja licence, English backend text in the Italian UI | Low | Partly — release-guard test fixtures fixed, `docs/RECOMPLAUNCHER.md` now says setup version 4 |

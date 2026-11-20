@@ -21,6 +21,19 @@ REFS = {
     "LASRecomp": ("https://github.com/peiikai/LASRecomp.git", ["--filter=blob:none"]),
     "totk-pc-recomp": ("https://github.com/valentderah/totk-pc-recomp.git", ["--filter=blob:none"]),
     "Deluxe8": ("https://github.com/iCosiSenpai/Deluxe8.git", ["--filter=blob:none"]),
+    # G-2/G-3 (research/dlss.md §8): FSR through the FidelityFX API, pinned tag, only its C headers, licence and the
+    # two Vulkan DLLs (MIT per Kits/FidelityFX/docs/license.md). Never built from in place, never committed.
+    "FidelityFX-SDK": ("https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK.git",
+                       ["--depth", "1", "--branch", "v2.4.0", "--filter=blob:none", "--no-checkout"]),
+}
+
+# Partial checkouts: name -> the paths to check out (git sparse-checkout, non-cone patterns).
+SPARSE = {
+    "FidelityFX-SDK": ["/Kits/FidelityFX/api/", "/Kits/FidelityFX/upscalers/include/",
+                       "/Kits/FidelityFX/framegeneration/include/", "/Kits/FidelityFX/docs/license.md",
+                       "/Kits/FidelityFX/readme.md", "/Kits/FidelityFX/signedbin/amd_fidelityfx_loader_vk.dll",
+                       "/Kits/FidelityFX/signedbin/amd_fidelityfx_upscaler_vk.dll", "/3rdpartynotice.md",
+                       "/readme.md"],
 }
 
 
@@ -30,6 +43,11 @@ def main() -> int:
         dest = ROOT / "refs" / name
         if not dest.is_dir():
             subprocess.run(["git", "clone", "-q", *opts, url, str(dest)], check=True)
+            if name in SPARSE:
+                subprocess.run(["git", "-C", str(dest), "sparse-checkout", "set", "--no-cone", *SPARSE[name]], check=True)
+                subprocess.run(["git", "-C", str(dest), "checkout", "-q"], check=True)
+        elif name in SPARSE:
+            pass   # a pinned tag: refetch by deleting the folder
         elif "--update" in sys.argv:
             subprocess.run(["git", "-C", str(dest), "pull", "-q", "--ff-only"], check=False)
         head = subprocess.run(["git", "-C", str(dest), "log", "-1", "--format=%h %cs"], capture_output=True, text=True).stdout.strip()

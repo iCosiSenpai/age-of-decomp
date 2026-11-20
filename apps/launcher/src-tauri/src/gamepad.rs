@@ -140,6 +140,7 @@ impl Gamepads {
     /// buttons (up/down/left/right/a/b/lb/rb/start, Nintendo pads confirm with A on the right) as they go down/up.
     pub fn start(
         candidates: Vec<PathBuf>,
+        engine: Option<PathBuf>,
         on_change: impl Fn(Vec<PadInfo>) + Send + 'static,
         on_nav: impl Fn(&'static str, bool) + Send + 'static,
     ) -> Option<Gamepads> {
@@ -167,7 +168,7 @@ impl Gamepads {
                     return;
                 };
                 let _ = ready_tx.send(true);
-                let nintendo = crate::nintendo::Nintendo::load(&candidates);
+                let nintendo = crate::nintendo::Nintendo::load(engine.as_deref());
                 run(api, rx, on_change, on_nav, nintendo);
             })
             .ok()?;

@@ -27,6 +27,12 @@ jobs:
         with:
           node-version: 24
       - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+      - name: Tag matches VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          want="v$(tr -d '[:space:]' < VERSION)"
+          if [ "$GITHUB_REF_NAME" != "$want" ]; then echo "::error::tag $GITHUB_REF_NAME does not match VERSION ($want)"; exit 1; fi
       - name: Engine toolchain, checkout, translator, bundle
         run: |
           python tools/engine.py toolchain
@@ -40,6 +46,9 @@ jobs:
           pnpm build
       - name: Release executables
         working-directory: apps/launcher/src-tauri
+        env:
+          # Opt-in diagnostics endpoint (docs/DIAGNOSTICS.md), a repository variable. Unset or empty: diagnostics off.
+          AOD_DIAGNOSTICS_URL: ${{ vars.AOD_DIAGNOSTICS_URL }}
         run: cargo build --locked --release --bins --features tauri/custom-protocol
       - name: Release folder and zip
         run: python tools/release.py windows --zip
@@ -69,5 +78,10 @@ jobs:
         shell: bash
         run: |
           tag="${GITHUB_REF_NAME}"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --prerelease --title "Age of Decomp $tag" --notes "Draft: see the README for what is tested."
+          # Only a draft is ever filled or refilled: assets of a published release are never replaced.
+          if draft=$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != "true" ]; then echo "::error::release $tag is already published; its assets stay as they are"; exit 1; fi
+          else
+            gh release create "$tag" --draft --prerelease --title "Age of Decomp $tag" --notes "Draft: see the README for what is tested."
+          fi
           gh release upload "$tag" out/release/*.zip out/release/SHA256SUMS.txt --clobber

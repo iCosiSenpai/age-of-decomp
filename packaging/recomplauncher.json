@@ -3,14 +3,20 @@
   "format": 1,
   "name": "Age of Decomp",
   "repo": "iCosiSenpai/age-of-decomp",
-  "game": {
-    "kind": "iso_or_folder",
-    "label": "Your Hyrule Warriors: Age of Imprisonment (Nintendo Switch 2) dump as one .nup file with the base game and update 3.0.0 (NCM 196608).",
-    "check": {
-      "nup_build_id": "659cb288b5c5b2b49853add616c0d5bf4ea4e1ba"
-    }
-  },
   "inputs": [
+    {
+      "id": "nup",
+      "label": "Your Age of Imprisonment .nup with update 3.0.0",
+      "role": "game",
+      "formats": [
+        {
+          "type": "file",
+          "extensions": [
+            "nup"
+          ]
+        }
+      ]
+    },
     {
       "id": "dlc",
       "label": "Your DLC dump (.nup), if you have it",
@@ -24,6 +30,13 @@
           ]
         }
       ]
+    },
+    {
+      "id": "dlss",
+      "label": "NVIDIA DLSS",
+      "role": "runtime",
+      "shared": "nvidia.dlss",
+      "optional": true
     }
   ],
   "prepare": {
@@ -35,7 +48,7 @@
       "cli",
       "prepare",
       "--game",
-      "{game}",
+      "{input:nup}",
       "--out",
       "{install}/game",
       "--dlc={input:dlc}"
@@ -55,7 +68,9 @@
     "args": [
       "--play",
       "--game-dir",
-      "{install}/game"
+      "{install}/game",
+      "--game={input:nup}",
+      "--dlss={input:dlss}"
     ]
   },
   "config": [
@@ -175,7 +190,7 @@
     {
       "id": "fps_limit",
       "label": "Frame rate",
-      "help": "60 is the game's own speed. 30 saves power. 90 and 120 also speed the game up (gameplay advances one step per frame): for smoother motion keep 60 and use frame generation.",
+      "help": "60 is the game's normal speed. 30 saves power.",
       "group": "Display",
       "choices": [
         {
@@ -188,18 +203,6 @@
           "label": "60 FPS",
           "set": {
             "fps_limit": "60"
-          }
-        },
-        {
-          "label": "90 FPS (faster game)",
-          "set": {
-            "fps_limit": "90"
-          }
-        },
-        {
-          "label": "120 FPS (faster game)",
-          "set": {
-            "fps_limit": "120"
           }
         }
       ],
@@ -239,7 +242,7 @@
     {
       "id": "render_scale",
       "label": "3D resolution",
-      "help": "Native draws the 3D scene at the full resolution. Dynamic lets the game lower it in busy scenes, as on the console.",
+      "help": "Native draws the 3D scene at the full resolution: sharpest, with no smoothing of edges. Console is the game's own: a 1600×900 scene its upscaler brings to 1080p, softer with steadier edges, lower in busy scenes. Console always draws at 1080p.",
       "group": "Display",
       "choices": [
         {
@@ -249,7 +252,7 @@
           }
         },
         {
-          "label": "Dynamic",
+          "label": "Console (1080p)",
           "set": {
             "render_scale": "game"
           }
@@ -257,6 +260,29 @@
       ],
       "defaults": {
         "render_scale": "100"
+      }
+    },
+    {
+      "id": "temporal",
+      "label": "Anti-aliasing",
+      "help": "Smooths jagged, shimmering edges in the 3D scene at Native 3D resolution. NVIDIA DLAA needs an RTX card and NVIDIA's own DLSS file.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "temporal": "off"
+          }
+        },
+        {
+          "label": "NVIDIA DLAA",
+          "set": {
+            "temporal": "dlaa"
+          }
+        }
+      ],
+      "defaults": {
+        "temporal": "off"
       }
     },
     {
@@ -323,22 +349,6 @@
       ],
       "defaults": {
         "aspect": "fit"
-      }
-    },
-    {
-      "id": "fov",
-      "label": "Field of view",
-      "help": "Camera field of view compared with the console (100 %).",
-      "group": "Display",
-      "slider": {
-        "key": "fov",
-        "min": 70,
-        "max": 140,
-        "step": 5,
-        "format": "%.0f"
-      },
-      "defaults": {
-        "fov": "100"
       }
     },
     {
@@ -723,6 +733,58 @@
       },
       "defaults": {
         "volume": "100"
+      }
+    },
+    {
+      "id": "mute_unfocused",
+      "label": "Mute in the background",
+      "help": "Silences the game while another window is in front.",
+      "group": "Audio",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "mute_unfocused": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "mute_unfocused": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "mute_unfocused": "0"
+      }
+    },
+    {
+      "id": "audio_latency",
+      "label": "Audio buffer",
+      "help": "Raise it if the sound crackles or drops out. Low reacts fastest.",
+      "group": "Audio",
+      "choices": [
+        {
+          "label": "Low (10 ms)",
+          "set": {
+            "audio_latency": "low"
+          }
+        },
+        {
+          "label": "Normal (20 ms)",
+          "set": {
+            "audio_latency": "normal"
+          }
+        },
+        {
+          "label": "High (40 ms)",
+          "set": {
+            "audio_latency": "high"
+          }
+        }
+      ],
+      "defaults": {
+        "audio_latency": "low"
       }
     },
     {
@@ -1276,7 +1338,9 @@
   "exit_codes": {
     "0": "ok",
     "64": "Build or rebuild the game for this version. Press Set Up Again.",
-    "65": "Your .nup file has moved or changed since the build. Put it back where it was, or set up again."
+    "65": "Your .nup is missing or isn't the copy the game was built from. Pick that copy, or set up again.",
+    "70": "The game stopped on an error. Its log says why: send the newest game-*.log from Logs with your report.",
+    "71": "The game crashed. Send the newest game-*.log from Logs with your report."
   },
   "looks": {
     "allowed": false,

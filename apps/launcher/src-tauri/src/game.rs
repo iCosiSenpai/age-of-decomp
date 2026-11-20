@@ -40,7 +40,9 @@ fn same_identity(recorded: &serde_json::Value, id: &aod_nup::Identity) -> bool {
 
 /// Checks that the build is complete and that the player's NUP is still the one it was built from (the game reads
 /// its raw resources from it). Identity = SHA-256 of the NUP header and TOC + file size, as the engine records it.
-pub fn check(cfg: &Config, paths: &Paths) -> Result<(), LaunchError> {
+/// `copy`: where the player's NUP is now (RecompLauncher's `{input:nup}`), instead of where it was at the build; the same
+/// identity is required, and the game then reads it there (HWAOI_NUP_PATH).
+pub fn check(cfg: &Config, paths: &Paths, copy: Option<&Path>) -> Result<(), LaunchError> {
     let output = cfg.output(paths);
     let state = config::engine_state(&output)
         .ok_or_else(|| LaunchError::NotBuilt("The game is not built yet: open Setup".into()))?;
@@ -50,13 +52,21 @@ pub fn check(cfg: &Config, paths: &Paths) -> Result<(), LaunchError> {
     if config::rebuild_required(&state) {
         return Err(LaunchError::NotBuilt("The engine was updated. Open Setup and rebuild the game before playing.".into()));
     }
-    let nup = state.get("nup").and_then(|s| s.as_str())
+    let recorded_nup = state.get("nup").and_then(|s| s.as_str())
         .ok_or_else(|| LaunchError::NotBuilt("The build does not record its game file".into()))?;
+    let nup = copy.map(|c| c.to_string_lossy().into_owned()).unwrap_or_else(|| recorded_nup.to_string());
     let recorded = state.get("nup_identity").cloned().unwrap_or_default();
-    let opened = aod_nup::Nup::open(nup).map_err(|e| LaunchError::GameFile(
-        format!("Your game file cannot be read ({e}): {nup}. Put it back where it was, or set up again.")))?;
+    let opened = aod_nup::Nup::open(&nup).map_err(|e| LaunchError::GameFile(if copy.is_some() {
+        format!("Your game file cannot be read ({e}): {nup}.")
+    } else {
+        format!("Your game file cannot be read ({e}): {nup}. Put it back where it was, or set up again.")
+    }))?;
     if !same_identity(&recorded, &opened.identity()) {
-        return Err(LaunchError::GameFile("Your game file changed since the build. Set up again with it.".into()));
+        return Err(LaunchError::GameFile(if copy.is_some() {
+            "This .nup is not the one the game was built from. Pick that one, or set up again with this one.".into()
+        } else {
+            "Your game file changed since the build. Set up again with it.".into()
+        }));
     }
     if let Some(update) = state.get("update_nup").and_then(|v| v.as_str()) {
         let opened = aod_nup::Nup::open(update).map_err(|e| LaunchError::GameFile(
@@ -71,10 +81,25 @@ pub fn check(cfg: &Config, paths: &Paths) -> Result<(), LaunchError> {
 pub struct Launched {
     pub child: Child,
     pub log: std::path::PathBuf,
+    pub started: std::time::Instant,
 }
 
-pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&crate::nintendo::Handoff>) -> Result<Launched, LaunchError> {
-    check(cfg, paths)?;
+/// The game's exit code for the in-game menu's Restart (a setting read only at start was changed): the caller starts
+/// the game again. The game shows Restart only when `launch` was told the caller does (`AOD_RESTART_EXIT`).
+pub const RESTART_EXIT: i32 = 75;
+
+impl Launched {
+    /// Exited with [`RESTART_EXIT`] after running a few seconds: start it again. A game that ends that way at once is
+    /// not started again, so nothing can loop.
+    pub fn wants_restart(&self, code: Option<i32>) -> bool {
+        code == Some(RESTART_EXIT) && self.started.elapsed() >= std::time::Duration::from_secs(3)
+    }
+}
+
+pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&crate::nintendo::Handoff>,
+              restart: bool, copy: Option<&Path>, dlss: Option<&Path>) -> Result<Launched, LaunchError> {
+    let copy = copy.map(std::path::absolute).transpose().map_err(|e| LaunchError::Other(e.to_string()))?;
+    check(cfg, paths, copy.as_deref())?;
     // The child runs from its bin directory. Resolve CLI-relative paths before changing
     // its working directory, including resource and save paths passed in the environment.
     let output = std::path::absolute(cfg.output(paths)).map_err(|e| LaunchError::Other(e.to_string()))?;
@@ -88,6 +113,7 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
     std::fs::create_dir_all(&logs).map_err(|e| LaunchError::Other(e.to_string()))?;
     let saves = paths::saves_dir(&output);
     std::fs::create_dir_all(&saves).map_err(|e| LaunchError::Other(e.to_string()))?;
+    crate::settings::retire_values(&paths::game_ini(&output)).map_err(LaunchError::Other)?;
     let log_path = logs.join(format!("game-{}.log", paths::stamp()));
     let log = std::fs::File::create(&log_path).map_err(|e| LaunchError::Other(e.to_string()))?;
     let log2 = log.try_clone().map_err(|e| LaunchError::Other(e.to_string()))?;
@@ -121,7 +147,7 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
         ("DKB_SHADER_FAILURE_DUMP", p(&output.join("work").join("reports").join("shader-failures"))),
         ("HWAOI_PIPE_SYNC", "0".into()),
         ("HWAOI_PIPE_SKIP", "strict".into()),
-        ("HWAOI_PIPE_PREBUILD", "1".into()),
+        // PIPE_PREBUILD is not set here: the runtime's default is on, and "Prepare shaders early" in hwaoi.ini decides.
         ("HWAOI_RATE_UNLOCK", if unlock { "1" } else { "0" }.into()),
     ];
     if cfg!(windows) {
@@ -147,9 +173,23 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
     if let Some(engine) = &paths.engine {
         let helper = engine.join("nintendo/AgeOfDecomp.Nintendo.exe");
         if cfg!(windows) && helper.is_file() { cmd.env("AOD_NINTENDO_BRIDGE", helper); }
+        // DLAA (temporal = dlaa): NVIDIA Streamline's signed DLLs ship in the engine bundle.
+        let streamline = engine.join("streamline");
+        if cfg!(windows) && streamline.join("sl.interposer.dll").is_file() { cmd.env("HWAOI_DLSS_DIR", streamline); }
+    }
+    // The player's own nvngx_dlss.dll (never shipped by us): RecompLauncher's nvidia.dlss input, else <data>/ngx.
+    let own = paths.data.join("ngx").join("nvngx_dlss.dll");
+    if let Some(ngx) = dlss.filter(|d| d.is_file()).or_else(|| own.is_file().then_some(own.as_path())) {
+        cmd.env("HWAOI_DLSS_NGX", ngx);
     }
     cmd.env_remove("AOD_NINTENDO_HANDOFF");
     if let Some(handoff) = handoff { handoff.pass_to(&mut cmd); }
+    if restart { cmd.env("AOD_RESTART_EXIT", RESTART_EXIT.to_string()); } else { cmd.env_remove("AOD_RESTART_EXIT"); }
+    // The copy where the player keeps it now (checked above to be the one of the build); else where it was.
+    match &copy {
+        Some(c) => { cmd.env("HWAOI_NUP_PATH", c); }
+        None => { cmd.env_remove("HWAOI_NUP_PATH"); }
+    }
     cmd.stdin(Stdio::null()).stdout(Stdio::from(log)).stderr(Stdio::from(log2));
     #[cfg(windows)]
     {
@@ -157,7 +197,58 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: no console; the game opens its own window
     }
     let child = cmd.spawn().map_err(|e| LaunchError::Other(format!("Could not start the game: {e}")))?;
-    Ok(Launched { child, log: log_path })
+    #[cfg(windows)]
+    hand_foreground(child.id());
+    Ok(Launched { child, log: log_path, started: std::time::Instant::now() })
+}
+
+/// The game opens its window behind the others without taking focus, and reads no controller until that window is in
+/// the foreground (runtime gfx_window_win.c, input.c `pad_focus_gate`): a player who pressed Play with a pad saw the
+/// game ignore it until they clicked the window (player reports RL-10, RL-7). This process may set the foreground at
+/// Play (the player just used our window, or RecompLauncher started us from its own), so it lets the game take it
+/// (the runtime's own call in Big Picture) and brings the game's window up as soon as it shows.
+#[cfg(windows)]
+fn hand_foreground(pid: u32) {
+    use windows_sys::Win32::Foundation::{HWND, LPARAM};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        AllowSetForegroundWindow, BringWindowToTop, EnumWindows, GW_OWNER, GetForegroundWindow, GetWindow,
+        GetWindowThreadProcessId, IsWindowVisible, SetForegroundWindow,
+    };
+    struct Found {
+        pid: u32,
+        window: HWND,
+    }
+    // The game's main window: visible, top-level, of the game's process, with no owner (the software keyboard has one).
+    unsafe extern "system" fn each(window: HWND, found: LPARAM) -> windows_sys::core::BOOL {
+        let found = unsafe { &mut *(found as *mut Found) };
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(window, &mut pid) };
+        if pid == found.pid && unsafe { IsWindowVisible(window) } != 0 && unsafe { GetWindow(window, GW_OWNER) }.is_null() {
+            found.window = window;
+            return 0;
+        }
+        1
+    }
+    unsafe { AllowSetForegroundWindow(pid) };
+    // The window shows after the first pipelines are built, which takes longer on a first, cold start. Windows itself
+    // refuses the foreground once the player has turned to another program meanwhile: the taskbar button flashes then.
+    std::thread::spawn(move || {
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        while std::time::Instant::now() < until {
+            let mut found = Found { pid, window: std::ptr::null_mut() };
+            unsafe { EnumWindows(Some(each), &mut found as *mut Found as LPARAM) };
+            if !found.window.is_null() {
+                unsafe {
+                    if GetForegroundWindow() != found.window {
+                        BringWindowToTop(found.window);
+                        SetForegroundWindow(found.window);
+                    }
+                }
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    });
 }
 
 /// Linux: the 64-bit system zlib (`libz.so.1`), from the usual library folders (multiarch first, so a 32-bit copy in
@@ -187,6 +278,22 @@ pub fn session_fps(log: &Path) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn restart_only_on_its_code_after_a_few_seconds() {
+        let mut cmd = if cfg!(windows) { Command::new("cmd") } else { Command::new("true") };
+        if cfg!(windows) { cmd.args(["/C", "exit 0"]); }
+        let mut child = cmd.spawn().unwrap();
+        let _ = child.wait();
+        let ago = |s| std::time::Instant::now().checked_sub(std::time::Duration::from_secs(s)).unwrap();
+        let mut l = Launched { child, log: "game.log".into(), started: ago(10) };
+        assert!(l.wants_restart(Some(RESTART_EXIT)));
+        assert!(!l.wants_restart(Some(0)));
+        assert!(!l.wants_restart(Some(64)));
+        assert!(!l.wants_restart(None));
+        l.started = ago(1);
+        assert!(!l.wants_restart(Some(RESTART_EXIT)), "a game that asks again at once is not started again");
+    }
 
     #[test]
     fn launch_error_exit_codes_do_not_depend_on_message() {

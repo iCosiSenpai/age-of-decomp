@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iCosiSenpai <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 18:05:03 +0100
+Subject: [PATCH] aod: let the game's own 3D resolution run its own render path
+
+RENDER_SCALE=game was the same as native: the native-display patch sets stay on by default and force both scale
+policies to 1.0, so the scene stayed at the output size. Now, unless TOTK_NATIVE_1080 says otherwise, the game's own
+3D resolution turns those sets off and the game runs its original path: a 1600x900 scene, dynamic resolution and its
+temporal upscaler to 1080p, which also smooths the edges the native path leaves aliased. That path always draws at
+1920x1080, so another OUTPUT_RES is logged as applying only with the native 3D resolution instead of ending the game.
+The application heap grows for the native sets only when they are on. The display settings test covers both.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ runtime/hwaoi_display.h              |  8 ++++++++
+ runtime/patches.c                    |  8 +++++++-
+ runtime/resolution.c                 |  7 +++++--
+ tests/hwaoi/test_display_settings.py | 12 +++++++++---
+ 4 files changed, 29 insertions(+), 6 deletions(-)
+
+diff --git a/runtime/hwaoi_display.h b/runtime/hwaoi_display.h
+index 2ccd52519aefc07473ad0bcbad9eaa8cd7fe12f4..bb1f787a4a4515d6c7e8dc68f3ed21a443963f27 100644
+--- a/runtime/hwaoi_display.h
++++ b/runtime/hwaoi_display.h
+@@ -5,6 +5,14 @@
+ 
+ #define HWAOI_TEXTURE_POOL_BASE UINT64_C(0x122f00000)
+ 
++// Whether the native-display patch sets (hwaoi_display, hwaoi_native1080: scene = output, both scale policies 1.0) are
++// wanted. TOTK_NATIVE_1080 decides when set; otherwise they are, except with RENDER_SCALE=game: the game's own path
++// then runs (its 1600x900 scene, dynamic resolution and temporal upscaler to 1080p, which also smooths edges).
++static inline int hwaoi_native_wanted(const char *native_1080, const char *render_scale) {
++    if (native_1080 && *native_1080) return strcmp(native_1080, "0") != 0;
++    return !render_scale || strcmp(render_scale, "game") != 0;
++}
++
+ static inline int hwaoi_display_size(const char *value, unsigned size[2]) {
+     static const struct { const char *name; unsigned w, h; } presets[] = {
+         {"1280x720", 1280, 720}, {"1920x1080", 1920, 1080},
+diff --git a/runtime/patches.c b/runtime/patches.c
+index a54f9c36527c4bdeee80a8b319138b1830eeeaa1..34296b6dbca976f8bd793240cd1b29bd4a86746b 100644
+--- a/runtime/patches.c
++++ b/runtime/patches.c
+@@ -17,6 +17,8 @@
+ #include <string.h>
+ 
+ #include "host.h"
++#include "game_target.h"
++#include "hwaoi_display.h"
+ 
+ #if __has_include("patches.h")
+ #include "patches.h"
+@@ -46,8 +48,12 @@ void rt_patches_init(void) {
+     list[0] = 0;
+     for (int i = 0; i < RT_PATCH_COUNT; i++) {
+         const char *e = cfg_get(sets[i].env);
++        int on = sets[i].on;
++        // HWAoI: the native-display sets follow the 3D resolution when TOTK_NATIVE_1080 is unset (hwaoi_display.h).
++        if (RT_TARGET_HWAOI && !strcmp(sets[i].env, "TOTK_NATIVE_1080"))
++            on = hwaoi_native_wanted(NULL, cfg_value("TOTK_RENDER_SCALE"));
+         // a set with a row in the settings table takes its default from there; the generated default serves the rest
+-        rt_patch_on[i] = (uint8_t)(cfg_meta(sets[i].env) ? cfg_bool(sets[i].env) : e && *e ? strcmp(e, "0") != 0 : sets[i].on);
++        rt_patch_on[i] = (uint8_t)(cfg_meta(sets[i].env) ? cfg_bool(sets[i].env) : e && *e ? strcmp(e, "0") != 0 : on);
+         n += (size_t)snprintf(list + n, sizeof list - n, "%s%s %s", i ? ", " : "", sets[i].name,
+                               rt_patch_on[i] ? "on" : "off");
+         if (n >= sizeof list) n = sizeof list - 1;
+diff --git a/runtime/resolution.c b/runtime/resolution.c
+index 9f27975204a07dae12a7bb10d74d8840fe7a741e..83dcb8430dd910720751aaf9c1b96e059a2cffdd 100644
+--- a/runtime/resolution.c
++++ b/runtime/resolution.c
+@@ -106,7 +106,7 @@ uint64_t res_heap_extra_bytes(void) {
+         // Only application capacity changes here. HWAoI never uses TotK's BYML
+         // HeapDef paths or heap-size formula (res_heap_extra_kib remains zero).
+         const char *on = cfg_get("TOTK_NATIVE_1080");
+-        if (rt_patch_set("hwaoi_display") < 0 || (on && !strcmp(on, "0"))) return 0;
++        if (rt_patch_set("hwaoi_display") < 0 || !hwaoi_native_wanted(on, cfg_value("TOTK_RENDER_SCALE"))) return 0;
+         unsigned out[2], scene[2]; uint64_t child, parent, extra;
+         if (!hwaoi_display_dimensions(cfg_value("TOTK_OUTPUT_RES"), cfg_get("TOTK_SCENE_RES"), out, scene))
+             rt_fatal("resolution: invalid HWAoI native output/diagnostic scene preset");
+@@ -252,8 +252,11 @@ void res_init(void) {
+         const char *requested = cfg_get("TOTK_NATIVE_1080");
+         if (native < 0 && requested && !strcmp(requested, "1"))
+             rt_fatal("resolution: native 1080p requires the exact-build HWAoI code profile; regenerate first");
++        // Off with the game's own 3D resolution (RENDER_SCALE=game) or TOTK_NATIVE_1080=0: the game draws its own 1080p
++        // picture and the present fits it to the window, so another OUTPUT_RES only applies with the native one.
+         if (strcmp(cfg_value("TOTK_OUTPUT_RES"), "1920x1080"))
+-            rt_fatal("resolution: configurable native output requires the HWAoI display-settings profile; regenerate first");
++            rt_log("resolution: the game's own 3D resolution draws at 1920x1080; OUTPUT_RES=%s applies with the native one",
++                   cfg_value("TOTK_OUTPUT_RES"));
+         rt_log("resolution: HWAoI %s", rt_patch_enabled(native)
+                ? "native 1920x1080 scene profile enabled; allocation limits and dynamic scale patched"
+                : "original scene allocation and dynamic-resolution policy");
+diff --git a/tests/hwaoi/test_display_settings.py b/tests/hwaoi/test_display_settings.py
+index 9015558649a0bb077d30178102b13ebbc0584b9d..ca188b3e3dcddd573c393a37ffc7573c3db52a81 100644
+--- a/tests/hwaoi/test_display_settings.py
++++ b/tests/hwaoi/test_display_settings.py
+@@ -127,10 +127,13 @@ int main(void) {
+ #include <stdlib.h>
+ #include "hwaoi_display.h"
+ #define RT_TARGET_HWAOI 1
+-static const char *resolution="1920x1080",*native,*experiment,*scene_override;
++static const char *resolution="1920x1080",*native,*experiment,*scene_override,*render_scale="100";
+ static int profile=1,foreign_heap_reads;
+ static int rt_patch_set(const char *name){assert(!strcmp(name,"hwaoi_display"));return profile?0:-1;}
+-static const char *cfg_value(const char *name){assert(!strcmp(name,"TOTK_OUTPUT_RES"));return resolution;}
++static const char *cfg_value(const char *name){
++ if(!strcmp(name,"TOTK_RENDER_SCALE"))return render_scale;
++ assert(!strcmp(name,"TOTK_OUTPUT_RES"));return resolution;
++}
+ static const char *cfg_get(const char *name){
+  if(!strcmp(name,"TOTK_NATIVE_1080"))return native;
+  if(!strcmp(name,"TOTK_SCENE_RES"))return scene_override;
+@@ -143,7 +146,10 @@ int main(int argc,char **argv){
+  assert(argc==2);if(!strcmp(argv[1],"bad")){resolution="3840x2161";res_heap_extra_bytes();return 1;}
+  assert(!res_heap_extra_bytes());resolution="3840x2160";assert(res_heap_extra_bytes()==0x3d200000ull);
+  scene_override="1920x1080";assert(!res_heap_extra_bytes());scene_override=NULL;
+- native="0";assert(!res_heap_extra_bytes());native=NULL;profile=0;assert(!res_heap_extra_bytes());
++ native="0";assert(!res_heap_extra_bytes());native=NULL;
++ render_scale="game";assert(!res_heap_extra_bytes());              /* the game's own 3D resolution: no native growth */
++ native="1";assert(res_heap_extra_bytes()==0x3d200000ull);native=NULL;render_scale="100";   /* forced on wins */
++ profile=0;assert(!res_heap_extra_bytes());
+  assert(!foreign_heap_reads);
+ }
+ '''

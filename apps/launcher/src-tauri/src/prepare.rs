@@ -163,16 +163,27 @@ pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(
         return Ok(()); // an engine build folder: updates are the engine's business
     }
     let ini = paths::game_ini(output);
+    // Links (symlinks, junctions) are never followed: the file read and then deleted must really be inside the folder.
+    let Ok(inside) = ini.strip_prefix(output) else { return Ok(()) };
+    let mut at = output.to_path_buf();
+    for part in inside.components() {
+        at.push(part);
+        if std::fs::symlink_metadata(&at).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Ok(());
+        }
+    }
     let Some(early) = crate::settings::existing_ini(&ini)? else { return Ok(()) };
     let mut others = Vec::new();
     let mut stack = vec![output.to_path_buf()];
     while let Some(d) = stack.pop() {
-        for e in std::fs::read_dir(&d).map_err(|e| e.to_string())?.flatten() {
+        for e in std::fs::read_dir(&d).map_err(|e| e.to_string())? {
+            let e = e.map_err(|e| e.to_string())?;
+            let kind = e.file_type().map_err(|e| e.to_string())?;
             let p = e.path();
-            if p.is_dir() {
+            if kind.is_dir() && !kind.is_symlink() {
                 stack.push(p);
-            } else if p != ini {
-                others.push(p);
+            } else if p != ini || kind.is_symlink() {
+                others.push(p); // a link counts as something else in the folder and is left alone
             }
         }
     }
@@ -446,6 +457,52 @@ mod early_settings_tests {
         std::fs::write(game.join("notes.txt"), "player file").unwrap();
         stash_early_settings(&p, &game).unwrap();
         assert!(ini.exists() && game.join("notes.txt").exists());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A directory link (junction on Windows, symlink elsewhere); false where this system cannot make one.
+    fn dir_link(target: &std::path::Path, link: &std::path::Path) -> bool {
+        #[cfg(windows)]
+        return std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .is_ok_and(|o| o.status.success());
+        #[cfg(unix)]
+        return std::os::unix::fs::symlink(target, link).is_ok();
+    }
+
+    /// Removes the link itself, never what it points at.
+    fn unlink_dir(link: &std::path::Path) {
+        std::fs::remove_dir(link).or_else(|_| std::fs::remove_file(link)).unwrap();
+    }
+
+    #[test]
+    fn settings_behind_a_link_are_left_alone() {
+        let root = temp("early-link");
+        let (data, game, outside) = (root.join("data"), root.join("game"), root.join("outside"));
+        let p = paths_in(&data);
+        let ini = paths::game_ini(&game);
+        let inside = ini.strip_prefix(game.join("work")).unwrap();
+        std::fs::create_dir_all(outside.join(inside).parent().unwrap()).unwrap();
+        std::fs::write(outside.join(inside), "fps_limit=30\n").unwrap();
+        std::fs::create_dir_all(&game).unwrap();
+        if !dir_link(&outside, &game.join("work")) {
+            let _ = std::fs::remove_dir_all(root);
+            return; // no directory links on this system
+        }
+        assert!(ini.is_file(), "the link resolves");
+        stash_early_settings(&p, &game).unwrap();
+        assert!(outside.join(inside).is_file() && !p.pending_ini().exists());
+        // A link anywhere else in the folder is something the player put there: also left alone.
+        unlink_dir(&game.join("work"));
+        std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
+        std::fs::write(&ini, "fps_limit=30\n").unwrap();
+        assert!(dir_link(&outside, &game.join("extra")));
+        stash_early_settings(&p, &game).unwrap();
+        assert!(ini.is_file() && outside.join(inside).is_file() && !p.pending_ini().exists());
+        unlink_dir(&game.join("extra"));
         let _ = std::fs::remove_dir_all(root);
     }
 

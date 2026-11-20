@@ -91,7 +91,12 @@ PINS = {  # name: (url, sha256)
     # Linux release packaging (tools/release.py linux --appimage): the AppImage type 2 runtime the squashfs follows
     "appimage-runtime": ("https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64",
                          "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d"),
+    # NVIDIA Streamline (MIT) for DLAA on Windows: only the three signed production DLLs below and license.txt are
+    # taken from it. The SDK also carries nvngx_dlss*.dll (NVIDIA RTX SDK licence): never staged or shipped.
+    "streamline-sdk": ("https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.14.16/streamline-sdk-v2.14.16.zip",
+                       "32041e51db0cab709a271b72a352281b690c2abbd669a827809401a5dd23956b"),
 }
+STREAMLINE_DLLS = ("sl.interposer.dll", "sl.common.dll", "sl.dlss.dll")
 # The Python packages the engine's generator and NUP tools need (upstream tools/requirements-hwaoi.txt).
 PY_REQUIREMENTS = ROOT / "tools/requirements-engine.txt"
 # llvm-mingw: only the x86_64 Windows target is needed.
@@ -406,6 +411,28 @@ def cmd_toolchain(_args) -> None:
 
 # ── engine checkout and patch queue ──────────────────────────────────────────────────────────────────────────────────
 
+def patch_id(diff: bytes) -> str:
+    """`git patch-id --stable` of a diff: the same id for a commit and for its exported patch file."""
+    out = subprocess.run(["git", "patch-id", "--stable"], cwd=ENGINE, input=diff, capture_output=True, check=True)
+    return out.stdout.split()[0].decode("ascii") if out.stdout.strip() else ""
+
+
+def queue_mismatch(pin: str) -> str:
+    """Why branch aod is not exactly the pin plus engine/patches in order; empty when it is."""
+    if (ENGINE / ".git" / "rebase-apply").exists():
+        return "a `git am` is still in progress"
+    commits = git("rev-list", "--reverse", f"{pin}..HEAD").stdout.split()
+    patches = sorted(PATCHES.glob("*.patch"))
+    if len(commits) != len(patches):
+        return f"{len(commits)} commit(s) on the pin, {len(patches)} patch file(s)"
+    for commit, patch in zip(commits, patches):
+        shown = subprocess.run(["git", "show", "--format=", "--full-index", commit], cwd=ENGINE, capture_output=True,
+                               check=True).stdout
+        if patch_id(shown) != patch_id(patch.read_bytes()):
+            return f"commit {commit[:10]} differs from {patch.name}"
+    return ""
+
+
 def cmd_fetch(args) -> None:
     up = upstream()
     if not ENGINE.is_dir():
@@ -428,7 +455,11 @@ def cmd_fetch(args) -> None:
     if current == "aod" and not args.force:
         base = git("merge-base", "HEAD", up["commit"]).stdout.strip()
         if base == git("rev-parse", up["commit"]).stdout.strip():
-            log("branch aod already on the pin; use --force to rebuild it from engine/patches")
+            mismatch = queue_mismatch(up["commit"])
+            if mismatch:
+                die(f"branch aod does not match engine/patches ({mismatch}): run export-patches to keep its "
+                    "commits, or fetch --force to rebuild it from the queue")
+            log("branch aod already is the pin plus engine/patches; use --force to rebuild it")
             return
     git("checkout", "-B", "aod", up["commit"], "--force", capture=False)
     git("clean", "-fdq", "-e", "work/")
@@ -508,6 +539,12 @@ def cmd_stage(args) -> None:
         die("engine checkout has uncommitted changes; commit them or pass --allow-dirty")
     if dirty:
         log("staging a dirty engine checkout (--allow-dirty)")
+    mismatch = queue_mismatch(upstream()["commit"])
+    if mismatch and not args.allow_dirty:
+        die(f"engine checkout does not match engine/patches ({mismatch}): export-patches or fetch first, "
+            "or pass --allow-dirty")
+    if mismatch:
+        log(f"staging an engine that differs from engine/patches ({mismatch}, --allow-dirty)")
     needs = [bundle_python(TC), XLATE_OUT / XLATE_EXE] + ([TC / "llvm" / "bin" / "clang.exe"] if WIN else [])
     for need in needs:
         if not need.is_file():
@@ -524,6 +561,7 @@ def cmd_stage(args) -> None:
     # The runtime generator reads source/VERSION. Keep it tied to the compiler release,
     # rather than shipping the engine fork's development version in the menu.
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    (STAGE / "source/runtime").mkdir(parents=True, exist_ok=True)
     (STAGE / "source/VERSION").write_text(version + "\n", encoding="utf-8")
     for own in sorted(OWN_SRC.glob("aod_nintendo.*")):
         shutil.copy2(own, STAGE / "source/runtime" / own.name)
@@ -557,6 +595,14 @@ def cmd_stage(args) -> None:
              "-D_WIN32_WINNT=0x0A00", "-I", TC / "deps/include", OWN_SRC / "aod_nintendo.c",
              "-L", TC / "deps/lib", "-lSDL3", "-o", nintendo / "aod_nintendo.dll"], cwd=ROOT)
         run([nintendo / "AgeOfDecomp.Nintendo.exe", "--self-test"], cwd=ROOT)
+        # DLAA (runtime/aod_dlss.cpp): the launcher points TOTK_DLSS_DIR at <bundle>/streamline. The player's own
+        # nvngx_dlss.dll comes from RecompLauncher's nvidia.dlss input or the player's PC, never from us.
+        streamline = STAGE / "streamline"
+        streamline.mkdir()
+        with zipfile.ZipFile(fetch("streamline-sdk")) as z:
+            for name in STREAMLINE_DLLS:
+                (streamline / name).write_bytes(z.read(f"bin/x64/{name}"))
+            (STAGE / "licenses" / "streamline-LICENSE.txt").write_bytes(z.read("license.txt"))
     else:
         (STAGE / "licenses").mkdir()
         for lic in sorted((TC / "python" / "lib").glob("python3.*/LICENSE.txt"))[:1]:
@@ -571,8 +617,8 @@ def cmd_stage(args) -> None:
     (STAGE / "bundle.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     size = sum((STAGE / p).stat().st_size for p in files)
     log(f"staged {len(files)} files, {size / 2**20:.0f} MiB in {STAGE}")
-    # Linux: -B, so the check writes no __pycache__ into the bundle it has just hashed
-    run([bundle_python(STAGE), *([] if WIN else ["-B"]), "-E", "-s", STAGE / "source" / "compiler" / "backend.py",
+    # -B: the check writes no __pycache__ into the bundle it has just hashed (release.py also drops any)
+    run([bundle_python(STAGE), "-B", "-E", "-s", STAGE / "source" / "compiler" / "backend.py",
          "check", "--bundle", STAGE], cwd=STAGE)
 
 

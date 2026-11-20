@@ -1,0 +1,379 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iCosiSenpai <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 17:29:29 +0100
+Subject: [PATCH] aod: restart from the in-game menu for settings read at start
+
+The action bar shows Restart while a setting read only at start holds another value than it had when the game
+started, and hides it again once every such setting is back. The status line follows the same rule instead of
+staying on "restart" after the first change. Restart writes the settings, then ends the game with the exit code the
+launcher names in AOD_RESTART_EXIT, so the launcher starts it again; without that variable there is no button.
+Quit also writes a change made a moment ago before the game closes.
+
+The menu preview stubs the two new platform calls; two scenarios check the button appears, disappears, starts the
+restart with the setting written, and stays hidden without a launcher that restarts.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ runtime/gfx_present.c        | 22 +++++++++++++++-
+ runtime/ui/menu.cpp          | 32 +++++++++++++++--------
+ runtime/ui/menu.h            |  2 ++
+ runtime/ui/option_rows.cpp   | 37 ++++++++++++++++++++++----
+ runtime/ui/option_rows.h     |  4 ++-
+ runtime/ui_text.c            |  5 ++--
+ runtime/ui_text.h            |  2 +-
+ tests/menu_preview.cpp       |  4 ++-
+ tests/menu_preview_stubs.cpp |  4 +++
+ tests/menu_preview_test.py   | 50 ++++++++++++++++++++++++++++++++++++
+ 10 files changed, 140 insertions(+), 22 deletions(-)
+
+diff --git a/runtime/gfx_present.c b/runtime/gfx_present.c
+index a1636b7203fed2c0782580cb9fc139028cb0d960..dc5dfc85e447dfdc82b9fc8877c9062acc8593ba 100644
+--- a/runtime/gfx_present.c
++++ b/runtime/gfx_present.c
+@@ -56,6 +56,26 @@ void gfx_window_focus_changed(int in) {
+     rt_log("gfx: window %s the focus", in ? "gained" : "lost");
+ }
+ 
++// The in-game menu's Restart (ui/menu.cpp): the launcher that started the game sets AOD_RESTART_EXIT to the exit code
++// on which it starts the game again (Age of Decomp's game.rs: 75). Unset or out of 1..254: no Restart button.
++static volatile int32_t g_exit_code;
++
++static int restart_code(void) {
++    const char *v = getenv("AOD_RESTART_EXIT");
++    int code = v ? atoi(v) : 0;
++    return code > 0 && code < 255 ? code : 0;
++}
++
++int gfx_restart_available(void) { return restart_code() != 0; }
++
++void gfx_request_restart(void) {
++    int code = restart_code();
++    if (!code) return;
++    plat_xchg32(&g_exit_code, code);
++    rt_log("gfx: restart requested; the launcher starts the game again");
++    gfx_window_request_close();
++}
++
+ // The window was closed: the process ends with it, as in MNG, once a save Commit still running in the background is
+ // done.
+ void gfx_window_closed(void) {
+@@ -63,7 +83,7 @@ void gfx_window_closed(void) {
+     fs_save_flush();
+     vk_pipeline_save();
+     prof_write();   // plat_exit runs no atexit handlers
+-    plat_exit(0);
++    plat_exit(plat_xchg32(&g_exit_code, 0));
+ }
+ 
+ // TOTK_FULLSCREEN=1: borderless window over the monitor. TOTK_WINDOW_SIZE=<w>x<h>: client area of the window (the
+diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
+index 9ecd0380bfe9849770e95c81fa2beba0f292936e..86fd31cc81aa35dc784f3306ca79958ae733f1d1 100644
+--- a/runtime/ui/menu.cpp
++++ b/runtime/ui/menu.cpp
+@@ -869,15 +869,9 @@ static bool validation_layer_present(void) {
+ static void reset_all(void) {
+     const char *keys[128];
+     int n = 0;
+-    bool restart = false;
+-    for (const CfgMeta *m; n < 128 && (m = cfg_meta_at(n)); n++) {
+-        keys[n] = m->key;
+-        char name[80];
+-        snprintf(name, sizeof name, "TOTK_%s", m->key);
+-        if (!m->live && cfg_is_set(name) && !cfg_from_env(name)) restart = true;
+-    }
++    opt_restart_needed();   // the values at start are taken before the reset changes any
++    for (const CfgMeta *m; n < 128 && (m = cfg_meta_at(n)); n++) keys[n] = m->key;
+     int done = cfg_reset(keys, n);
+-    if (restart && done) opt_mark_restart();
+     opt_save_soon();
+     rt_log("menu: reset %d settings to their defaults", done);
+ }
+@@ -1187,8 +1181,24 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
+     float cont_w = ImGui::CalcTextSize(cont).x + 40 * scale, quit_w = ImGui::CalcTextSize(quit).x + 40 * scale;
+     float cont_x = end.x - 24 * scale - cont_w, quit_x = cont_x - 12 * scale - quit_w;
+     float button_y = bar_y + (bar - bh) * .5f;
++    // Restart: while a setting read at start differs from its value at start, and the launcher that started the game
++    // starts it again (AOD_RESTART_EXIT). The pending change is written first; a failed write keeps the game running.
++    bool restart = opt_restart_needed() && gfx_restart_available();
++    const char *again = menu_text(UI_MENU_RESTART_NOW);
++    float again_w = restart ? ImGui::CalcTextSize(again).x + 40 * scale : 0;
++    float left_x = restart ? quit_x - 12 * scale - again_w : quit_x;
++    if (restart) {
++        ImGui::SetCursorScreenPos(ImVec2(left_x, button_y));
++        if (theme::button(again, ImVec2(again_w, bh), scale, false)) {
++            opt_save_tick(1);
++            if (cfg_save()) gfx_request_restart();
++        }
++    }
+     ImGui::SetCursorScreenPos(ImVec2(quit_x, button_y));
+-    if (theme::button(quit, ImVec2(quit_w, bh), scale, false)) gfx_window_request_close();
++    if (theme::button(quit, ImVec2(quit_w, bh), scale, false)) {
++        opt_save_tick(1);   // a change made a moment ago is kept
++        gfx_window_request_close();
++    }
+     ImGui::SetCursorScreenPos(ImVec2(cont_x, button_y));
+     if (theme::button(cont, ImVec2(cont_w, bh), scale, true)) set_open(0);
+ 
+@@ -1205,7 +1215,7 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
+         if (i == 3) total += glyph_width(keys[4], scale) + gap;
+         if (i < 3) total += group_gap;
+     }
+-    float hx = quit_x - 20 * scale - total, hy = bar_y + (bar - glyph_h) * .5f;
++    float hx = left_x - 20 * scale - total, hy = bar_y + (bar - glyph_h) * .5f;
+     float min_hx = origin.x + 20 * scale;
+     if (hx >= min_hx) {
+         for (int i = 0; i < 4; i++) {
+@@ -1216,7 +1226,7 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
+             hx += ImGui::CalcTextSize(labels[i]).x + group_gap;
+         }
+     }
+-    float status_width = fmaxf(0, quit_x - total - 50 * scale - min_hx);
++    float status_width = fmaxf(0, left_x - total - 50 * scale - min_hx);
+     status_text(dl, ImVec2(min_hx, bar_y + (bar - ImGui::GetFontSize()) * .5f), status_width, opt_status(), scale);
+     ImGui::PopFont();
+     bool was_modal = g_modal || binds_modal();
+diff --git a/runtime/ui/menu.h b/runtime/ui/menu.h
+index 32393f9ff62c9b079c272177e9e57693df1073c2..fa2ecf8ff41a6575c4bb65fda5440de7e25e3158 100644
+--- a/runtime/ui/menu.h
++++ b/runtime/ui/menu.h
+@@ -64,6 +64,8 @@ int menu_font_check(void);
+ // ---- what the menu asks of the platform side (gfx_window_win.c, gfx_window_sdl.c)
+ void gfx_window_apply_settings(void);     // TOTK_FULLSCREEN or TOTK_WINDOW_SIZE changed: the window follows
+ void gfx_window_request_close(void);      // as the window's close button: the process ends
++int gfx_restart_available(void);          // the launcher starts the game again on AOD_RESTART_EXIT (gfx_present.c)
++void gfx_request_restart(void);           // close as above, ending with that exit code
+ int gfx_window_monitor_size(int *w, int *h);   // pixels of the monitor the window is on; 0 when unknown
+ double gfx_window_refresh_hz(void);            // its refresh rate (TOTK_FPS_LIMIT=display); 0 when unknown
+ unsigned gfx_window_dpi(void);                 // the window's DPI (96 at 100% display scale); any thread
+diff --git a/runtime/ui/option_rows.cpp b/runtime/ui/option_rows.cpp
+index 18bedb4977e86b00ceaf9d3b5d3253948da0009a..6b1117b640ff95c2032363e154bc79e3e839824f 100644
+--- a/runtime/ui/option_rows.cpp
++++ b/runtime/ui/option_rows.cpp
+@@ -403,11 +403,39 @@ static int row(const char *key, UiTextId label, UiTextId desc, const RowView &v)
+ // ---- writing a setting: at once in memory (live settings follow), to totk.ini a moment later (opt_save_tick)
+ // g_save_at: plat_now_ns deadline of the pending write; 0 none.
+ static uint64_t g_save_at, g_saved_at;
+-static bool g_save_logged, g_restart_changed;
++static bool g_save_logged;
++
++// The value each setting read only at start had when the game started (NULL for a live one), taken before the menu
++// changes the first one: only the menu writes settings while the game runs.
++#define START_MAX 160
++static char *g_start_value[START_MAX];
++static int g_start_count = -1;
++
++static void start_values(void) {
++    if (g_start_count >= 0) return;
++    g_start_count = 0;
++    for (const CfgMeta *m; g_start_count < START_MAX && (m = cfg_meta_at(g_start_count)); g_start_count++) {
++        if (m->live) continue;
++        char name[80];
++        snprintf(name, sizeof name, "TOTK_%s", m->key);
++        g_start_value[g_start_count] = strdup(cfg_value(name));
++    }
++}
++
++bool opt_restart_needed(void) {
++    start_values();
++    for (int i = 0; i < g_start_count; i++) {
++        const CfgMeta *m = cfg_meta_at(i);
++        if (!m || !g_start_value[i]) continue;
++        char name[80];
++        snprintf(name, sizeof name, "TOTK_%s", m->key);
++        if (strcmp(cfg_value(name), g_start_value[i])) return true;
++    }
++    return false;
++}
+ 
+ static void apply(const char *key, const char *value) {
+-    const CfgMeta *m = cfg_meta(key);
+-    if (m && !m->live) g_restart_changed = true;
++    start_values();
+     if (*value) cfg_set(key, value);
+     // The automatic choice: the key unset, its line removed from totk.ini.
+     else { const char *k = key; cfg_reset(&k, 1); }
+@@ -429,11 +457,10 @@ int opt_save_tick(int force) {
+ 
+ int opt_status(void) {
+     if (!cfg_last_save_ok()) return 3;
+-    if (g_restart_changed) return 2;
++    if (opt_restart_needed()) return 2;
+     if (g_saved_at && plat_now_ns() - g_saved_at < 4000000000ull) return 1;
+     return 0;
+ }
+-void opt_mark_restart(void) { g_restart_changed = true; }
+ 
+ bool opt_toggle(const char *key, UiTextId label, UiTextId desc, bool inverted) {
+     const CfgMeta *m = cfg_meta(key);
+diff --git a/runtime/ui/option_rows.h b/runtime/ui/option_rows.h
+index acee793b3e727b3b42a4ca2eaed85be374fdead3..6329144a4d82c05653143cb884c0a3295dcb8b08 100644
+--- a/runtime/ui/option_rows.h
++++ b/runtime/ui/option_rows.h
+@@ -66,4 +66,6 @@ int opt_save_tick(int force);
+ void opt_save_soon(void);
+ // 0 none, 1 saved recently, 2 restart needed, 3 save failed.
+ int opt_status(void);
+-void opt_mark_restart(void);
++// A setting read only at start (CfgMeta live 0) holds another value than it had when the game started. Back to that
++// value, no restart is needed any more.
++bool opt_restart_needed(void);
+diff --git a/runtime/ui_text.c b/runtime/ui_text.c
+index 382923ae38beefff74996eda66bacc3b37bcb8c6..4f2b4e260c9cfb28c3c65916a2f1b82fb2aa02ee 100644
+--- a/runtime/ui_text.c
++++ b/runtime/ui_text.c
+@@ -41,7 +41,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
+     [UI_MENU_DEFAULT_IS] = "Default: %s", [UI_MENU_BADGE_RESTART] = "restart",
+     [UI_MENU_TAB_SCREEN] = "Screen", [UI_MENU_TAB_GAME] = "Game", [UI_MENU_TAB_SOUND] = "Sound",
+     [UI_MENU_TAB_CONTROLS] = "Controls", [UI_MENU_TAB_MENU] = "Menu", [UI_MENU_TAB_ADVANCED] = "Advanced",
+-    [UI_MENU_CONTINUE] = "Continue", [UI_MENU_QUIT] = "Quit game",
++    [UI_MENU_CONTINUE] = "Continue", [UI_MENU_QUIT] = "Quit game", [UI_MENU_RESTART_NOW] = "Restart",
+     [UI_MENU_ON] = "On", [UI_MENU_OFF] = "Off", [UI_MENU_AUTO] = "Automatic", [UI_MENU_DEFAULT_MARK] = "default",
+     [UI_MENU_AFTER_RESTART] = "after restart", [UI_MENU_SET_BY_ENV] = "set by environment variable",
+     [UI_MENU_SAVE_FAILED] = "could not save settings",
+@@ -355,6 +355,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
+     [UI_MENU_TAB_SCREEN] = "Экран", [UI_MENU_TAB_GAME] = "Игра", [UI_MENU_TAB_SOUND] = "Звук",
+     [UI_MENU_TAB_CONTROLS] = "Управление", [UI_MENU_TAB_MENU] = "Меню", [UI_MENU_TAB_ADVANCED] = "Дополнительно",
+     [UI_MENU_CONTINUE] = "Продолжить", [UI_MENU_QUIT] = "Выйти из игры",
++    [UI_MENU_RESTART_NOW] = "Перезапустить",
+     [UI_MENU_ON] = "Вкл.", [UI_MENU_OFF] = "Выкл.", [UI_MENU_AUTO] = "Автоматически",
+     [UI_MENU_DEFAULT_MARK] = "по умолчанию",
+     [UI_MENU_AFTER_RESTART] = "после перезапуска", [UI_MENU_SET_BY_ENV] = "задано переменной окружения",
+@@ -669,7 +670,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
+     [UI_MENU_DEFAULT_IS] = "Predefinito: %s", [UI_MENU_BADGE_RESTART] = "riavvio",
+     [UI_MENU_TAB_SCREEN] = "Schermo", [UI_MENU_TAB_GAME] = "Gioco", [UI_MENU_TAB_SOUND] = "Audio",
+     [UI_MENU_TAB_CONTROLS] = "Comandi", [UI_MENU_TAB_MENU] = "Menu", [UI_MENU_TAB_ADVANCED] = "Avanzate",
+-    [UI_MENU_CONTINUE] = "Continua", [UI_MENU_QUIT] = "Esci dal gioco",
++    [UI_MENU_CONTINUE] = "Continua", [UI_MENU_QUIT] = "Esci dal gioco", [UI_MENU_RESTART_NOW] = "Riavvia",
+     [UI_MENU_ON] = "Attivo", [UI_MENU_OFF] = "Disattivato", [UI_MENU_AUTO] = "Automatico",
+     [UI_MENU_DEFAULT_MARK] = "predefinito", [UI_MENU_AFTER_RESTART] = "dopo il riavvio",
+     [UI_MENU_SET_BY_ENV] = "impostato da una variabile d'ambiente",
+diff --git a/runtime/ui_text.h b/runtime/ui_text.h
+index e1d832b2e5acaedfe39db9985b8ced8597f66d5c..6c7a1e5602c7fcf139288eb53e4801087ee72084 100644
+--- a/runtime/ui_text.h
++++ b/runtime/ui_text.h
+@@ -16,7 +16,7 @@ typedef enum {
+     UI_MENU_TITLE = UI_MENU_FIRST,
+     UI_MENU_TAB_SCREEN, UI_MENU_TAB_GAME, UI_MENU_TAB_SOUND, UI_MENU_TAB_CONTROLS, UI_MENU_TAB_MENU,
+     UI_MENU_TAB_ADVANCED,
+-    UI_MENU_CONTINUE, UI_MENU_QUIT,
++    UI_MENU_CONTINUE, UI_MENU_QUIT, UI_MENU_RESTART_NOW,   // the action bar's buttons
+     UI_MENU_ON, UI_MENU_OFF, UI_MENU_AUTO, UI_MENU_DEFAULT_MARK,      // "default" beside the default value
+     UI_MENU_AFTER_RESTART,    // note on a setting that is read at start
+     UI_MENU_SET_BY_ENV,       // note on a setting an environment variable fixes
+diff --git a/tests/menu_preview.cpp b/tests/menu_preview.cpp
+index 52d2b9b04bc7cbc2eb5960f653c84f9d0d0a086e..061e06e6fe0715da90e086295c84ed0cf3ca5aa5 100644
+--- a/tests/menu_preview.cpp
++++ b/tests/menu_preview.cpp
+@@ -26,6 +26,7 @@ extern "C" {
+ 
+ extern unsigned preview_dpi;
+ extern bool preview_quit;
++extern bool preview_restart;
+ extern uint64_t preview_buttons;
+ extern int32_t preview_lx, preview_ly;
+ extern int preview_capture_key;
+@@ -642,12 +643,13 @@ static void run_script(Preview &p, const std::filesystem::path &path) {
+                     value != (cmd == "expect-env" ? cfg_value(key.c_str()) : name))
+                     throw std::runtime_error(key + ": unexpected environment override " + value);
+             } else if (cmd == "expect-open" || cmd == "expect-quit" || cmd == "expect-capture" ||
+-                       cmd == "expect-popup" || cmd == "expect-status") {
++                       cmd == "expect-popup" || cmd == "expect-status" || cmd == "expect-restart") {
+                 int expected;
+                 if (!(in >> expected) || expected < 0 || expected > (cmd == "expect-status" ? 3 : 1))
+                     throw std::runtime_error("invalid expected state");
+                 int actual = cmd == "expect-open" ? menu_is_open()
+                            : cmd == "expect-quit" ? preview_quit
++                           : cmd == "expect-restart" ? preview_restart
+                            : cmd == "expect-capture" ? menu_binding_capture()
+                            : cmd == "expect-popup" ? ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                                                  ImGuiPopupFlags_AnyPopupLevel)
+diff --git a/tests/menu_preview_stubs.cpp b/tests/menu_preview_stubs.cpp
+index f3dc848222143795adbff6374e3418ad4564da00..32ab75c71aa6fe9418cc8d0f52cd085000184a00 100644
+--- a/tests/menu_preview_stubs.cpp
++++ b/tests/menu_preview_stubs.cpp
+@@ -15,6 +15,7 @@ extern "C" {
+ 
+ unsigned preview_dpi = 96;
+ bool preview_quit = false;
++bool preview_restart = false;
+ uint64_t preview_buttons = 0;
+ int32_t preview_lx = 0, preview_ly = 0;
+ int preview_capture_key = 0;
+@@ -50,6 +51,9 @@ int romfs_xbox_prompts_ready(void) { return 0; }
+ int romfs_xbox_prompts_active(void) { return 0; }
+ void gfx_window_apply_settings(void) {}
+ void gfx_window_request_close(void) { preview_quit = true; }
++// The Restart button shows only when the launcher restarts the game (AOD_RESTART_EXIT), as gfx_present.c.
++int gfx_restart_available(void) { const char *v = getenv("AOD_RESTART_EXIT"); return v && atoi(v) > 0 && atoi(v) < 255; }
++void gfx_request_restart(void) { if (gfx_restart_available()) preview_restart = preview_quit = true; }
+ int gfx_window_monitor_size(int *w, int *h) { *w = 2560; *h = 1440; return 1; }
+ double gfx_window_refresh_hz(void) { return 60; }
+ unsigned gfx_window_dpi(void) { return preview_dpi; }
+diff --git a/tests/menu_preview_test.py b/tests/menu_preview_test.py
+index 0bfd5a79314ee04be00a22566a0ba72030b6d13d..ff3d51a4cf88fff23399340aa5bd6b22f3a226b1 100644
+--- a/tests/menu_preview_test.py
++++ b/tests/menu_preview_test.py
+@@ -182,6 +182,54 @@ expect-ini BIND_MENU=key:default, pad:east
+ """
+ 
+ 
++def restart_scenarios():
++    """The Restart button: shown while a setting read at start differs from its value at start, gone when it is back,
++    and only when the launcher restarts the game (AOD_RESTART_EXIT); pressing it ends with the restart."""
++    yield "restart-button", """
++open
++frames 2
++expect-status 0
++set OUTPUT_RES=2560x1440
++frames 2
++expect-status 2
++shot restart-shown
++set OUTPUT_RES=1920x1080
++frames 2
++expect-status 0
++shot restart-gone
++set AUDIO_LATENCY=high
++frames 2
++expect-status 2
++""" + "key DownArrow tap\n" * 30 + """
++key LeftArrow tap
++key Enter tap
++expect-restart 1
++expect-ini AUDIO_LATENCY=high
++""", {"AOD_RESTART_EXIT": "75"}, 1920, 1080, "en"
++    yield "restart-unavailable", """
++open
++frames 2
++set OUTPUT_RES=2560x1440
++frames 2
++expect-status 2
++shot restart-unavailable
++""" + "key DownArrow tap\n" * 30 + """
++key Enter tap
++expect-restart 0
++expect-quit 1
++""", {"AOD_RESTART_EXIT": ""}, 1920, 1080, "en"
++    # The narrowest bar: the longest words (Russian) at 720p, with the Restart button beside Quit and Continue.
++    for lang in ("ru", "it"):
++        yield "restart-" + lang + "-720p", """
++open
++frames 2
++set OUTPUT_RES=2560x1440
++frames 2
++expect-status 2
++shot restart-""" + lang + """-720p
++""", {"AOD_RESTART_EXIT": "75"}, 1280, 720, lang
++
++
+ def shots():
+     sizes = [(1280, 720, 96), (1280, 800, 96), (1920, 1080, 96),
+              (2560, 1440, 96), (3440, 1440, 96), (3840, 2160, 96), (1280, 720, 144)]
+@@ -383,6 +431,8 @@ def main():
+     if not args.shots_only:
+         results.extend(run(exe, out, name, script) for name, script in scenarios())
+         results.append(run(exe, out, "menu-test-hook", "frames 80\nexpect-open 0\n", hook=True))
++        results.extend(run(exe, out, name, script, w, h, 96, lang, extra_env=env)
++                       for name, script, env, w, h, lang in restart_scenarios())
+         results.extend(run(exe, out, name, script, w, h, dpi, lang, extra_env=env, block_ini=blocked)
+                        for name, script, w, h, dpi, lang, env, blocked in states())
+     return 0 if all(results) else 1

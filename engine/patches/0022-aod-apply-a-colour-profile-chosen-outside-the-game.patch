@@ -1,0 +1,202 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Age of Decomp patch queue <aod-patches@localhost>
+Date: Thu, 19 Nov 2026 12:28:02 +0100
+Subject: [PATCH] aod: apply a colour profile chosen outside the game
+
+The launcher and RecompLauncher write only the profile's name (color_preset),
+but the picture read just the four values, so Vivid or Clarity picked there
+changed nothing. The profiles now live in runtime/color_presets.h, shared by
+the menu and the picture: a named profile sets the four values, custom keeps
+the player's own.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ runtime/color_presets.h           | 23 +++++++++++
+ runtime/ui/menu.cpp               | 16 ++++----
+ runtime/vk_color.c                | 14 ++++---
+ tests/hwaoi/test_color_presets.py | 68 +++++++++++++++++++++++++++++++
+ 4 files changed, 107 insertions(+), 14 deletions(-)
+ create mode 100644 runtime/color_presets.h
+ create mode 100644 tests/hwaoi/test_color_presets.py
+
+diff --git a/runtime/color_presets.h b/runtime/color_presets.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..0e42ada4218345c05eed7f512620bdbbcff06b9d
+--- /dev/null
++++ b/runtime/color_presets.h
+@@ -0,0 +1,23 @@
++// The colour profiles of the in-game menu (ui/menu.cpp) and of the launcher's "Colour" setting, which writes only the
++// profile's name to hwaoi.ini. The picture (vk_color.c) takes a named profile's four values from this table; only
++// "custom" uses COLOR_BRIGHTNESS/CONTRAST/SATURATION/GAMMA as the player set them.
++#pragma once
++#include <stddef.h>
++#include <string.h>
++
++typedef struct {
++    const char *name, *brightness, *contrast, *saturation, *gamma;
++} ColorPreset;
++
++static const ColorPreset color_presets[] = {
++    {"default", "0", "100", "100", "1"},
++    {"vivid", "0", "115", "135", "0.95"},
++    {"clarity", "2", "110", "115", "1"},
++};
++
++// The named profile, or NULL for "custom" and any other name: the four values are then the player's own.
++static inline const ColorPreset *color_preset_find(const char *name) {
++    for (size_t i = 0; name && i < sizeof color_presets / sizeof *color_presets; i++)
++        if (!strcmp(name, color_presets[i].name)) return &color_presets[i];
++    return NULL;
++}
+diff --git a/runtime/ui/menu.cpp b/runtime/ui/menu.cpp
+index 556958899779677259e211713bc5b7e84b4dcfbb..f30d500c154a3d62c6976ffea8de4ac4d7d94b6d 100644
+--- a/runtime/ui/menu.cpp
++++ b/runtime/ui/menu.cpp
+@@ -39,6 +39,7 @@ static int g_font_bad;
+ 
+ extern "C" {
+ #include "cfg.h"
++#include "color_presets.h"
+ #include "input.h"
+ #include "input_map.h"
+ #include "perfmon.h"
+@@ -677,19 +678,16 @@ static const char *present_note(void) {
+ // Colour adjustment (vk_color.c): a profile writes the four values (STS78721's presets, issue #136); moving one of them
+ // makes the profile Custom.
+ static void rows_color(void) {
+-    static const struct { const char *name, *b, *c, *s, *g; } presets[] = {
+-        {"default", "0", "100", "100", "1"}, {"vivid", "0", "115", "135", "0.95"}, {"clarity", "2", "110", "115", "1"}};
++    // The profiles' values come from color_presets.h, the table the picture itself applies (vk_color.c).
+     static const UiTextId names[] = {UI_MENU_COLOR_DEFAULT, UI_MENU_COLOR_VIVID, UI_MENU_COLOR_CLARITY,
+                                      UI_MENU_COLOR_CUSTOM};
+     opt_group(UI_MENU_COLOR);
+     if (opt_choice("TOTK_COLOR_PRESET", UI_MENU_COLOR_PRESET, names, 4, UI_MENU_COLOR_PRESET_DESC)) {
+-        const char *p = cfg_value("TOTK_COLOR_PRESET");
+-        for (const auto &e : presets)
+-            if (!strcmp(p, e.name)) {
+-                cfg_set("TOTK_COLOR_BRIGHTNESS", e.b), cfg_set("TOTK_COLOR_CONTRAST", e.c);
+-                cfg_set("TOTK_COLOR_SATURATION", e.s), cfg_set("TOTK_COLOR_GAMMA", e.g);
+-                cfg_save();
+-            }
++        if (const ColorPreset *e = color_preset_find(cfg_value("TOTK_COLOR_PRESET"))) {
++            cfg_set("TOTK_COLOR_BRIGHTNESS", e->brightness), cfg_set("TOTK_COLOR_CONTRAST", e->contrast);
++            cfg_set("TOTK_COLOR_SATURATION", e->saturation), cfg_set("TOTK_COLOR_GAMMA", e->gamma);
++            cfg_save();
++        }
+     }
+     bool moved = opt_slider("TOTK_COLOR_BRIGHTNESS", UI_MENU_COLOR_BRIGHTNESS, -30, 30, UI_MENU_COLOR_BRIGHTNESS_DESC, 1,
+                             "%+.0f %%");
+diff --git a/runtime/vk_color.c b/runtime/vk_color.c
+index f4172935d9e58e30bc87edcb23acdc22eae50f84..8a8c035a1c888fdad72a9f45f1062fe16104b435 100644
+--- a/runtime/vk_color.c
++++ b/runtime/vk_color.c
+@@ -11,10 +11,12 @@
+ // the output image is shared by all slots, and each frame's first barrier orders it after the previous frame's reads.
+ #include "vk.h"
+ 
++#include <stdlib.h>
+ #include <string.h>
+ 
+ #include "cfg.h"
+ #include "color_grade_spv.h"
++#include "color_presets.h"
+ #include "host.h"
+ 
+ #define SLOTS 8
+@@ -111,15 +113,17 @@ static int ensure_image(VkCtx *c, uint32_t w, uint32_t h) {
+     return 1;
+ }
+ 
+-// The four values from the settings, re-read when they change. 1 when any differs from "unchanged".
++// The four values, re-read when the settings change: a named profile's from color_presets.h (the launcher and
++// RecompLauncher write only its name), "custom" the player's own. 1 when any differs from "unchanged".
+ static int adjusting(void) {
+     unsigned v = cfg_version();
+     if (v != C.seen) {
+         C.seen = v;
+-        C.adj[0] = (float)cfg_double("TOTK_COLOR_BRIGHTNESS") / 100.0f;
+-        C.adj[1] = (float)cfg_double("TOTK_COLOR_CONTRAST") / 100.0f;
+-        C.adj[2] = (float)cfg_double("TOTK_COLOR_SATURATION") / 100.0f;
+-        C.adj[3] = (float)cfg_double("TOTK_COLOR_GAMMA");
++        const ColorPreset *p = color_preset_find(cfg_value("TOTK_COLOR_PRESET"));
++        C.adj[0] = (float)(p ? strtod(p->brightness, NULL) : cfg_double("TOTK_COLOR_BRIGHTNESS")) / 100.0f;
++        C.adj[1] = (float)(p ? strtod(p->contrast, NULL) : cfg_double("TOTK_COLOR_CONTRAST")) / 100.0f;
++        C.adj[2] = (float)(p ? strtod(p->saturation, NULL) : cfg_double("TOTK_COLOR_SATURATION")) / 100.0f;
++        C.adj[3] = (float)(p ? strtod(p->gamma, NULL) : cfg_double("TOTK_COLOR_GAMMA"));
+     }
+     return C.adj[0] != 0.0f || C.adj[1] != 1.0f || C.adj[2] != 1.0f || C.adj[3] != 1.0f;
+ }
+diff --git a/tests/hwaoi/test_color_presets.py b/tests/hwaoi/test_color_presets.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..057a5ab86214a179107587142a2f95b67f50b02c
+--- /dev/null
++++ b/tests/hwaoi/test_color_presets.py
+@@ -0,0 +1,68 @@
++"""The picture's colour adjustment follows a named profile even when only its name is in hwaoi.ini."""
++import os
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import unittest
++
++ROOT = Path(__file__).resolve().parents[2]
++CC = Path(os.environ.get("HWAOI_TOOLS", "F:") + "/llvm-mingw/bin/clang.exe")
++sys.path.insert(0, str(ROOT / "tests"))
++from nvn2_compute_c0_test import function
++
++
++@unittest.skipUnless(os.name == "nt" and CC.is_file(), "Windows Clang required")
++class ColorPresetTests(unittest.TestCase):
++    def test_named_profiles_set_the_four_values(self):
++        adjusting = function((ROOT / "runtime/vk_color.c").read_text(encoding="utf-8"), "static int adjusting(")
++        source = r'''
++#include <assert.h>
++#include <math.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "color_presets.h"
++static struct { unsigned seen; float adj[4]; } C;
++static unsigned version = 1;
++static const char *preset, *values[4];
++static unsigned cfg_version(void) { return version; }
++static const char *cfg_value(const char *key) { assert(!strcmp(key, "TOTK_COLOR_PRESET")); return preset ? preset : "default"; }
++static double cfg_double(const char *key) {
++    static const char *const keys[] = {"TOTK_COLOR_BRIGHTNESS", "TOTK_COLOR_CONTRAST", "TOTK_COLOR_SATURATION", "TOTK_COLOR_GAMMA"};
++    for (int i = 0; i < 4; i++) if (!strcmp(key, keys[i])) return strtod(values[i], NULL);
++    assert(0); return 0;
++}
++''' + adjusting + r'''
++static void expect(const char *p, float b, float c, float s, float g, int on) {
++    preset = p; version++;
++    assert(adjusting() == on);
++    assert(fabsf(C.adj[0] - b) < 1e-6f && fabsf(C.adj[1] - c) < 1e-6f && fabsf(C.adj[2] - s) < 1e-6f && fabsf(C.adj[3] - g) < 1e-6f);
++}
++int main(void) {
++    values[0] = "10"; values[1] = "120"; values[2] = "80"; values[3] = "1.1";   // the player's own (custom) values
++    expect("vivid", 0.0f, 1.15f, 1.35f, 0.95f, 1);    // only the name in the file: the profile decides
++    expect("clarity", 0.02f, 1.10f, 1.15f, 1.0f, 1);
++    expect("default", 0.0f, 1.0f, 1.0f, 1.0f, 0);     // default leaves the picture unchanged
++    expect(NULL, 0.0f, 1.0f, 1.0f, 1.0f, 0);          // unset is the default profile
++    expect("custom", 0.10f, 1.20f, 0.80f, 1.1f, 1);   // custom: the four values as set
++    expect("unknown", 0.10f, 1.20f, 0.80f, 1.1f, 1);  // another name: treated as custom
++    assert(color_preset_find("vivid") && !color_preset_find("custom") && !color_preset_find(NULL));
++    puts("colour profiles passed");
++    return 0;
++}
++'''
++        with tempfile.TemporaryDirectory(prefix="hwaoi-color-") as temp:
++            p = Path(temp) / "fixture.c"
++            p.write_text(source, encoding="utf-8")
++            for opt in ("-O0", "-O2"):
++                exe = Path(temp) / "fixture.exe"
++                build = subprocess.run([str(CC), opt, "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "runtime"),
++                                        str(p), "-o", str(exe)], capture_output=True, text=True)
++                self.assertEqual(build.returncode, 0, build.stderr)
++                run = subprocess.run([str(exe)], capture_output=True, text=True, timeout=5)
++                self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
++
++
++if __name__ == "__main__":
++    unittest.main()
