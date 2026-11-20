@@ -39,7 +39,11 @@ the issues and pull requests of this repository (`gh issue list/view`, `gh pr li
 the upstream engine's (Alano6678/hwaoi-recomp), and the player reports on https://recomplauncher.com/game/age-of-decomp
 (tab "Player reports" / "Segnalazioni dei giocatori", read with the built-in browser); record what is new in `TASKS.md`.
 Reading only: replying, commenting, labelling, closing or merging needs the user's OK in chat (hard rule 6), and
-attachments (saves, logs, dumps) are not downloaded without it.
+attachments (saves, logs, dumps) are not downloaded without it. Answers to RecompLauncher reports and the page's own
+text (description, what's inside, what players need, tags, setup steps) are written in the developer hub,
+https://recomplauncher.com/dev (Reports tab and "Edit its page"), once the user has signed in there in the built-in
+browser. The page's "Setup Required" flag is not in the hub: only the RecompLauncher team changes it. The public page
+is cached for up to an hour; `/api/pc.php?a=app&id=age-of-decomp` shows what is saved.
 
 **While working**: append to `plan&activity/LOG.md` (one line per meaningful action: what, command, result).
 **Before ending a session** (or when the context is getting long): update `TASKS.md` (`- [x] ~~task~~ — note` for done),
