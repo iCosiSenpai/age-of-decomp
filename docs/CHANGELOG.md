@@ -20,6 +20,9 @@ Build the game again once after installing this version. Setup keeps your settin
   different file stops Play with a clear message (code 65).
 - A Play that fails leaves a log that RecompLauncher sends with your report, and codes 70 and 71 come with a short
   explanation. Thanks to the players on RecompLauncher whose reports of 2026-11-19 arrived without a log.
+- With RecompLauncher 0.90 beta 66 or newer, everything Age of Decomp writes stays in the game's folder, so it moves,
+  backs up and uninstalls with the game. The game's page also lists what your PC needs: Windows 10 or newer and a
+  graphics card with Vulkan 1.3.
 
 ### Picture
 - New: NVIDIA DLAA (Display → Anti-aliasing) smooths jagged, shimmering edges at Native 3D resolution on RTX cards. It

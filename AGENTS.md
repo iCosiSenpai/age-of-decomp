@@ -177,8 +177,9 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
   `RECOMPLAUNCHER_MODE=bigpicture` → fullscreen. A Play that fails writes `<dir>/logs/launch-*.log` (RecompLauncher
   sends the newest .log under the install folder with a report); a game that ends with an error gets its log's end on
   stderr. Runtime codes: 70 = rt_fatal, 71 = crash handler.
-- Paths: data = `AOD_DATA_DIR` > `data/` next to the exe if `portable.txt` > `%LOCALAPPDATA%\AgeOfDecomp`; engine
-  bundle = `AOD_ENGINE_DIR` > `<exe dir>/engine` > repo `out/engine/<os>` (development).
+- Paths: data = `AOD_DATA_DIR` > `RECOMPLAUNCHER_DATA` (RecompLauncher's `{data}`) > `data/` next to the exe if
+  `portable.txt` > `%LOCALAPPDATA%\AgeOfDecomp`; engine bundle = `AOD_ENGINE_DIR` > `<exe dir>/engine` > repo
+  `out/engine/<os>` (development).
 - Engine output is read as bytes (never stop draining a pipe on non-UTF-8 text).
 
 ## RecompLauncher contract
@@ -192,7 +193,9 @@ the build ID `659cb288…e1ba` itself (exit 3 + reason); `prepare` = `aod-cli cl
 `AgeOfDecomp --play --game-dir {install}/game --game={input:nup} --dlss={input:dlss}` (the game reads the NUP while
 playing); `config` =
 `{install}/game/work/build/hwaoi196608/hwaoi.ini`. Release asset names:
-`AgeOfDecomp-v<ver>-Windows-x64.zip`, `AgeOfDecomp-v<ver>-Linux-x64.AppImage`. Spec: https://recomplauncher.com/sdk (local copy `refs/RecompLauncher/docs/DEVELOPERS.md`).
+`AgeOfDecomp-v<ver>-Windows-x64.zip`, `AgeOfDecomp-v<ver>-Linux-x64.AppImage` + `.tar.xz` of the same AppDir (RecompLauncher
+unpacks every AppImage and starts `AppRun` from a plain folder: never rely on `APPIMAGE`). `system`: Windows 10 + Vulkan
+1.3 (add `linux` with the first published Linux build). Write only under `{install}` and `{data}`. Spec: https://recomplauncher.com/sdk (local copy `refs/RecompLauncher/docs/DEVELOPERS.md`).
 Bump `packaging/prepare-version.txt` only when players must rebuild. It is the source for the SDK manifest,
 staged engine and compiler launch check. A UI-only update keeps the previously built game playable.
 Validate before every release with RecompLauncher's own Developer-tab checks, nothing installed:

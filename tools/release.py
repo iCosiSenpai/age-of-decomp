@@ -5,7 +5,8 @@
   py tools/release.py docs                write docs/SETTINGS.md from the settings catalogue
   py tools/release.py windows [--zip]     stage out/release/AgeOfDecomp-v<ver>-Windows-x64/ (+ .zip, SHA256SUMS.txt)
   python3 tools/release.py linux [--appimage] [--bin-dir D] [--dest D]
-                                          stage the AppDir AgeOfDecomp-v<ver>-Linux-x64.AppDir (+ .AppImage, SHA256SUMS)
+                                          stage the AppDir AgeOfDecomp-v<ver>-Linux-x64.AppDir (+ .AppImage and
+                                          .tar.xz of the same folder, SHA256SUMS-Linux.txt)
   py tools/release.py check <folder>      refuse any game material in a folder (also run by `windows` and `linux`)
 
 The release holds the launcher, aod-cli, the engine bundle (out/engine/<os>: engine sources + shader translator +
@@ -24,6 +25,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import zipfile
 from pathlib import Path
 
@@ -75,6 +77,10 @@ def manifest() -> dict:
         "format": 1,
         "name": "Age of Decomp",
         "repo": "iCosiSenpai/age-of-decomp",
+        # What the PC needs, shown on the game's page (RecompLauncher warns on an older Windows and never stops the
+        # game). Only the systems a release ships a build for: add "linux" (glibc of the build system, Vulkan 1.3)
+        # with the first published Linux build.
+        "system": {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}}},
         # The player's copy is a named input, not a `game` section. RecompLauncher's Easy Setup (0.90 beta 65 and 66,
         # ui/setup-steps.js stepsRun) runs a profile with named inputs through setup_inputs_run, which refuses a
         # `game` profile whose copy was only picked in that window ("That copy didn't work: Choose your copy of the
@@ -361,9 +367,26 @@ def cmd_linux(a) -> None:
                 shutil.copyfileobj(s, f, 1 << 20)
         squash.unlink()
         os.chmod(image, 0o755)
+        tarball = dest / f"{name}.tar.xz"
+        pack_tarball(out, tarball, name)
         sums = dest / "SHA256SUMS-Linux.txt"
-        sums.write_text(f"{sha256(image)}  {image.name}\n", encoding="ascii")
-        print(f"AppImage {image} ({image.stat().st_size / 2**20:.0f} MiB), {sums.name}")
+        sums.write_text(f"{sha256(image)}  {image.name}\n{sha256(tarball)}  {tarball.name}\n", encoding="ascii")
+        print(f"AppImage {image} ({image.stat().st_size / 2**20:.0f} MiB), {tarball.name} "
+              f"({tarball.stat().st_size / 2**20:.0f} MiB), {sums.name}")
+
+
+def pack_tarball(folder: Path, tarball: Path, top: str) -> None:
+    """`folder` as `top/` in a .tar.xz, owned by root like the AppImage, modes and symlinks kept. RecompLauncher's SDK
+    guide asks for one portable Linux folder packed both ways: it unpacks the AppImage and plays from a plain folder
+    (AppRun, APPIMAGE unset), and installs the tarball when an AppImage will not unpack."""
+    def owner(ti: tarfile.TarInfo) -> tarfile.TarInfo:
+        ti.uid = ti.gid = 0
+        ti.uname = ti.gname = "root"
+        return ti
+    if tarball.exists():
+        tarball.unlink()
+    with tarfile.open(tarball, "w:xz") as t:
+        t.add(folder, arcname=top, filter=owner)
 
 
 def main() -> None:
@@ -376,7 +399,7 @@ def main() -> None:
     w.add_argument("--allow-dirty", action="store_true")
     li = sub.add_parser("linux")
     li.add_argument("--allow-dirty", action="store_true")
-    li.add_argument("--appimage", action="store_true", help="also pack the AppImage (mksquashfs + pinned runtime)")
+    li.add_argument("--appimage", action="store_true", help="also pack the AppImage (mksquashfs + pinned runtime) and a .tar.xz of the same folder")
     li.add_argument("--bin-dir", help="folder with the Linux launcher binaries (default src-tauri/target/release)")
     li.add_argument("--dest", help="output folder (default out/release; under WSL use the Linux file system)")
     c = sub.add_parser("check")

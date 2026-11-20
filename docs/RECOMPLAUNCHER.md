@@ -12,12 +12,12 @@ so RecompLauncher's team must enable its beta before catalog installation is ava
 
 Alternatively extract the ZIP and import the folder through **Settings → Developers → Add a build**.
 The `recomplauncher.json` embedded in the release belongs beside `AgeOfDecomp.exe` and `aod-cli.exe`.
-The profile exposes 45 settings, preparation, direct Play, save paths and log folders. Setup version 4 asks
+The profile exposes 46 settings, preparation, direct Play, save paths and log folders. Setup version 4 asks
 existing installations to rebuild for the new engine runtime.
 
 ## Catalog submission
 
-Adding a project by URL works separately from a listing in Discover. The catalog form is at
+Adding a project by URL works separately from a listing in the Catalog. The catalog form is at
 <https://recomplauncher.com/submit?platform=pc>. GitHub projects require sign-in with the owning GitHub account.
 A developer account also requires manual review by RecompLauncher. Submission or an account application does
 not itself mean that a listing has been approved.
@@ -46,3 +46,22 @@ preserve player settings and saves. Rebuild through Setup when the profile's pre
 
 The in-game menu's Restart (a setting read only at start was changed) ends the game with exit 75; `--play`, `aod-cli
 play` and the launcher window start it again in the same process, so RecompLauncher sees one session.
+
+## Where it writes, and what the PC needs
+
+RecompLauncher (from 0.90 beta 66) moves, backs up and uninstalls a game as its folder, and gives the game and its
+setup step `RECOMPLAUNCHER_DATA`: `{data}`, the `recompdata` folder inside the install folder. Age of Decomp writes only
+there and under `{install}`: the build, `hwaoi.ini`, the saves and the game's logs stay in `{install}/game`, and the
+launcher's own files (`launcher.json`, pending settings, its logs) go to `RECOMPLAUNCHER_DATA` when it is set
+(`AOD_DATA_DIR` still wins; without either, `portable.txt` or `%LOCALAPPDATA%\AgeOfDecomp`). The setup step uses no
+temp files it needs later, never asks anything, and neither it nor `--play` updates Age of Decomp: only the launcher
+window offers updates, and RecompLauncher starts the game with `--play`.
+
+The profile's `system` says what a Windows build needs (Windows 10, Vulkan 1.3); the game's page shows it and
+RecompLauncher warns on an older Windows without stopping the game. A `linux` part (glibc of the build system,
+Vulkan 1.3) is added with the first published Linux build.
+
+On Linux RecompLauncher never runs an AppImage: it unpacks it and starts `AppRun` from a plain folder, with `APPDIR`
+set and `APPIMAGE` unset. Our `AppRun` finds its files from its own path, so it works the same both ways.
+`python3 tools/release.py linux --appimage` packs the same AppDir as `AgeOfDecomp-v<ver>-Linux-x64.AppImage` and
+`AgeOfDecomp-v<ver>-Linux-x64.tar.xz` (installed when an AppImage will not unpack); publish both together.

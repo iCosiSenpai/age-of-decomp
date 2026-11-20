@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 import sys
+import tarfile
 import tempfile
 import unittest
 import zipfile
@@ -86,6 +87,31 @@ class ReleaseGuardTests(unittest.TestCase):
         self.assertIn("{input:nup}", m["prepare"]["args"])
         self.assertIn("--game={input:nup}", m["start"]["args"])
         self.assertNotIn("{game}", json.dumps(m))
+
+    def test_manifest_says_what_the_pc_needs_for_the_builds_we_ship(self):
+        # RecompLauncher's `system` (SDK guide after beta 66): one part per system a release ships a build for.
+        self.assertEqual(release.manifest()["system"], {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}}})
+
+    def test_linux_tarball_is_the_folder_under_one_top_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / "AppDir"
+            folder.mkdir()
+            run = folder / "AppRun"
+            run.write_text("#!/bin/sh\n", encoding="utf-8")
+            run.chmod(0o755)
+            (folder / "engine").mkdir()
+            (folder / "engine/bundle.json").write_text("{}", encoding="utf-8")
+            tarball = root / "AgeOfDecomp-v0-Linux-x64.tar.xz"
+            release.pack_tarball(folder, tarball, "AgeOfDecomp-v0-Linux-x64")
+            with tarfile.open(tarball) as t:
+                members = {m.name: m for m in t.getmembers()}
+            self.assertEqual(set(members), {"AgeOfDecomp-v0-Linux-x64", "AgeOfDecomp-v0-Linux-x64/AppRun",
+                                            "AgeOfDecomp-v0-Linux-x64/engine",
+                                            "AgeOfDecomp-v0-Linux-x64/engine/bundle.json"})
+            self.assertTrue(all(m.uid == 0 and m.uname == "root" for m in members.values()))
+            if sys.platform != "win32":   # NTFS keeps no execute bit
+                self.assertEqual(members["AgeOfDecomp-v0-Linux-x64/AppRun"].mode & 0o777, 0o755)
 
     def test_dirty_repository_requires_opt_in_and_is_recorded(self):
         with tempfile.TemporaryDirectory() as tmp:
