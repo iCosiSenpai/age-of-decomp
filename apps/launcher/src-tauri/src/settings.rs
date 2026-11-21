@@ -139,7 +139,14 @@ pub fn reset(cfg: &Config, paths: &Paths, keys: &[String]) -> Result<(), String>
 }
 
 /// Values earlier versions offered and this one no longer does, with the value that replaces them.
-const RETIRED: &[(&str, &[&str], &str)] = &[("fps_limit", &["90", "120"], "60")];
+/// `temporal = dlaa` (0.1.2) is NVIDIA DLSS at its default quality, DLAA: the same picture under the newer name.
+const RETIRED: &[(&str, &[&str], &str)] = &[
+    ("fps_limit", &["90", "120"], "60"),
+    ("temporal", &["dlaa"], "dlss"),
+    // "Xbox prompts": this game's build has no overlay with Xbox letters, so the value only ever gave the
+    // Nintendo button positions.
+    ("pad_layout", &["xbox_prompts"], "nintendo"),
+];
 
 /// Before the game starts: rewrite retired values (from an older launcher or RecompLauncher) to their replacement.
 pub fn retire_values(path: &Path) -> Result<(), String> {
@@ -254,6 +261,18 @@ mod tests {
         retire_values(&path).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "fps_limit = 30\n");
         assert!(validate("fps_limit", "90").is_err() && validate("fps_limit", "120").is_err());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn dlaa_of_0_1_2_becomes_dlss() {
+        let (root, cfg, paths) = setup("dlaa");
+        let path = ini_path(&cfg, &paths);
+        std::fs::write(&path, "[display]\ntemporal = dlaa\n").unwrap();
+        assert_eq!(read(&cfg, &paths).get("temporal").map(String::as_str), Some("dlss"));
+        retire_values(&path).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "[display]\ntemporal = dlss\n");
+        assert!(validate("temporal", "dlaa").is_err() && validate("dlss_quality", "native").is_ok());
         let _ = std::fs::remove_dir_all(root);
     }
 

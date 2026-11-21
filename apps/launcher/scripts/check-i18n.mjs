@@ -29,6 +29,7 @@ for (const line of readFileSync(dictFile, 'utf8').split('\n')) {
 
 const call = /\btr\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|(`))/g;
 let used = 0;
+const usedTexts = new Set();   // every English string the UI shows, for --unused
 for (const file of walk(src).filter((f) => /\.(svelte|ts)$/.test(f) && f !== dictFile)) {
   const text = readFileSync(file, 'utf8');
   for (const m of text.matchAll(call)) {
@@ -39,6 +40,7 @@ for (const file of walk(src).filter((f) => /\.(svelte|ts)$/.test(f) && f !== dic
     }
     const en = (m[1] ?? m[2]).replace(/\\(['"\\])/g, '$1');
     used++;
+    usedTexts.add(en);
     if (!italian.has(en)) problems.push(`${where}: no Italian for "${en}"`);
   }
 }
@@ -65,7 +67,14 @@ const native = new Set(['Italiano', 'Français', 'Français (Canada)', 'Deutsch'
   'Português', 'Português (Brasil)', 'Русский', '日本語', '한국어', '简体中文', '繁體中文', 'English (US)', 'English (UK)', 'English']);
 for (const t of texts) {
   used++;
+  usedTexts.add(t);
   if (!native.has(t) && !italian.has(t)) problems.push(`catalog: no Italian for "${t}"`);
+}
+
+// `node scripts/check-i18n.mjs --unused`: the dictionary entries no string of the UI uses any more, one per line.
+if (process.argv.includes('--unused')) {
+  for (const en of italian.keys()) if (!usedTexts.has(en)) console.log(JSON.stringify(en));
+  process.exit(0);
 }
 
 if (problems.length) {

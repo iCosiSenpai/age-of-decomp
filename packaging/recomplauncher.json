@@ -91,7 +91,7 @@
         }
       ],
       "new": {
-        "output_res": "1920x1080",
+        "output_res": "auto",
         "render_scale": "100",
         "fps_limit": "60"
       }
@@ -100,10 +100,16 @@
   "settings": [
     {
       "id": "output_res",
-      "label": "Resolution",
-      "help": "What the game draws at. 1080p is the tested baseline; 1440p and 4K are experimental (menus and movies may not scale yet).",
+      "label": "Game resolution",
+      "help": "The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it. Larger sizes need more graphics power and video memory.",
       "group": "Display",
       "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "output_res": "auto"
+          }
+        },
         {
           "label": "720p",
           "set": {
@@ -117,26 +123,26 @@
           }
         },
         {
-          "label": "1440p (experimental)",
+          "label": "1440p",
           "set": {
             "output_res": "2560x1440"
           }
         },
         {
-          "label": "4K (experimental)",
+          "label": "4K",
           "set": {
             "output_res": "3840x2160"
           }
         }
       ],
       "defaults": {
-        "output_res": "1920x1080"
+        "output_res": "auto"
       }
     },
     {
       "id": "fullscreen",
       "label": "Fullscreen",
-      "help": "Fill the screen. F11 switches it while you play.",
+      "help": "Fills the screen. F11 switches it while you play.",
       "group": "Display",
       "choices": [
         {
@@ -220,12 +226,12 @@
     },
     {
       "id": "vk_present",
-      "label": "V-Sync",
-      "help": "Mailbox shows the newest frame without tearing. V-Sync waits for the screen. Immediate has the lowest latency but can tear.",
+      "label": "Screen sync",
+      "help": "How finished frames reach the screen. Fast shows the newest frame without tearing. V-Sync waits for the screen. Off has the least delay and can tear.",
       "group": "Display",
       "choices": [
         {
-          "label": "Mailbox",
+          "label": "Fast",
           "set": {
             "vk_present": "mailbox"
           }
@@ -237,7 +243,7 @@
           }
         },
         {
-          "label": "Off (tearing)",
+          "label": "Off",
           "set": {
             "vk_present": "immediate"
           }
@@ -249,8 +255,8 @@
     },
     {
       "id": "render_scale",
-      "label": "3D resolution",
-      "help": "Native draws the 3D scene at the full resolution: sharpest, with no smoothing of edges. Console is the game's own: a 1600×900 scene its upscaler brings to 1080p, softer with steadier edges, lower in busy scenes. Console always draws at 1080p.",
+      "label": "3D rendering",
+      "help": "Native draws the 3D scene at the game resolution: the sharpest picture. As on the console runs the game's own path, a 1600×900 scene scaled to 1080p: softer and lighter, and the game resolution is then 1080p.",
       "group": "Display",
       "choices": [
         {
@@ -260,7 +266,7 @@
           }
         },
         {
-          "label": "Console (1080p)",
+          "label": "As on the console",
           "set": {
             "render_scale": "game"
           }
@@ -272,8 +278,8 @@
     },
     {
       "id": "temporal",
-      "label": "Anti-aliasing",
-      "help": "Smooths jagged, shimmering edges in the 3D scene at Native 3D resolution. NVIDIA DLAA needs an RTX card and NVIDIA's own DLSS file.",
+      "label": "Upscaling",
+      "help": "Rebuilds the 3D picture from several frames: cleaner edges and, at a lower quality, more speed. AMD FSR works on most graphics cards and is downloaded from AMD the first time. NVIDIA DLSS needs an RTX card and NVIDIA's own DLSS file.",
       "group": "Display",
       "choices": [
         {
@@ -283,9 +289,15 @@
           }
         },
         {
-          "label": "NVIDIA DLAA",
+          "label": "AMD FSR",
           "set": {
-            "temporal": "dlaa"
+            "temporal": "fsr"
+          }
+        },
+        {
+          "label": "NVIDIA DLSS",
+          "set": {
+            "temporal": "dlss"
           }
         }
       ],
@@ -294,9 +306,110 @@
       }
     },
     {
+      "id": "dlss_quality",
+      "label": "DLSS quality",
+      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "DLAA",
+          "set": {
+            "dlss_quality": "native"
+          }
+        },
+        {
+          "label": "Quality",
+          "set": {
+            "dlss_quality": "quality"
+          }
+        },
+        {
+          "label": "Balanced",
+          "set": {
+            "dlss_quality": "balanced"
+          }
+        },
+        {
+          "label": "Performance",
+          "set": {
+            "dlss_quality": "performance"
+          }
+        }
+      ],
+      "defaults": {
+        "dlss_quality": "native",
+        "temporal": "off"
+      },
+      "when": {
+        "temporal": "dlss"
+      }
+    },
+    {
+      "id": "fsr_quality",
+      "label": "FSR quality",
+      "help": "Native keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Native",
+          "set": {
+            "fsr_quality": "native"
+          }
+        },
+        {
+          "label": "Quality",
+          "set": {
+            "fsr_quality": "quality"
+          }
+        },
+        {
+          "label": "Balanced",
+          "set": {
+            "fsr_quality": "balanced"
+          }
+        },
+        {
+          "label": "Performance",
+          "set": {
+            "fsr_quality": "performance"
+          }
+        }
+      ],
+      "defaults": {
+        "fsr_quality": "native",
+        "temporal": "off"
+      },
+      "when": {
+        "temporal": "fsr"
+      }
+    },
+    {
+      "id": "antialiasing",
+      "label": "Edge smoothing",
+      "help": "SMAA smooths jagged edges in the finished picture on any graphics card, at a small cost. With FSR or DLSS it is not needed.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "antialiasing": "off"
+          }
+        },
+        {
+          "label": "SMAA",
+          "set": {
+            "antialiasing": "smaa"
+          }
+        }
+      ],
+      "defaults": {
+        "antialiasing": "off"
+      }
+    },
+    {
       "id": "upscaler",
-      "label": "Upscaling",
-      "help": "How the picture is fitted to your screen. AMD FSR keeps it sharp on any graphics card.",
+      "label": "Fit to the window",
+      "help": "How the finished picture is scaled when the window is larger than the game resolution. AMD FSR 1 keeps edges sharper than Bilinear.",
       "group": "Display",
       "choices": [
         {
@@ -319,7 +432,7 @@
     {
       "id": "sharpness",
       "label": "Sharpness",
-      "help": "FSR sharpening. 0 is soft, 100 is crisp.",
+      "help": "Sharpening after the picture is scaled. 0 turns it off.",
       "group": "Display",
       "slider": {
         "key": "sharpness",
@@ -338,12 +451,12 @@
     },
     {
       "id": "aspect",
-      "label": "Aspect ratio",
-      "help": "Keep 16:9 adds borders on other screens. Stretch fills them.",
+      "label": "Picture shape",
+      "help": "The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same.",
       "group": "Display",
       "choices": [
         {
-          "label": "Keep 16:9",
+          "label": "Black bars",
           "set": {
             "aspect": "fit"
           }
@@ -391,7 +504,7 @@
     {
       "id": "device_profile",
       "label": "Device profile",
-      "help": "Steam Deck uses lighter defaults for handheld PCs.",
+      "help": "Steam Deck starts with lighter settings for handheld PCs.",
       "group": "Display",
       "advanced": true,
       "choices": [
@@ -421,7 +534,7 @@
     {
       "id": "color_preset",
       "label": "Colour",
-      "help": "Game's own colours, a more vivid look, extra clarity, or your own values below.",
+      "help": "The game's own colours, a more vivid look, extra clarity, deeper blacks for OLED screens, or your own values below.",
       "group": "Picture",
       "choices": [
         {
@@ -440,6 +553,12 @@
           "label": "Clarity",
           "set": {
             "color_preset": "clarity"
+          }
+        },
+        {
+          "label": "OLED",
+          "set": {
+            "color_preset": "oled"
           }
         },
         {
@@ -675,6 +794,12 @@
           "set": {
             "menu_lang": "ru"
           }
+        },
+        {
+          "label": "简体中文",
+          "set": {
+            "menu_lang": "zh-Hans"
+          }
         }
       ],
       "defaults": {
@@ -820,9 +945,10 @@
     },
     {
       "id": "player1_type",
-      "label": "Player 1 controller",
-      "help": "What the game sees: one Pro Controller, or a pair of Joy-Con.",
+      "label": "Player 1 appears to the game as",
+      "help": "The Switch controller the game is told this player holds, whatever the real one is. Change it only if the game asks for the other kind.",
       "group": "Controls",
+      "advanced": true,
       "choices": [
         {
           "label": "Pro Controller",
@@ -843,9 +969,10 @@
     },
     {
       "id": "player2_type",
-      "label": "Player 2 controller",
-      "help": "What the game sees for player 2.",
+      "label": "Player 2 appears to the game as",
+      "help": "The Switch controller the game is told player 2 holds.",
       "group": "Controls",
+      "advanced": true,
       "choices": [
         {
           "label": "Pro Controller",
@@ -867,7 +994,7 @@
     {
       "id": "pad_layout",
       "label": "Button layout",
-      "help": "Nintendo keeps A on the right. Xbox puts A at the bottom. Xbox labels makes the button marked A confirm on any pad.",
+      "help": "Which button is the game's A. Automatic: the right button on a controller that has A there (Switch controllers), the bottom one on the others (Xbox A, PlayStation cross).",
       "group": "Controls",
       "choices": [
         {
@@ -877,21 +1004,15 @@
           }
         },
         {
-          "label": "Nintendo",
+          "label": "A on the right",
           "set": {
             "pad_layout": "nintendo"
           }
         },
         {
-          "label": "Xbox positions",
+          "label": "A at the bottom",
           "set": {
             "pad_layout": "xbox"
-          }
-        },
-        {
-          "label": "Xbox labels",
-          "set": {
-            "pad_layout": "xbox_prompts"
           }
         }
       ],
@@ -902,7 +1023,7 @@
     {
       "id": "stick_deadzone",
       "label": "Stick dead zone",
-      "help": "Raise it if the camera or character drifts on its own.",
+      "help": "Raise it if the camera or the character moves on its own.",
       "group": "Controls",
       "slider": {
         "key": "stick_deadzone",
@@ -918,7 +1039,7 @@
     {
       "id": "motion",
       "label": "Motion controls",
-      "help": "Gyro and accelerometer from controllers that have them (Switch, Switch 2, DualSense, DualShock 4).",
+      "help": "Uses the controller's gyro and accelerometer where the game asks for motion.",
       "group": "Controls",
       "choices": [
         {
@@ -974,7 +1095,7 @@
     {
       "id": "rumble_triggers",
       "label": "Trigger rumble",
-      "help": "Impulse triggers on Xbox One and Series controllers.",
+      "help": "Also drives the motors in the triggers of controllers that have them.",
       "group": "Controls",
       "choices": [
         {
@@ -1011,9 +1132,55 @@
       }
     },
     {
+      "id": "pipe_prebuild",
+      "label": "Prepare shaders at start",
+      "help": "Builds the shaders the game used before while it starts, in the background: fewer hitches in play.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "pipe_prebuild": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "pipe_prebuild": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "pipe_prebuild": "1"
+      }
+    },
+    {
+      "id": "xlate_prefetch",
+      "label": "Translate effect shaders early",
+      "help": "Translates compute shaders as the game registers them, before an effect first needs them.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "xlate_prefetch": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "xlate_prefetch": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "xlate_prefetch": "1"
+      }
+    },
+    {
       "id": "replay_async",
-      "label": "Asynchronous GPU replay",
-      "help": "Experimental: about 15 % more FPS in tests, not yet checked in every scene.",
+      "label": "Draw on a second thread",
+      "help": "Lets the game's own thread run ahead while another one draws. Can raise the frame rate when the processor is the limit, and adds one frame of delay. Experimental.",
       "group": "Performance",
       "choices": [
         {
@@ -1034,61 +1201,9 @@
       }
     },
     {
-      "id": "async_preempt",
-      "label": "Thread preemption",
-      "help": "How the game's threads share your CPU. Leave on unless told otherwise.",
-      "group": "Performance",
-      "choices": [
-        {
-          "label": "Off",
-          "set": {
-            "async_preempt": "0"
-          }
-        },
-        {
-          "label": "On",
-          "set": {
-            "async_preempt": "1"
-          }
-        },
-        {
-          "label": "Aggressive",
-          "set": {
-            "async_preempt": "2"
-          }
-        }
-      ],
-      "defaults": {
-        "async_preempt": "1"
-      }
-    },
-    {
-      "id": "free_cores",
-      "label": "Leave cores free",
-      "help": "Keeps some CPU cores free for streaming or recording.",
-      "group": "Performance",
-      "choices": [
-        {
-          "label": "Off",
-          "set": {
-            "free_cores": "0"
-          }
-        },
-        {
-          "label": "On",
-          "set": {
-            "free_cores": "1"
-          }
-        }
-      ],
-      "defaults": {
-        "free_cores": "0"
-      }
-    },
-    {
       "id": "timer_1ms",
       "label": "Precise timer",
-      "help": "1 ms system timer for steadier frame pacing.",
+      "help": "Asks Windows for a 1 ms timer, so the game's short waits do not last a whole 15 ms tick.",
       "group": "Performance",
       "choices": [
         {
@@ -1111,7 +1226,7 @@
     {
       "id": "lazy_heap",
       "label": "Memory on demand",
-      "help": "Windows: commit game memory only when used. Helps PCs with 16 GB of RAM. Automatic turns it on when memory is short.",
+      "help": "Windows: takes game memory as it is first used. About 2 GB less is reserved, with more small hitches while loading. Automatic turns it on only when the PC could not give the game all its memory otherwise.",
       "group": "Performance",
       "choices": [
         {
@@ -1139,8 +1254,8 @@
     },
     {
       "id": "small_memory_pools",
-      "label": "Small memory pools",
-      "help": "Smaller GPU upload blocks: less RAM, same speed.",
+      "label": "Smaller video memory blocks",
+      "help": "Takes video memory 128 MB at a time instead of 256: less is held unused.",
       "group": "Performance",
       "choices": [
         {
@@ -1163,7 +1278,7 @@
     {
       "id": "source_compress",
       "label": "Compress shader sources",
-      "help": "Saves about 160 MB of RAM.",
+      "help": "Keeps the game's shader programs compressed in memory.",
       "group": "Performance",
       "choices": [
         {
@@ -1184,55 +1299,9 @@
       }
     },
     {
-      "id": "pipe_prebuild",
-      "label": "Prepare shaders early",
-      "help": "Builds pipelines in the background to reduce stutter.",
-      "group": "Performance",
-      "choices": [
-        {
-          "label": "Off",
-          "set": {
-            "pipe_prebuild": "0"
-          }
-        },
-        {
-          "label": "On",
-          "set": {
-            "pipe_prebuild": "1"
-          }
-        }
-      ],
-      "defaults": {
-        "pipe_prebuild": "1"
-      }
-    },
-    {
-      "id": "xlate_prefetch",
-      "label": "Translate compute shaders early",
-      "help": "Less stutter the first time an effect appears.",
-      "group": "Performance",
-      "choices": [
-        {
-          "label": "Off",
-          "set": {
-            "xlate_prefetch": "0"
-          }
-        },
-        {
-          "label": "On",
-          "set": {
-            "xlate_prefetch": "1"
-          }
-        }
-      ],
-      "defaults": {
-        "xlate_prefetch": "1"
-      }
-    },
-    {
       "id": "astc",
       "label": "Texture decoding",
-      "help": "Where the game's compressed textures are decoded.",
+      "help": "Where the game's ASTC textures are decoded. Automatic: by the graphics card itself where it can read them, else by a compute shader on it, else on the processor.",
       "group": "Performance",
       "choices": [
         {
@@ -1242,19 +1311,19 @@
           }
         },
         {
-          "label": "GPU",
-          "set": {
-            "astc": "gpu"
-          }
-        },
-        {
-          "label": "Native",
+          "label": "Graphics card",
           "set": {
             "astc": "native"
           }
         },
         {
-          "label": "CPU",
+          "label": "Compute shader",
+          "set": {
+            "astc": "gpu"
+          }
+        },
+        {
+          "label": "Processor",
           "set": {
             "astc": "cpu"
           }
@@ -1266,8 +1335,8 @@
     },
     {
       "id": "tex_vram_pressure",
-      "label": "VRAM budget",
-      "help": "How much of your graphics memory textures may use before older ones are released.",
+      "label": "Video memory limit for kept textures",
+      "help": "Above this share of video memory in use, textures the game has released are dropped instead of being kept for reuse.",
       "group": "Performance",
       "slider": {
         "key": "tex_vram_pressure",
@@ -1278,6 +1347,60 @@
       },
       "defaults": {
         "tex_vram_pressure": "90"
+      }
+    },
+    {
+      "id": "async_preempt",
+      "label": "Thread hand-over",
+      "help": "How a waiting game thread gets a processor core from the one holding it. Full interrupts the holder, Light only passes its priority on, Off waits. For bug reports.",
+      "group": "Performance",
+      "advanced": true,
+      "choices": [
+        {
+          "label": "Full",
+          "set": {
+            "async_preempt": "1"
+          }
+        },
+        {
+          "label": "Light",
+          "set": {
+            "async_preempt": "2"
+          }
+        },
+        {
+          "label": "Off",
+          "set": {
+            "async_preempt": "0"
+          }
+        }
+      ],
+      "defaults": {
+        "async_preempt": "1"
+      }
+    },
+    {
+      "id": "free_cores",
+      "label": "No limit of one thread per console core",
+      "help": "The console runs one game thread per core, and the game is timed for that. On lets its threads run on any core at once. For bug reports: it can break the game's timing.",
+      "group": "Performance",
+      "advanced": true,
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "free_cores": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "free_cores": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "free_cores": "0"
       }
     },
     {

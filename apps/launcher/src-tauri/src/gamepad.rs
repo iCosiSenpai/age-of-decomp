@@ -71,6 +71,8 @@ sdl_api! {
     SDL_GetBooleanProperty: fn(u32, *const c_char, bool) -> bool;
     SDL_GetGamepadPowerInfo: fn(*mut c_void, *mut c_int) -> c_int;
     SDL_GetGamepadConnectionState: fn(*mut c_void) -> c_int;
+    SDL_GetGamepadButtonLabel: fn(*mut c_void, c_int) -> c_int;
+    SDL_GamepadHasButton: fn(*mut c_void, c_int) -> bool;
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -86,6 +88,11 @@ pub struct PadInfo {
     pub has_rumble: bool,
     pub has_trigger_rumble: bool,
     pub has_led: bool,
+    /// Back buttons (the paddles of an Xbox Elite, a DualSense Edge, a Steam Controller).
+    pub has_paddles: bool,
+    /// What is printed on the south, east, west and north buttons, as SDL reports it: a b x y, cross circle square
+    /// triangle, or empty when it does not know. The game's input layer reads the same labels (runtime/input.c).
+    pub labels: [&'static str; 4],
     pub battery: Option<i32>,
     pub wired: Option<bool>,
 }
@@ -98,13 +105,29 @@ pub struct PadState {
     pub accel: Option<[f32; 3]>,
 }
 
-const BUTTONS: [(&str, c_int); 16] = [
+const BUTTONS: [(&str, c_int); 20] = [
     ("south", 0), ("east", 1), ("west", 2), ("north", 3), ("back", 4), ("guide", 5), ("start", 6),
     ("left_stick", 7), ("right_stick", 8), ("left_shoulder", 9), ("right_shoulder", 10),
     ("dpad_up", 11), ("dpad_down", 12), ("dpad_left", 13), ("dpad_right", 14), ("misc1", 15),
+    ("right_paddle1", 16), ("left_paddle1", 17), ("right_paddle2", 18), ("left_paddle2", 19),
 ];
 const AXES: [(&str, c_int); 6] =
     [("leftx", 0), ("lefty", 1), ("rightx", 2), ("righty", 3), ("left_trigger", 4), ("right_trigger", 5)];
+
+/// SDL_GamepadButtonLabel.
+fn label_of(l: c_int) -> &'static str {
+    match l {
+        1 => "a",
+        2 => "b",
+        3 => "x",
+        4 => "y",
+        5 => "cross",
+        6 => "circle",
+        7 => "square",
+        8 => "triangle",
+        _ => "",
+    }
+}
 
 fn kind_of(t: c_int) -> &'static str {
     match t {
@@ -137,12 +160,14 @@ pub struct Gamepads {
 
 impl Gamepads {
     /// Starts the SDL thread. `on_change` gets the pad list whenever it changes; `on_nav` gets logical launcher
-    /// buttons (up/down/left/right/a/b/lb/rb/start, Nintendo pads confirm with A on the right) as they go down/up.
+    /// buttons (up/down/left/right/a/b/lb/rb/start, Nintendo pads confirm with A on the right) as they go down/up;
+    /// `on_active` gets the id of a pad each time the player starts using it (the button hints follow it).
     pub fn start(
         candidates: Vec<PathBuf>,
         engine: Option<PathBuf>,
         on_change: impl Fn(Vec<PadInfo>) + Send + 'static,
         on_nav: impl Fn(&'static str, bool) + Send + 'static,
+        on_active: impl Fn(u32) + Send + 'static,
     ) -> Option<Gamepads> {
         let (tx, rx) = channel::<Req>();
         let (ready_tx, ready_rx) = channel::<bool>();
@@ -169,7 +194,7 @@ impl Gamepads {
                 };
                 let _ = ready_tx.send(true);
                 let nintendo = crate::nintendo::Nintendo::load(engine.as_deref());
-                run(api, rx, on_change, on_nav, nintendo);
+                run(api, rx, on_change, on_nav, on_active, nintendo);
             })
             .ok()?;
         ready_rx.recv_timeout(Duration::from_secs(5)).ok().filter(|ok| *ok).map(|_| Gamepads { tx })
@@ -202,6 +227,8 @@ struct Open {
     handle: *mut c_void,
     info: PadInfo,
     nintendo: bool,
+    /// Something on it was down at the last look: a button, a stick past 60 %, a trigger past half way.
+    used: bool,
 }
 
 fn hint(api: &Api, k: &str, v: &str) {
@@ -267,8 +294,18 @@ fn describe(api: &Api, id: u32, h: *mut c_void) -> (PadInfo, bool) {
             2 => Some(false),
             _ => None,
         };
-        let nintendo = matches!(kind, "switch_pro" | "joycon_left" | "joycon_right" | "joycon_pair" | "gamecube")
-            || vid == NINTENDO_VID;
+        // South, east, west, north: SDL's buttons 0 to 3.
+        let labels = [0, 1, 2, 3].map(|b| label_of((api.SDL_GetGamepadButtonLabel)(h, b)));
+        // Confirm is the button marked A: the right one where SDL reads A there (Switch pads), as the game's own
+        // layout rule does; the bottom one elsewhere (Xbox A, PlayStation cross, the GameCube pad's big A). A pad
+        // SDL knows no labels of goes by its model.
+        let nintendo = if labels.iter().any(|l| !l.is_empty()) {
+            labels[1] == "a"
+        } else {
+            matches!(kind, "switch_pro" | "joycon_left" | "joycon_right" | "joycon_pair") || vid == NINTENDO_VID
+        };
+        // Right and left paddle 1: SDL's buttons 16 and 17.
+        let has_paddles = (api.SDL_GamepadHasButton)(h, 16) || (api.SDL_GamepadHasButton)(h, 17);
         let info = PadInfo {
             id,
             guid,
@@ -280,6 +317,8 @@ fn describe(api: &Api, id: u32, h: *mut c_void) -> (PadInfo, bool) {
             has_rumble: prop(props, "SDL.joystick.cap.rumble"),
             has_trigger_rumble: prop(props, "SDL.joystick.cap.trigger_rumble"),
             has_led: prop(props, "SDL.joystick.cap.rgb_led") || prop(props, "SDL.joystick.cap.player_led"),
+            has_paddles,
+            labels,
             battery: (power >= 1 && pct >= 0).then_some(pct),
             wired,
         };
@@ -288,7 +327,7 @@ fn describe(api: &Api, id: u32, h: *mut c_void) -> (PadInfo, bool) {
 }
 
 fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: impl Fn(&'static str, bool),
-       nintendo: Option<crate::nintendo::Nintendo>) {
+       on_active: impl Fn(u32), nintendo: Option<crate::nintendo::Nintendo>) {
     let mut active = init(&api);
     if active && let Some(bridge) = &nintendo { bridge.start(); }
     let mut open: Vec<Open> = Vec::new();
@@ -359,9 +398,15 @@ fn run(api: Api, rx: Receiver<Req>, on_change: impl Fn(Vec<PadInfo>), on_nav: im
         }
         // Logical launcher buttons: any controller can drive the interface.
         let mut pressed: HashMap<&'static str, bool> = HashMap::new();
-        for o in &open {
-            let b = |i: c_int| unsafe { (api.SDL_GetGamepadButton)(o.handle, i) };
-            let a = |i: c_int| unsafe { (api.SDL_GetGamepadAxis)(o.handle, i) } as f32 / 32767.0;
+        for o in open.iter_mut() {
+            let h = o.handle;
+            let b = |i: c_int| unsafe { (api.SDL_GetGamepadButton)(h, i) };
+            let a = |i: c_int| unsafe { (api.SDL_GetGamepadAxis)(h, i) } as f32 / 32767.0;
+            let used = (0..=20).any(&b) || (0..4).any(|i| a(i).abs() > 0.6) || a(4) > 0.5 || a(5) > 0.5;
+            if used && !o.used {
+                on_active(o.info.id);
+            }
+            o.used = used;
             let (confirm, back) = if o.nintendo { (1, 0) } else { (0, 1) };
             for (name, on) in [
                 ("up", b(11) || a(1) < -0.6),
@@ -419,7 +464,7 @@ fn rescan(api: &Api, open: &mut Vec<Open>) {
         let h = unsafe { (api.SDL_OpenGamepad)(id) };
         if !h.is_null() {
             let (info, nintendo) = describe(api, id, h);
-            open.push(Open { handle: h, info, nintendo });
+            open.push(Open { handle: h, info, nintendo, used: false });
         }
     }
     // Battery levels change slowly; refresh them with each scan.

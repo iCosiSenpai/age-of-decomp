@@ -21,6 +21,17 @@
   <img alt="English and Italian" src="https://img.shields.io/badge/UI-English%20%7C%20Italiano-e7b75a?style=for-the-badge&labelColor=0f1115">
 </p>
 
+<h1 align="center">🧪 Testers wanted: handheld PCs and Linux</h1>
+
+<p align="center">
+  Do you play on a <b>Steam Deck, ROG Ally, Legion Go, MSI Claw</b> or another handheld, or on a <b>Linux</b> PC?<br>
+  I am looking for you. Build the game, play for a while, then
+  <a href="https://github.com/iCosiSenpai/age-of-decomp/issues/new/choose"><b>open an issue</b></a> with your device,
+  what worked, what did not, and the newest <code>game-*.log</code>.<br>
+  Windows handhelds use the normal release. On Linux and SteamOS the game is built
+  <a href="#building-from-source">from source</a> for now.
+</p>
+
 > [!IMPORTANT]
 > **Bring your own game.** Age of Decomp contains nothing from Nintendo or Koei Tecmo and never downloads game files,
 > keys or firmware. You need your own dump of the game as a **`.nup` file with the base game and update 3.0.0
@@ -38,10 +49,12 @@
 ## What it is
 
 The game's ARM64 code is translated to C ahead of time and compiled for your processor, with a runtime that provides
-the Switch 2's system services and draws through Vulkan (NVN 2 → Vulkan, Ampere shaders → SPIR-V). The engine is
-[HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp) (built on [DKB Recomp](https://github.com/Lucas-blip-png/dkb-pc-recomp)),
-pinned and patched here; Age of Decomp adds the launcher, the setup, the settings, native controller support,
-packaging for Windows and Linux, and RecompLauncher integration.
+the Switch 2's system services and draws through Vulkan (NVN 2 → Vulkan, Ampere shaders → SPIR-V). The engine
+started as [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp) (built on
+[DKB Recomp](https://github.com/Lucas-blip-png/dkb-pc-recomp)) and is developed in this repository since 0.1.3
+([`engine/source`](engine/source), origin and authors in [`engine/ORIGIN.md`](engine/ORIGIN.md)). Around it Age of
+Decomp has the launcher, the setup, the settings, native controller support, packaging for Windows and Linux, and
+RecompLauncher integration.
 
 | | |
 |---|---|
@@ -68,14 +81,13 @@ packaging for Windows and Linux, and RecompLauncher integration.
 
 ## Status
 
-Early. The game builds, boots, plays its opening and reaches exploration and combat at 1080p / 60 FPS on tested PCs
-(engine status: [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp#current-status)). Known limits inherited from
-the engine: 1440p and 4K are experimental; a full playthrough is not verified yet. The frame rate is 30 or 60 FPS,
-because above 60 the whole game runs faster. The v0.1.1 engine also includes the unmerged upstream RDNA 3 recorder
-workaround from [PR #20](https://github.com/Alano6678/hwaoi-recomp/pull/20); synthetic policy tests passed, while
-physical AMD validation here is pending. Players report that on an AMD Radeon RX 9070 XT the game can lose the GPU
-about a minute into the first field ([upstream issue #21](https://github.com/Alano6678/hwaoi-recomp/issues/21)); no
-fix yet. On Intel GPUs the first start could stop after two seconds; 0.1.2 fixes it (tested on an Intel Xe iGPU).
+Early. The game builds, boots, plays its opening and reaches exploration and combat at 60 FPS on tested PCs. Known
+limits: a full playthrough is not verified yet; menus and movies fill the picture at 1440p (4K is not tested here).
+The frame rate is 30 or 60 FPS, because above 60 the whole game runs faster. The engine has the RDNA 3 recorder
+workaround of [HWAoI Recomp PR #20](https://github.com/Alano6678/hwaoi-recomp/pull/20); synthetic policy tests
+passed, while physical AMD validation here is pending. Players report that on an AMD Radeon RX 9070 or RX 9070 XT
+the game can lose the GPU about a minute into the first field
+([HWAoI Recomp issue #21](https://github.com/Alano6678/hwaoi-recomp/issues/21)); no fix yet. On Intel GPUs the first start could stop after two seconds; 0.1.2 fixes it (tested on an Intel Xe iGPU).
 Linux: the AppImage builds the game from your `.nup` and boots it to its first menu (tested under WSL with a software
 renderer); speed on real Linux PCs and on the Steam Deck is not tested yet.
 
@@ -123,8 +135,7 @@ release or saved in launcher settings. Linux automatic installation is not avail
 
 ```powershell
 py tools/engine.py toolchain     # pinned toolchain into .cache/ (llvm-mingw, SDL 3, Python, …)
-py tools/engine.py fetch         # engine at engine/upstream.json + engine/patches
-py tools/engine.py translator    # shader translator (.NET 10 SDK)
+py tools/engine.py translator    # shader translator (.NET 10 SDK), from engine/source
 py tools/engine.py stage         # portable engine bundle → out/engine/windows
 cd apps/launcher; pnpm install; pnpm tauri build --no-bundle
 py tools/release.py windows --zip
@@ -133,7 +144,7 @@ py tools/release.py windows --zip
 Linux (the same steps with `python3`; `toolchain` checks the system packages and prints what is missing):
 
 ```bash
-python3 tools/engine.py toolchain && python3 tools/engine.py fetch
+python3 tools/engine.py toolchain
 python3 tools/engine.py translator && python3 tools/engine.py stage    # → out/engine/linux
 (cd apps/launcher && pnpm install && pnpm build)
 (cd apps/launcher/src-tauri && cargo build --release --locked --features tauri/custom-protocol)
@@ -144,8 +155,9 @@ Details: [AGENTS.md](AGENTS.md) (also the rules for AI agents working on this re
 
 ## Credits and licence
 
-GPL-3.0-or-later. Built on HWAoI Recomp (Alano6678, LibertyPrime27, fgabe and contributors), DKB Recomp, Ryujinx,
-Eglantine, SDL and more: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+GPL-3.0-or-later. The engine comes from HWAoI Recomp (Alano6678, LibertyPrime27, ripps818, fgabe, PrimeWalkerVN and
+contributors) and, before it, DKB Recomp; it also uses Ryujinx, Eglantine, SDL and more:
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [engine/ORIGIN.md](engine/ORIGIN.md).
 
 Age of Decomp is an independent, non-commercial fan project, not affiliated with or endorsed by Nintendo or
 Koei Tecmo. *Hyrule Warriors*, *The Legend of Zelda* and *Nintendo Switch 2* are trademarks of Nintendo.

@@ -17,20 +17,31 @@ class AppState {
   system = $state<SystemInfo | null>(null);
   settings = $state<SettingValues>({});
   pads = $state<Pad[]>([]);
-  /** The controller family that drives the button hints at the bottom. */
-  hintPad = $state<PadFamily>('keyboard');
+  /** What the player used last: a pad's id, 'keyboard' (a key or a mouse button), or null before any input. */
+  lastUsed = $state<number | 'keyboard' | null>(null);
   showAdvanced = $state(false);
   toasts = $state<{ id: number; text: string; tone: 'ok' | 'warn' | 'err' | 'info' }[]>([]);
   prepare = $state<{ running: boolean; stage: number; fraction: number; text: string; elapsed: number; eta: number | null; log: string[]; result: 'done' | 'error' | 'cancelled' | null; error: string | null }>({
     running: false, stage: 0, fraction: 0, text: '', elapsed: 0, eta: null, log: [], result: null, error: null,
   });
   game = $state<{ running: boolean; lastExit: number | null; fps: number | null }>({ running: false, lastExit: null, fps: null });
-  /** NVIDIA's DLSS file for DLAA (src-tauri/src/dlss.rs): its status, the download or the check of a file the player
+  /** NVIDIA's DLSS file for Upscaling = NVIDIA DLSS (src-tauri/src/dlss.rs): its status, the download or the check of a file the player
    *  chose, the download's progress and the error. Kept here so the Display page shows them again after a page
    *  change. */
   dlss = $state<{ status: DlssStatus | null; downloading: boolean; checking: boolean; progress: number; error: string | null }>({
     status: null, downloading: false, checking: false, progress: 0, error: null,
   });
+
+  /** The pad in use: the one used last, or the first one before any input. Null with the keyboard and mouse. */
+  get usedPad(): Pad | null {
+    if (this.lastUsed === 'keyboard') return null;
+    return this.pads.find((p) => p.id === this.lastUsed) ?? this.pads[0] ?? null;
+  }
+  /** The controller family that drives the button hints: the device in use. */
+  get hintPad(): PadFamily {
+    const pad = this.usedPad;
+    return pad ? padFamily(pad.type) : 'keyboard';
+  }
 
   private toastId = 0;
   // Not reactive on purpose: the Display page's $effect calls loadDlss, and a reactive flag would run that effect again
@@ -51,7 +62,19 @@ class AppState {
     api.settings().then((s) => (this.settings = s)).catch(() => {});
     api.pads().then((p) => this.setPads(p)).catch(() => {});
     api.onPads((p) => this.setPads(p));
+    api.onPadActive((id) => (this.lastUsed = id));
+    // A real key or mouse button hands the hints to the keyboard. The keys the controller navigation makes up are
+    // not trusted events, so they do not count.
+    const keyboard = (e: Event) => {
+      if (e.isTrusted) this.lastUsed = 'keyboard';
+    };
+    for (const type of ['keydown', 'pointerdown', 'wheel']) window.addEventListener(type, keyboard, { capture: true, passive: true });
     api.onPrepare((e) => this.onPrepare(e));
+    // The build is looked at again each time the window comes back: the game file may have moved, the build may
+    // have been made or removed outside this window.
+    window.addEventListener('focus', () => {
+      if (!this.prepare.running) api.state().then((s) => (this.launcher = s)).catch(() => {});
+    });
     api.onGame((e) => {
       if (e.kind === 'started') this.game = { running: true, lastExit: null, fps: null };
       else if (e.kind === 'exited') {
@@ -63,8 +86,8 @@ class AppState {
 
   setPads(p: Pad[]) {
     this.pads = p;
-    const first = p[0];
-    this.hintPad = first ? padFamily(first.type) : 'keyboard';
+    // The pad in use was unplugged: back to the first one left, or to the keyboard.
+    if (typeof this.lastUsed === 'number' && !p.some((x) => x.id === this.lastUsed)) this.lastUsed = null;
   }
 
   async checkUpdates() {
@@ -193,7 +216,6 @@ export const NAV: { id: PageId; label: string; icon: string; advanced?: boolean;
   { id: 'game', label: 'Game', icon: 'game' },
   { id: 'audio', label: 'Audio', icon: 'audio' },
   { id: 'controls', label: 'Controls', icon: 'controls' },
-  { id: 'pads', label: 'Controllers', icon: 'pads' },
   { id: 'performance', label: 'Performance', icon: 'performance', advanced: true },
   { id: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics', advanced: true },
   { id: 'system', label: 'System', icon: 'system' },

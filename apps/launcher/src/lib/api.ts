@@ -79,6 +79,8 @@ export const api = {
   resetSettings: (keys: string[]) => invoke<SettingValues>('reset_settings', { keys }),
   pads: () => invoke<Pad[]>('list_pads'),
   onPads: (cb: (pads: Pad[]) => void) => listen<Pad[]>('pads', cb),
+  /** The id of a pad, each time the player starts using it. */
+  onPadActive: (cb: (id: number) => void) => listen<number>('pad-active', cb),
   padState: (id: number) => invoke<PadState | null>('pad_state', { id }),
   rumble: (id: number, low: number, high: number, ms: number) => invoke<boolean>('pad_rumble', { id, low, high, ms }),
   play: () => invoke<void>('play'),
@@ -110,8 +112,12 @@ export const api = {
 // ── demo data ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
 const demoListeners: Record<string, (payload: unknown) => void> = {};
+// In the browser preview a backend event can be sent by hand: `__aodDemo.emit('pad-active', 2)`.
+if (!isTauri && typeof window !== 'undefined') {
+  (window as unknown as { __aodDemo: unknown }).__aodDemo = { emit: (event: string, payload: unknown) => demoListeners[event]?.(payload) };
+}
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
-const demoBuilt = params.get('built') !== '0';
+const demoBuilt = !['0', 'stale', 'part'].includes(params.get('built') ?? '');
 
 const demoState: LauncherState = {
   version: '0.1.2',
@@ -122,9 +128,12 @@ const demoState: LauncherState = {
     update_nup: null,
     dlc_nup: null,
     output: 'D:\\Games\\Age of Decomp',
-    status: demoBuilt ? 'complete' : 'none',
+    // `?built=0` not set up yet, `?built=stale` a rebuild is needed, `?built=part` the build was stopped.
+    status: params.get('built') === 'stale' ? 'stale' : params.get('built') === 'part' ? 'incomplete' : demoBuilt ? 'complete' : 'none',
     built_at: demoBuilt ? '2026-11-16T19:42:00Z' : null,
-    nup_present: true,
+    // `?nup=gone`: the game file is not where it was; `?engine=new`: the engine was updated since the build.
+    nup_present: params.get('nup') !== 'gone',
+    engine_changed: demoBuilt && params.get('engine') === 'new',
   },
   ui: { language: (params.get('lang') as UiLanguage | null) ?? 'auto', close_on_play: false, check_updates: true, jobs: 0, rate_unlock: false },
   system_locale: { language: 'it', country: 'IT' },
@@ -133,13 +142,18 @@ const demoState: LauncherState = {
   diagnostics: null,
 };
 
-let demoSettings: SettingValues = { output_res: '1920x1080', fps_limit: '60', render_scale: '100' };
+let demoSettings: SettingValues = { fps_limit: '60' };
 
 const demoPads: Pad[] = [
   { id: 1, guid: '050000007e0500006920000001000000', name: 'Nintendo Switch 2 Pro Controller', type: 'switch_pro', gen2: true,
-    has_gyro: true, has_accel: true, has_rumble: true, has_trigger_rumble: false, has_led: true, battery: 80, wired: false },
+    has_gyro: true, has_accel: true, has_rumble: true, has_trigger_rumble: false, has_led: true, has_paddles: true,
+    labels: ['b', 'a', 'y', 'x'], battery: 80, wired: false },
   { id: 2, guid: '030000004c050000e60c000000000000', name: 'DualSense Wireless Controller', type: 'ps5', gen2: false,
-    has_gyro: true, has_accel: true, has_rumble: true, has_trigger_rumble: false, has_led: true, battery: 55, wired: true },
+    has_gyro: true, has_accel: true, has_rumble: true, has_trigger_rumble: false, has_led: true, has_paddles: false,
+    labels: ['cross', 'circle', 'square', 'triangle'], battery: 55, wired: true },
+  { id: 3, guid: '030000005e040000120b000000000000', name: 'Xbox Series X Controller', type: 'xboxone', gen2: false,
+    has_gyro: false, has_accel: false, has_rumble: true, has_trigger_rumble: true, has_led: false, has_paddles: false,
+    labels: ['a', 'b', 'x', 'y'], battery: null, wired: true },
 ];
 
 async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {

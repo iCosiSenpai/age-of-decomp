@@ -1,4 +1,4 @@
-//! NVIDIA DLSS for DLAA (`temporal = dlaa`) in the standalone compiler. NVIDIA's `nvngx_dlss.dll` is the player's
+//! NVIDIA DLSS (`temporal = dlss`: DLAA and DLSS Super Resolution) in the standalone compiler. NVIDIA's `nvngx_dlss.dll` is the player's
 //! own (NVIDIA RTX SDK licence) and is never shipped with Age of Decomp. RecompLauncher fetches it itself (the
 //! `nvidia.dlss` input, handed to `--play --dlss=`); here the player either downloads NVIDIA's file from NVIDIA's own
 //! GitHub repository after accepting NVIDIA's licence, or picks a copy signed by NVIDIA. Both end in `<data>/ngx`,
@@ -26,7 +26,7 @@ const PICK_MAX: u64 = 512 << 20;
 pub struct Status {
     /// `<data>/ngx/nvngx_dlss.dll` is there.
     pub ready: bool,
-    /// An NVIDIA RTX card is in this PC (DLAA runs only there).
+    /// An NVIDIA RTX card is in this PC (DLSS runs only there).
     pub rtx: bool,
     pub version: &'static str,
     pub license_url: &'static str,
@@ -74,7 +74,7 @@ pub fn download(paths: &Paths, progress: impl FnMut(f64)) -> Result<(), String> 
 }
 
 fn fetch_verified(url: &str, size: u64, sha256: &str, dest: &Path, mut progress: impl FnMut(f64)) -> Result<(), String> {
-    const FAILED: &str = "Could not download NVIDIA's DLSS file. The game runs without DLAA.";
+    const FAILED: &str = "Could not download NVIDIA's DLSS file. The game runs without DLSS.";
     let client = reqwest::blocking::Client::builder()
         .user_agent(concat!("AgeOfDecomp/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(10))

@@ -1,5 +1,5 @@
 // Controller-first navigation: D-pad / left stick / arrow keys move focus spatially, A (or Enter) activates, B (or Esc)
-// goes back, LB/RB (PageUp/PageDown) switch pages, Start jumps to Play. Gamepad input is turned into the same keyboard
+// goes back, LB/RB (PageUp/PageDown) switch pages, Start (or F5) jumps to Play. Gamepad input is turned into the same keyboard
 // events so every control behaves the same. Two gamepad sources: the backend's SDL 3 (`pad-nav` events; every pad
 // the game supports, Switch 2 included) and, in a plain browser, the WebView Gamepad API.
 // Spatial focus logic adapted from the maintainer's Deluxe8 launcher.
@@ -124,6 +124,10 @@ export function installKeyboardNav(h: NavHandlers) {
       e.preventDefault();
     } else if (e.key === 'PageDown') {
       h.tab(1);
+      e.preventDefault();
+    } else if (e.key === 'F5') {
+      // The keyboard's Start: the hint bar shows it as Play.
+      h.start();
       e.preventDefault();
     }
   });

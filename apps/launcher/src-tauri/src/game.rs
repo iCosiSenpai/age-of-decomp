@@ -173,7 +173,7 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
     if let Some(engine) = &paths.engine {
         let helper = engine.join("nintendo/AgeOfDecomp.Nintendo.exe");
         if cfg!(windows) && helper.is_file() { cmd.env("AOD_NINTENDO_BRIDGE", helper); }
-        // DLAA (temporal = dlaa): NVIDIA Streamline's signed DLLs ship in the engine bundle.
+        // NVIDIA DLSS (temporal = dlss): NVIDIA Streamline's signed DLLs ship in the engine bundle.
         let streamline = engine.join("streamline");
         if cfg!(windows) && streamline.join("sl.interposer.dll").is_file() { cmd.env("HWAOI_DLSS_DIR", streamline); }
     }

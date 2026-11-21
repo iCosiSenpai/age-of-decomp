@@ -129,7 +129,7 @@ async fn system_info() -> system::SystemInfo {
     tauri::async_runtime::spawn_blocking(system::system_info).await.unwrap_or_else(|_| system::system_info())
 }
 
-/// NVIDIA DLSS for DLAA in the standalone compiler (dlss.rs): is the player's file there, is there an RTX card.
+/// NVIDIA DLSS in the standalone compiler (dlss.rs): is the player's file there, is there an RTX card.
 #[tauri::command]
 async fn dlss_status(app: tauri::State<'_, App>) -> Res<dlss::Status> {
     let paths = app.paths.clone();
@@ -408,7 +408,7 @@ fn licenses(app: tauri::State<'_, App>) -> String {
     if let Some(e) = &app.paths.engine
         && let Ok(t) = std::fs::read_to_string(e.join("source").join("THIRD_PARTY_NOTICES.md"))
     {
-        out.push_str("\n\n──────── Engine (HWAoI Recomp) ────────\n\n");
+        out.push_str("\n\n──────── Engine: where it comes from and what it builds on ────────\n\n");
         out.push_str(&t);
     }
     out
@@ -432,7 +432,7 @@ pub fn run() {
         })
         .setup(move |tauri_app| {
             let handle = tauri_app.handle().clone();
-            let (h1, h2) = (handle.clone(), handle.clone());
+            let (h1, h2, h3) = (handle.clone(), handle.clone(), handle.clone());
             let pads = gamepad::Gamepads::start(
                 gamepad::sdl_candidates(paths.engine.as_deref(), &paths.exe_dir),
                 paths.engine.clone(),
@@ -444,6 +444,13 @@ pub fn run() {
                     let focused = h2.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
                     if focused || !down {
                         let _ = h2.emit("pad-nav", serde_json::json!({ "button": button, "down": down }));
+                    }
+                },
+                move |id| {
+                    // The pad the player has just started using: the launcher's button hints follow it.
+                    let focused = h3.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
+                    if focused {
+                        let _ = h3.emit("pad-active", id);
                     }
                 },
             );
@@ -481,7 +488,7 @@ pub fn run() {
 
 /// `AgeOfDecomp --play [--game-dir DIR] [--game=NUP] [--dlss=FILE]`: starts the built game without a window and returns
 /// its exit code. `--game`: where the player's copy is now (RecompLauncher's `{input:nup}`), when it has moved since the
-/// build. `--dlss`: the player's nvngx_dlss.dll (RecompLauncher's `{input:dlss}`) for DLAA.
+/// build. `--dlss`: the player's nvngx_dlss.dll (RecompLauncher's `{input:dlss}`) for NVIDIA DLSS.
 pub fn play_headless(game_dir: Option<PathBuf>, copy: Option<PathBuf>, dlss: Option<PathBuf>) -> i32 {
     let paths = Paths::detect();
     let mut cfg = Config::load(&paths);

@@ -8,25 +8,28 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `output_res` | Resolution — What the game draws at. 1080p is the tested baseline; 1440p and 4K are experimental (menus and movies may not scale yet). | `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p (experimental), `3840x2160` 4K (experimental) | `1920x1080` | yes |
-| `fullscreen` | Fullscreen — Fill the screen. F11 switches it while you play. | `0` off, `1` on | `0` |  |
+| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it. Larger sizes need more graphics power and video memory. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K | `auto` | yes |
+| `fullscreen` | Fullscreen — Fills the screen. F11 switches it while you play. | `0` off, `1` on | `0` |  |
 | `window_size` | Window size — The size of the window when not in fullscreen. | `1280x720` 1280 × 720, `1600x900` 1600 × 900, `1920x1080` 1920 × 1080, `2560x1440` 2560 × 1440 | `1280x720` |  |
 | `fps_limit` | Frame rate — 60 is the game's normal speed. 30 saves power. | `30` 30 FPS, `60` 60 FPS | `60` |  |
-| `vk_present` | V-Sync — Mailbox shows the newest frame without tearing. V-Sync waits for the screen. Immediate has the lowest latency but can tear. | `mailbox` Mailbox, `fifo` V-Sync, `immediate` Off (tearing) | `mailbox` |  |
-| `render_scale` | 3D resolution — Native draws the 3D scene at the full resolution: sharpest, with no smoothing of edges. Console is the game's own: a 1600×900 scene its upscaler brings to 1080p, softer with steadier edges, lower in busy scenes. Console always draws at 1080p. | `100` Native, `game` Console (1080p) | `100` | yes |
-| `temporal` | Anti-aliasing — Smooths jagged, shimmering edges in the 3D scene at Native 3D resolution. NVIDIA DLAA needs an RTX card and NVIDIA's own DLSS file. | `off` Off, `dlaa` NVIDIA DLAA | `off` | yes |
-| `upscaler` | Upscaling — How the picture is fitted to your screen. AMD FSR keeps it sharp on any graphics card. | `fsr` AMD FSR 1, `bilinear` Bilinear | `fsr` |  |
-| `sharpness` | Sharpness — FSR sharpening. 0 is soft, 100 is crisp. | 0 – 100 (step 5) | `80` |  |
-| `aspect` | Aspect ratio — Keep 16:9 adds borders on other screens. Stretch fills them. | `fit` Keep 16:9, `stretch` Stretch | `fit` |  |
+| `vk_present` | Screen sync — How finished frames reach the screen. Fast shows the newest frame without tearing. V-Sync waits for the screen. Off has the least delay and can tear. | `mailbox` Fast, `fifo` V-Sync, `immediate` Off | `mailbox` |  |
+| `render_scale` | 3D rendering — Native draws the 3D scene at the game resolution: the sharpest picture. As on the console runs the game's own path, a 1600×900 scene scaled to 1080p: softer and lighter, and the game resolution is then 1080p. | `100` Native, `game` As on the console | `100` | yes |
+| `temporal` | Upscaling — Rebuilds the 3D picture from several frames: cleaner edges and, at a lower quality, more speed. AMD FSR works on most graphics cards and is downloaded from AMD the first time. NVIDIA DLSS needs an RTX card and NVIDIA's own DLSS file. | `off` Off, `fsr` AMD FSR, `dlss` NVIDIA DLSS | `off` | yes |
+| `dlss_quality` | DLSS quality — DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. | `native` DLAA, `quality` Quality, `balanced` Balanced, `performance` Performance | `native` | yes |
+| `fsr_quality` | FSR quality — Native keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. | `native` Native, `quality` Quality, `balanced` Balanced, `performance` Performance | `native` | yes |
+| `antialiasing` | Edge smoothing — SMAA smooths jagged edges in the finished picture on any graphics card, at a small cost. With FSR or DLSS it is not needed. | `off` Off, `smaa` SMAA | `off` |  |
+| `upscaler` | Fit to the window — How the finished picture is scaled when the window is larger than the game resolution. AMD FSR 1 keeps edges sharper than Bilinear. | `fsr` AMD FSR 1, `bilinear` Bilinear | `fsr` |  |
+| `sharpness` | Sharpness — Sharpening after the picture is scaled. 0 turns it off. | 0 – 100 (step 5) | `80` |  |
+| `aspect` | Picture shape — The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same. | `fit` Black bars, `stretch` Stretch | `fit` |  |
 | `perf_overlay` | Performance overlay — Frame rate and timings in a corner of the game. F10 cycles it while you play. | `off` Off, `fps` FPS, `full` Full | `off` |  |
-| `gpu_index` | Graphics card — Which graphics card runs the game. Automatic picks the fastest. | empty = automatic, or the Vulkan device index | `(empty)` | yes |
-| `device_profile` | Device profile — Steam Deck uses lighter defaults for handheld PCs. | `auto` Automatic, `desktop` Desktop, `deck` Steam Deck | `auto` | yes |
+| `gpu_index` | Graphics card — Which graphics card runs the game. Automatic takes a dedicated card before an integrated one. | empty = automatic, or the Vulkan device index | `(empty)` | yes |
+| `device_profile` | Device profile — Steam Deck starts with lighter settings for handheld PCs. | `auto` Automatic, `desktop` Desktop, `deck` Steam Deck | `auto` | yes |
 
 ## Picture
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `color_preset` | Colour — Game's own colours, a more vivid look, extra clarity, or your own values below. | `default` Game's own, `vivid` Vivid, `clarity` Clarity, `custom` Custom | `default` |  |
+| `color_preset` | Colour — The game's own colours, a more vivid look, extra clarity, deeper blacks for OLED screens, or your own values below. | `default` Game's own, `vivid` Vivid, `clarity` Clarity, `oled` OLED, `custom` Custom | `default` |  |
 | `color_brightness` | Brightness — Lighter or darker picture. | -30 – 30 (step 1) | `0` |  |
 | `color_contrast` | Contrast — Difference between light and dark. | 70 – 150 (step 1) | `100` |  |
 | `color_saturation` | Saturation — Colour strength. | 50 – 200 (step 1) | `100` |  |
@@ -37,7 +40,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
 | `lang` | Game language — The language of the game's text and voices menu. Automatic follows your system. | `(empty)` Automatic, `en-US` English (US), `en-GB` English (UK), `it` Italiano, `fr` Français, `fr-CA` Français (Canada), `de` Deutsch, `es` Español, `es-419` Español (Latinoamérica), `nl` Nederlands, `pt` Português, `pt-BR` Português (Brasil), `ru` Русский, `ja` 日本語, `ko` 한국어, `zh-Hans` 简体中文, `zh-Hant` 繁體中文 | `(empty)` | yes |
-| `menu_lang` | In-game menu language — The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system. | `(empty)` Automatic, `en` English, `it` Italiano, `ru` Русский | `(empty)` |  |
+| `menu_lang` | In-game menu language — The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system. | `(empty)` Automatic, `en` English, `it` Italiano, `ru` Русский, `zh-Hans` 简体中文 | `(empty)` |  |
 | `operation_mode` | Console mode — Docked is the TV mode. Handheld uses the console's portable settings, lighter on slower PCs. | `docked` Docked, `handheld` Handheld | `docked` |  |
 | `assume_focus` | Keep running in the background — Off pauses the game when you switch to another window. | `0` off, `1` on | `1` |  |
 | `linked_saves` | Bonuses for other games' saves — Tells the game you have Age of Calamity and Tears of the Kingdom saves, for their bonus items. | `0` off, `1` on | `0` |  |
@@ -54,33 +57,33 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `player1_device` | Player 1 — Automatic takes the first controller, or the keyboard and mouse. | `auto`, `keyboard`, `none`, `pad:<SDL GUID>:<n>` | `auto` |  |
-| `player1_type` | Player 1 controller — What the game sees: one Pro Controller, or a pair of Joy-Con. | `pro` Pro Controller, `dual` Joy-Con pair | `pro` |  |
-| `player2_device` | Player 2 — The second player in co-op. None turns co-op input off. | `auto`, `keyboard`, `none`, `pad:<SDL GUID>:<n>` | `auto` |  |
-| `player2_type` | Player 2 controller — What the game sees for player 2. | `pro` Pro Controller, `dual` Joy-Con pair | `pro` |  |
-| `pad_layout` | Button layout — Nintendo keeps A on the right. Xbox puts A at the bottom. Xbox labels makes the button marked A confirm on any pad. | `auto` Automatic, `nintendo` Nintendo, `xbox` Xbox positions, `xbox_prompts` Xbox labels | `auto` |  |
-| `stick_deadzone` | Stick dead zone — Raise it if the camera or character drifts on its own. | 0 – 50 (step 1) | `8` |  |
-| `motion` | Motion controls — Gyro and accelerometer from controllers that have them (Switch, Switch 2, DualSense, DualShock 4). | `0` off, `1` on | `1` |  |
+| `player1_device` | Player 1 plays with — Automatic takes the first controller connected, with the keyboard and mouse beside it. | `auto`, `keyboard`, `none`, `pad:<SDL GUID>:<n>` | `auto` |  |
+| `player2_device` | Player 2 plays with — The second player in co-op. Automatic takes the second controller; None leaves player 2 out. | `auto`, `keyboard`, `none`, `pad:<SDL GUID>:<n>` | `auto` |  |
+| `player1_type` | Player 1 appears to the game as — The Switch controller the game is told this player holds, whatever the real one is. Change it only if the game asks for the other kind. | `pro` Pro Controller, `dual` Joy-Con pair | `pro` |  |
+| `player2_type` | Player 2 appears to the game as — The Switch controller the game is told player 2 holds. | `pro` Pro Controller, `dual` Joy-Con pair | `pro` |  |
+| `pad_layout` | Button layout — Which button is the game's A. Automatic: the right button on a controller that has A there (Switch controllers), the bottom one on the others (Xbox A, PlayStation cross). | `auto` Automatic, `nintendo` A on the right, `xbox` A at the bottom | `auto` |  |
+| `stick_deadzone` | Stick dead zone — Raise it if the camera or the character moves on its own. | 0 – 50 (step 1) | `8` |  |
+| `motion` | Motion controls — Uses the controller's gyro and accelerometer where the game asks for motion. | `0` off, `1` on | `1` |  |
 | `rumble_strength` | Rumble strength — 0 turns rumble off. | 0 – 300 (step 10) | `130` |  |
 | `rumble_curve` | Rumble curve — Lower values make light rumble stronger; 1 is linear. | 0.2 – 1.5 (step 0.05) | `0.6` |  |
-| `rumble_triggers` | Trigger rumble — Impulse triggers on Xbox One and Series controllers. | `0` off, `1` on | `0` |  |
+| `rumble_triggers` | Trigger rumble — Also drives the motors in the triggers of controllers that have them. | `0` off, `1` on | `0` |  |
 | `mouse_sens` | Mouse sensitivity — Camera speed with the mouse. | 0.1 – 10 (step 0.1) | `1` |  |
 
 ## Performance (advanced)
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `replay_async` | Asynchronous GPU replay — Experimental: about 15 % more FPS in tests, not yet checked in every scene. | `0` off, `1` on | `0` | yes |
-| `async_preempt` | Thread preemption — How the game's threads share your CPU. Leave on unless told otherwise. | `0` Off, `1` On, `2` Aggressive | `1` | yes |
-| `free_cores` | Leave cores free — Keeps some CPU cores free for streaming or recording. | `0` off, `1` on | `0` | yes |
-| `timer_1ms` | Precise timer — 1 ms system timer for steadier frame pacing. | `0` off, `1` on | `1` | yes |
-| `lazy_heap` | Memory on demand — Windows: commit game memory only when used. Helps PCs with 16 GB of RAM. Automatic turns it on when memory is short. | `auto` Automatic, `0` Off, `1` On | `auto` | yes |
-| `small_memory_pools` | Small memory pools — Smaller GPU upload blocks: less RAM, same speed. | `0` off, `1` on | `1` | yes |
-| `source_compress` | Compress shader sources — Saves about 160 MB of RAM. | `0` off, `1` on | `1` | yes |
-| `pipe_prebuild` | Prepare shaders early — Builds pipelines in the background to reduce stutter. | `0` off, `1` on | `1` | yes |
-| `xlate_prefetch` | Translate compute shaders early — Less stutter the first time an effect appears. | `0` off, `1` on | `1` | yes |
-| `astc` | Texture decoding — Where the game's compressed textures are decoded. | `auto` Automatic, `gpu` GPU, `native` Native, `cpu` CPU | `auto` | yes |
-| `tex_vram_pressure` | VRAM budget — How much of your graphics memory textures may use before older ones are released. | 50 – 100 (step 5) | `90` | yes |
+| `pipe_prebuild` | Prepare shaders at start — Builds the shaders the game used before while it starts, in the background: fewer hitches in play. | `0` off, `1` on | `1` | yes |
+| `xlate_prefetch` | Translate effect shaders early — Translates compute shaders as the game registers them, before an effect first needs them. | `0` off, `1` on | `1` | yes |
+| `replay_async` | Draw on a second thread — Lets the game's own thread run ahead while another one draws. Can raise the frame rate when the processor is the limit, and adds one frame of delay. Experimental. | `0` off, `1` on | `0` | yes |
+| `timer_1ms` | Precise timer — Asks Windows for a 1 ms timer, so the game's short waits do not last a whole 15 ms tick. | `0` off, `1` on | `1` | yes |
+| `lazy_heap` | Memory on demand — Windows: takes game memory as it is first used. About 2 GB less is reserved, with more small hitches while loading. Automatic turns it on only when the PC could not give the game all its memory otherwise. | `auto` Automatic, `0` Off, `1` On | `auto` | yes |
+| `small_memory_pools` | Smaller video memory blocks — Takes video memory 128 MB at a time instead of 256: less is held unused. | `0` off, `1` on | `1` | yes |
+| `source_compress` | Compress shader sources — Keeps the game's shader programs compressed in memory. | `0` off, `1` on | `1` | yes |
+| `astc` | Texture decoding — Where the game's ASTC textures are decoded. Automatic: by the graphics card itself where it can read them, else by a compute shader on it, else on the processor. | `auto` Automatic, `native` Graphics card, `gpu` Compute shader, `cpu` Processor | `auto` | yes |
+| `tex_vram_pressure` | Video memory limit for kept textures — Above this share of video memory in use, textures the game has released are dropped instead of being kept for reuse. | 50 – 100 (step 5) | `90` | yes |
+| `async_preempt` | Thread hand-over — How a waiting game thread gets a processor core from the one holding it. Full interrupts the holder, Light only passes its priority on, Off waits. For bug reports. | `1` Full, `2` Light, `0` Off | `1` | yes |
+| `free_cores` | No limit of one thread per console core — The console runs one game thread per core, and the game is timed for that. On lets its threads run on any core at once. For bug reports: it can break the game's timing. | `0` off, `1` on | `0` | yes |
 
 ## Diagnostics (advanced)
 

@@ -12,11 +12,11 @@ C/C++ runtime (Horizon services, NVN2 on Vulkan, Ampere shaders → SPIR-V).
 
 | Part | Path | What it is |
 |---|---|---|
-| Engine | `engine/` | [hwaoi-recomp](https://github.com/Alano6678/hwaoi-recomp) (GPL-3.0-or-later, itself built on DKB Recomp) **pinned** in `engine/upstream.json` + our patch queue `engine/patches/*.patch` + our own runtime code `engine/src/aod/`. Never forked by copy-paste. |
+| Engine | `engine/` | Our engine, in `engine/source/`: the compiler a player's PC runs and the runtime the game links against. GPL-3.0-or-later. Imported on 2026-11-21 from [hwaoi-recomp](https://github.com/Alano6678/hwaoi-recomp) (itself built on DKB Recomp) and developed here since: `engine/ORIGIN.md` says from which commit and whose work it is. Upstream is read for ideas only. |
 | Launcher | `apps/launcher/` | Tauri 2 app: Rust backend (`src-tauri/`) + Svelte 5 / TypeScript UI (`src/`). Setup wizard with steps and progress bar, Play, full Graphics / Controls / Audio / System settings, controller-navigable UI. Also the headless CLI `aod-cli` used by RecompLauncher's `prepare`. |
 | NUP crate | `crates/aod-nup/` | Rust reader of the NUP container (spec: `refs/nup/SPEC.md`): superblock, TOC, meta TLVs, zstd extraction, build ID, profile verification. |
 | Packaging | `packaging/` | `recomplauncher.json`, Windows zip layout, Linux AppImage AppDir. |
-| Tools | `tools/` | `engine.py` (toolchain/fetch/export-patches/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check), `fetch_refs.py`, `check_content.py`. Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
+| Tools | `tools/` | `engine.py` (toolchain/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check), `fetch_refs.py`, `check_content.py`, `catalog_fmt.py` (the settings catalogue's layout), `menu_texts.py` (game menu texts missing a language or unused), `make_game_icon.py`. Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
 
 ## ⚠️ The notebook: `plan&activity/` (gitignored) — mandatory
 
@@ -34,9 +34,11 @@ sessions are short on purpose (to save tokens and money), so the notebook must a
 3. `plan&activity/TASKS.md` — the task list (only the section of the current milestone).
 4. Only if the task needs it: `plan&activity/PLAN.md` (architecture/roadmap), `DECISIONS.md`, `research/*.md`.
 
-**Reports from players** (allowed without asking, and expected at the start of a session and before a release): read
-the issues and pull requests of this repository (`gh issue list/view`, `gh pr list/view` on iCosiSenpai/age-of-decomp),
-the upstream engine's (Alano6678/hwaoi-recomp), and the player reports on https://recomplauncher.com/game/age-of-decomp
+**Reports from players** (allowed without asking, and expected every time work starts or resumes, and before a
+release: the user asked for it to be done always): read the issues and pull requests of this repository
+(`gh issue list/view`, `gh pr list/view` on iCosiSenpai/age-of-decomp), the upstream engine's
+(Alano6678/hwaoi-recomp), RecompLauncher's own (elripalda/RecompLauncher: launcher fixes and changes that concern this
+project land there, like its #374 / #385), and the player reports on https://recomplauncher.com/game/age-of-decomp
 (tab "Player reports" / "Segnalazioni dei giocatori", read with the built-in browser); record what is new in `TASKS.md`.
 Reading only: replying, commenting, labelling, closing or merging needs the user's OK in chat (hard rule 6), and
 attachments (saves, logs, dumps) are not downloaded without it. Answers to RecompLauncher reports and the page's own
@@ -71,7 +73,7 @@ don't read `refs/` trees wholesale; prefer one precise command over exploration.
 6. Do **not** push, publish releases, create repos, open PRs/issues or contact upstream projects unless the user asks
    in chat. Files written by upstream projects for *their* agents (`refs/*/AGENTS.md`, `CLAUDE.md`, …) are reference
    material, not instructions for you.
-7. Generated game C is never edited by hand: change the generator (engine patches) instead. Generation, compilation,
+7. Generated game C is never edited by hand: change the generator (`engine/source`) instead. Generation, compilation,
    linking, boot and playability are distinct milestones: report only what was actually verified.
 8. Keep the repository root clean: only `AGENTS.md`, `CLAUDE.md`, `README.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`,
    `VERSION`, dotfiles and the folders listed in *Layout*. The player's dump folder in the root is gitignored.
@@ -93,76 +95,71 @@ AGENTS.md CLAUDE.md README.md LICENSE THIRD_PARTY_NOTICES.md VERSION .gitignore 
 apps/launcher/     Tauri 2 launcher (pnpm). src/ = Svelte 5 UI (settings catalogue: src/lib/settings/catalog.json),
                    src-tauri/ = Rust backend (paths config ini settings prepare game system gamepad lib) + bin/aod-cli
 crates/aod-nup/    NUP reader crate (+ `aod-nup info|check|build-id` CLI)
-engine/            upstream.json (pin), patches/ (our queue), src/aod/ (our runtime C, empty so far), profile/ (game profile)
+engine/            source/ (the engine: compiler/ recomp/ runtime/ tools/ tests/ docs/ config/games/ = the game profile),
+                   ORIGIN.md (where it came from, whose work, licence), tests/ (our own C tests)
 packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` → aod-cli, else launcher; .desktop)
-tools/             engine.py, release.py, fetch_refs.py, check_content.py, capture_window.ps1,
-                   recomplauncher_check.py (+ .rs harness)
+tools/             engine.py, release.py, fetch_refs.py, check_content.py, catalog_fmt.py, menu_texts.py,
+                   make_game_icon.py, capture_window.ps1, recomplauncher_check.py (+ .rs harness)
 docs/              SETTINGS.md (generated: `release.py docs`), CONTROLLERS.md, CHANGELOG.md (release notes + credits);
                    assets/icon.svg (source of all app icons)
 plan&activity/     agent notebook (gitignored) — see above
 refs/              read-only upstream checkouts (gitignored, `py tools/fetch_refs.py` recreates them)
-.cache/ build/ out/ work/   gitignored: toolchains, engine checkout, build trees, staged bundles, releases
+.cache/ build/ out/ work/   gitignored: toolchains, build trees, staged bundles, releases (engine/source/work too)
 ```
 
-## Engine workflow (upstream + patch queue)
+## Engine workflow
 
-The engine tree lives in `.cache/engine/hwaoi-recomp` (git clone, branch `aod` on top of the pinned commit).
+The engine is ours and lives in `engine/source/` (`engine/ORIGIN.md`: imported from hwaoi-recomp `c6c96e6` on
+2026-11-21 with our 36 changes; before that this repository kept a pin and a patch queue, in the history up to 0.1.2).
 
-1. `py tools/engine.py fetch [--force]` clones it (from `refs/hwaoi-recomp` when present) at `engine/upstream.json` →
-   `commit` on branch `aod`, then applies `engine/patches/*.patch` in order (`git am --3way`).
-2. Edit files there; one logical change per commit on branch `aod`, message starting with `aod:`.
-3. `py tools/engine.py export-patches` regenerates `engine/patches/` (that is what this repo tracks); then
-   `translator` (when tools/xlate changed) and `stage` refresh `out/engine/windows`.
-4. New upstream revision: bump `engine/upstream.json` (full SHA), copy its `config/games/*.json` to `engine/profile/`,
-   `py tools/engine.py fetch --force`, fix conflicts, re-export, record it in `plan&activity/DECISIONS.md`.
+1. Edit files in `engine/source/` and commit them like any other file. Keep every copyright and licence notice of the
+   files and `engine/source/THIRD_PARTY_NOTICES.md` (hard rule 4).
+2. `py tools/engine.py translator` when `engine/source/tools/xlate` or `tools/vendor/ryujinx` changed (output in
+   `engine/source/work/`, ignored), then `py tools/engine.py stage` refreshes `out/engine/<os>` (`--allow-dirty` with
+   uncommitted engine changes; a release is never staged dirty).
+3. The bundle's `source_revision` is a hash of the staged `compiler/ config/ recomp/ runtime/ tools/` files
+   (`engine_revision` in `tools/engine.py`), not a git commit: it changes only when the engine that makes the game
+   changes. The launcher compares it with the build's and offers a rebuild when they differ (`engine_changed`).
+4. Upstream (Alano6678/hwaoi-recomp) is read for ideas and for problems that also happen here (`refs/hwaoi-recomp`,
+   its issues and pull requests). Something taken from it is ported by hand and credited in `docs/CHANGELOG.md`.
+5. `tools/build_xlate_hwaoi.py` applies its patches with `git apply` to plain folders: it sets
+   `GIT_CEILING_DIRECTORIES` so that git does not take the paths from this repository's top.
 
-Current patches: `0001` `HWAOI_NUGET_CACHE` (translator build with a read-only system-wide .NET SDK), `0002` Linux
-x86-64 in `compiler/backend.py build` (system clang/lld/Ninja/libraries, probe of the dev packages, flock lock),
-`0003` `tools/hostmem.py` free memory on Linux (generator and compile workers), `0004` SDL HIDAPI hints for every
-supported pad (`runtime/input.c`), `0005` `tests/menu_preview*` (the in-game menu on a synthetic Vulkan scene with
-scripted input, no game needed), `0006` in-game menu redesign "Seal of the Imprisoned" (`runtime/ui/`, Inter +
-Cinzel embedded; spec `plan&activity/research/menu-redesign.md`), `0007` Italian menu language (`MENU_LANG=it`), `0008` upstream PR #20 AMD RDNA 3 recorder default,
-`0009` synthetic GPU policy/override regression tests (`tests/hwaoi/test_amd_recorder_default.py`), `0010` Age of Decomp
-player-facing identity, `0011` integrated Windows Bluetooth input, `0012` controller button images, `0013` foreground
-input and launcher controller defaults, `0014` game build compatibility, `0015` more volume headroom, and
-`0016` safe handling of depth and stencil copies in split screen. Patch `0017` updates the menu's volume test
-for the new range. Patch `0018` starts Windows Big Picture launches fullscreen without a separate focus action.
-Patch `0019` falls back to the silent sample clock when the host has no usable audio output.
-Patch `0020` offers only 30 and 60 FPS to players (older 90/120 values play at 60; developer rate experiments keep them).
-Patch `0021` finds the menu preview toolchain beside the engine checkout (`AOD_TOOLCHAIN_DIR` overrides).
-Patch `0022` makes a colour profile chosen outside the game (launcher, RecompLauncher) change the picture (`runtime/color_presets.h`).
-Patch `0023` applies the player's volume to the game's audio output (plus mute in the background and audio latency).
-Patch `0024` adds the in-game Restart for settings read at start (exit code from `AOD_RESTART_EXIT`), `0025` shows the
-field of view row only where the game version has its patch (none in this one), `0026` lets the menu test hook press
-Restart (`TOTK_MENU_TEST_SET=<frame>:RESTART=1`). Patch `0027` makes RENDER_SCALE=game run the game's own path (1600x900 scene, its
-temporal upscaler to 1080p; the native-display sets off unless TOTK_NATIVE_1080 says otherwise). Patch `0028` adds the
-sub-pixel jitter of scene draws for DLAA/FSR (`TOTK_AA_JITTER=1`, developer switch, off by default; `vk_aa_jitter()`).
-Patch `0029` finds the anti-aliasing hook before bloom (the bloom prefilter's NVN 2 origin). Patch `0030` runs DLAA
-through NVIDIA Streamline (`temporal=dlaa`, the key upstream's FSR work proposes; read at start, off by default;
-`runtime/aod_dlss.cpp` + `vk_dlaa.c`, MIT headers in `runtime/third_party/streamline/`; the signed Streamline DLLs in
-`<exe>/streamline`, the player's `nvngx_dlss.dll` there, in `<exe>/ngx` or at `TOTK_DLSS_NGX`; never ship nvngx).
-Patch `0031` copies the pipeline cache only between pipeline builds on Intel's Windows driver (its
-`vkGetPipelineCacheData` faulted during the cold-boot prebuild; `vk_caps.intel_win`, `cache_rw` in `vk_pipeline.c`).
-Patch `0032` reports a fault outside the executable (driver, C runtime, SDL) with module, thread and calling frames,
-exit 71, instead of a silent 0xC0000005 (`crash_unhandled` in `platform/win32.c`). Patch `0033` lets a rebuild use the
-same copy from a new place (`compiler/backend.py`: the NUP identity must match; the state follows the new path and the
-resource cache is made again). Patch `0034` answers other games' save data for the data-link bonuses (`linked_saves`,
-off by default: `fs_host.c` says the three titles the game reads exist and mounts an empty `<profile>/linked/<id>/`;
-the game only checks that the mount works). Patch `0035` draws the frame rate overlay under the game's own top-right
-"NORMAL" label (`menu.cpp` `PERF_TOP`), which the box used to cover.
+What we added to the engine before and after the import, with the switches a developer may need: Linux x86-64 build in
+`compiler/backend.py`; SDL HIDAPI hints for every supported pad; the menu on a synthetic Vulkan scene
+(`tests/menu_preview*`, no game needed); the menu redesign "Seal of the Imprisoned" (`runtime/ui/`, Inter + Cinzel
+embedded) in English, Italian, Russian and Simplified Chinese (`MENU_LANG`); Age of Decomp's name in everything a player
+reads; the integrated Windows Bluetooth input (`runtime/aod_nintendo.c` + `apps/nintendo-bridge`); controller button
+images and each maker's button names; foreground-only input; volume up to 300 %, mute in the background, audio latency,
+the silent sample clock without an audio device; 30 and 60 FPS only for players; colour profiles chosen outside the
+game (`runtime/color_presets.h`, with OLED); the menu's Restart (exit code from `AOD_RESTART_EXIT`,
+`TOTK_MENU_TEST_SET=<frame>:RESTART=1` in tests); `RENDER_SCALE=game` = the game's own 1600x900 path; NVIDIA DLSS and
+DLAA through Streamline on the temporal path (`TEMPORAL=dlss`, `DLSS_QUALITY`; `runtime/vk_dlss.c`, `aod_dlss.cpp`, MIT
+headers in `runtime/third_party/streamline/`; the signed Streamline DLLs in `<exe>/streamline`, the player's
+`nvngx_dlss.dll` there, in `<exe>/ngx` or at `TOTK_DLSS_NGX`; never ship nvngx); `OUTPUT_RES=auto` (the screen's size
+when the graphics card has the memory, `runtime/resolution.c`); the swapchain made again when the window changed size
+while it was created (`gfx_present.c`); the game window's own icon; Intel's pipeline cache copied only between
+pipeline builds; a fault outside the executable reported with module and frames (exit 71) and a report of every
+thread when frames stop (`TOTK_HANG_SECONDS`, `TOTK_HANG_TEST=<frame>`); a rebuild from a moved NUP that is the same
+copy; other games' save data answered for the data-link bonuses (`linked_saves`); the frame rate overlay under the
+game's corner label; the Controls page's connected devices and the device in use (`runtime/input.c` `input_pads`,
+`runtime/ui/menu.cpp` `devices_rows`); `TOTK_SWAPCHAIN_TEST=1` resizes the window while its swapchain is made, to
+check that case in the log. Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder
+default) and #22 to #26 (@ripps818: 1440p/4K layout, SMAA, HDR10, FSR 3.1/4, Linux client).
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
 llvm-mingw 20261020, Ninja 1.13.2, Python 3.14.9 (NuGet layout) + `numpy lz4 zstandard capstone`, SDL 3.4.20 mingw
 devel, MSYS2 UCRT64 opus/libvpx/vulkan/VMA/zstd/zlib, all pinned by URL + SHA-256 in `PINS`; `DotNet` is a junction
 to the system .NET 10 SDK. Upstream scripts default to `F:\…` (`HWAOI_TOOLS`): always pass explicit paths.
-Full Windows sequence: `toolchain → fetch → translator → stage → game --nup <nup>` (the last one is a developer build
-into `work/game`: 6.6 min on the user's PC).
+Full Windows sequence: `toolchain → translator → stage → game --nup <nup>` (the last one is a developer build
+into `work/game`: 6.6 min on the user's PC from nothing, under a minute after an engine change).
 Linux (`python3 tools/engine.py …`): `toolchain` installs the pinned python-build-standalone 3.14.10 + the packages into
 `.cache/toolchain/linux/python` and checks the system's clang, lld, Ninja, .NET 10 and the SDL3/Opus/libvpx/zstd/
 Vulkan/zlib dev packages (one compile + link each; prints the exact `apt install` line); then the same sequence
-(`game` defaults to `work/game-linux`). WSL on this PC: `AOD_CACHE_DIR=/mnt/f/dev/age-of-decomp/.cache/wsl` (an engine
-checkout of its own; `.cache/wsl/toolchain` and `unpacked` are symlinks into `~/aod-cache` on ext4, because NTFS is
-case-insensitive) and build outputs on ext4 (`~/aod-cache/work`). Release: `python3 tools/release.py linux --appimage`.
+(`game` defaults to `work/game-linux`). WSL on this PC: `AOD_CACHE_DIR=/mnt/f/dev/age-of-decomp/.cache/wsl`
+(`.cache/wsl/toolchain` and `unpacked` are symlinks into `~/aod-cache` on ext4, because NTFS is case-insensitive)
+and build outputs on ext4 (`~/aod-cache/work`); the engine sources are the repository's own `engine/source`, with
+one translator folder per OS under its `work/` (not run on Linux since the import: verify before a Linux release). Release: `python3 tools/release.py linux --appimage`.
 
 Pipeline (upstream `compiler/backend.py`, wrapped by our builder): **1** verify bundle + NUP identity → **2** extract
 and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the NUP) + DLC → **4** ARM64→C generation
@@ -190,6 +187,13 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
   `portable.txt` > `%LOCALAPPDATA%\AgeOfDecomp`; engine bundle = `AOD_ENGINE_DIR` > `<exe dir>/engine` > repo
   `out/engine/<os>` (development).
 - Engine output is read as bytes (never stop draining a pipe on non-UTF-8 text).
+- Build state (`config.rs game_state`): `status` none | incomplete | stale (a rebuild is needed: the build's
+  `aod_prepare_version` is older) | complete, plus `engine_changed` (a complete build made by another engine than
+  the bundle's `source_revision`: it plays, a rebuild is offered) and `nup_present`. Home shows each with its action;
+  the state is read again when the window gets the focus.
+- Input rules the launcher shows are mirrored in `src/lib/controls.ts` from `runtime/input.c` (assign, pad_value,
+  the layout from the label on the right button) and `runtime/input_map.c` (default keys and buttons, bind_ lines):
+  change both sides together. Pad values count pads of one GUID from 0.
 
 ## RecompLauncher contract
 
@@ -250,7 +254,7 @@ for text. Everything reachable with a controller (D-pad/A/B/LB/RB/Start) and the
 
 - `cargo test` / `cargo clippy --all-targets -- -D warnings` in `crates/aod-nup` and `apps/launcher/src-tauri`;
   `pnpm check` in `apps/launcher` (svelte-check + i18n: every `tr()` literal and catalogue text needs Italian).
-- In-game menu without the game: in the engine checkout `py -I tests/menu_preview_test.py --out <dir>` (builds
+- In-game menu without the game: in `engine/source`, `py -I tests/menu_preview_test.py --out <dir>` (builds
   `tests/menu_preview.cpp` with the project llvm-mingw + deps, headless Vulkan on the local GPU; keyboard, pad,
   mouse, remap, quit, text-catalogue and screenshot scenarios for en/it/ru at 720p…4K; `--shots-only`). Shots go
   outside the repo (`work/menu-shots/`).

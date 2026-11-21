@@ -13,9 +13,12 @@
   let STEPS = $derived([tr('Welcome'), tr('Game file'), tr('Checks'), tr('Location'), tr('Build'), tr('Done')]);
   const NEED_GB = 25;
 
-  let step = $state(app.prepare.running ? 4 : app.launcher?.game.status === 'complete' ? 5 : 0);
+  // A finished build opens on the last step; one whose game file is no longer where it was opens on the file step.
+  let step = $state(app.prepare.running ? 4 : app.launcher?.game.status !== 'complete' ? 0 : app.launcher.game.nup_present ? 5 : 1);
   let nup = $state<string | null>(app.launcher?.game.nup ?? null);
   let stale = $derived(app.launcher?.game.status === 'stale');
+  // The game is built and plays, by another engine than this version's: the last step offers the rebuild.
+  let engineChanged = $derived(app.launcher?.game.status === 'complete' && (app.launcher?.game.engine_changed ?? false));
   let updateNup = $state<string | null>(app.launcher?.game.update_nup ?? null);
   let dlcNup = $state<string | null>(app.launcher?.game.dlc_nup ?? null);
   let output = $state(app.launcher?.game.output ?? '');
@@ -306,7 +309,13 @@
         <div class="seal"><Icon name="check" size={44} /></div>
         <h2>{tr('Ready to play')}</h2>
         <p class="lead">{tr('The game is built for this PC. Settings can be changed any time, here or in game with Esc.')}</p>
+        {#if engineChanged}
+          <div class="result warn"><Icon name="refresh" size={20} /> {tr('The engine was updated since your game was built. Rebuild to get its fixes: your game files, settings and saves are kept. The game you have still plays.')}</div>
+        {/if}
         <div class="actions center">
+          {#if engineChanged && nup && app.launcher?.game.nup_present}
+            <button class="btn" disabled={app.game.running} onclick={startBuild}><Icon name="refresh" size={18} /> {tr('Rebuild the game')}</button>
+          {/if}
           <button class="btn primary" data-autofocus onclick={() => (app.page = 'home')}><Icon name="play" size={18} /> {tr('Go to Play')}</button>
           <button class="btn" onclick={() => (app.page = 'display')}>{tr('Settings')}</button>
           <button class="btn ghost" onclick={() => (step = 1)}>{tr('Build again')}</button>

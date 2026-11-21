@@ -7,8 +7,19 @@
   import Glyph from '../components/Glyph.svelte';
   import SettingRow from '../components/SettingRow.svelte';
 
-  let built = $derived(app.launcher?.game.status === 'complete');
+  // The build's state: none (not set up), incomplete (the build was stopped), stale (the engine was updated and the
+  // game must be built again before it plays), complete. A complete build made by another engine than this
+  // version's still plays: a rebuild is offered.
+  let status = $derived(app.launcher?.game.status ?? 'none');
+  let built = $derived(status === 'complete');
+  let engineChanged = $derived(built && (app.launcher?.game.engine_changed ?? false));
   let nupOk = $derived(app.launcher?.game.nup_present ?? false);
+  // The graphics card the game will use: the one chosen in Display, else a dedicated card before an integrated one.
+  let gpu = $derived.by(() => {
+    const gpus = app.system?.gpus ?? [];
+    const chosen = app.settings.gpu_index;
+    return (chosen ? gpus.find((g) => String(g.index) === chosen) : undefined) ?? gpus.find((g) => g.discrete) ?? gpus[0] ?? null;
+  });
   let quick = $derived(catalog.settings.filter((s) => ['output_res', 'fps_limit', 'fullscreen'].includes(s.key)));
   let starting = $state(false);
 
@@ -32,16 +43,22 @@
       <h1>Age of Decomp</h1>
       <p class="sub">{tr('Hyrule Warriors: Age of Imprisonment, recompiled for your PC from your own copy.')}</p>
       <div class="chips">
-        {#if built}
+        {#if built && nupOk}
           <span class="chip ok"><Icon name="check" size={15} /> {tr('Ready to play')}</span>
+        {:else if built}
+          <span class="chip err"><Icon name="warn" size={15} /> {tr('Your game file has moved')}</span>
+        {:else if status === 'stale'}
+          <span class="chip warn"><Icon name="warn" size={15} /> {tr('Rebuild required')}</span>
+        {:else if status === 'incomplete'}
+          <span class="chip warn"><Icon name="warn" size={15} /> {tr('Setup not finished')}</span>
         {:else}
           <span class="chip warn"><Icon name="warn" size={15} /> {tr('Setup needed')}</span>
         {/if}
-        {#if built && !nupOk}
-          <span class="chip err"><Icon name="warn" size={15} /> {tr('Your game file has moved')}</span>
+        {#if engineChanged}
+          <span class="chip warn"><Icon name="refresh" size={15} /> {tr('Rebuild available')}</span>
         {/if}
-        <span class="chip"><Icon name="display" size={15} /> {app.settings.output_res ?? '1920x1080'} · {app.settings.fps_limit ?? '60'} FPS</span>
-        {#if app.system?.gpus[0]}<span class="chip"><Icon name="chip" size={15} /> {app.system.gpus[0].name}</span>{/if}
+        <span class="chip"><Icon name="display" size={15} /> {(app.settings.output_res ?? 'auto') === 'auto' ? tr('Automatic') : app.settings.output_res} · {app.settings.fps_limit ?? '60'} FPS</span>
+        {#if gpu}<span class="chip"><Icon name="chip" size={15} /> {gpu.name}</span>{/if}
       </div>
     </div>
   </div>
@@ -53,6 +70,18 @@
         {app.game.running ? tr('Playing…') : starting ? tr('Starting…') : tr('Play')}
       </button>
       <span class="hint faint"><Glyph button="start" family={app.hintPad} /> {tr('from anywhere in the launcher')}</span>
+    {:else if status === 'stale'}
+      <button class="btn primary play" data-autofocus onclick={() => (app.page = 'setup')}>
+        <Icon name="refresh" size={20} />
+        {tr('Rebuild the game')}
+      </button>
+      <span class="hint faint">{tr('The engine was updated. Rebuild to use it. Your existing game files, settings and saves are kept.')}</span>
+    {:else if status === 'incomplete'}
+      <button class="btn primary play" data-autofocus onclick={() => (app.page = 'setup')}>
+        <Icon name="arrow" size={20} />
+        {tr('Continue the setup')}
+      </button>
+      <span class="hint faint">{tr('The build stopped before the end. Finished steps are kept: continuing picks up from there.')}</span>
     {:else}
       <button class="btn primary play" data-autofocus onclick={() => (app.page = 'setup')}>
         <Icon name="arrow" size={20} />
@@ -64,6 +93,26 @@
       <span class="chip err">{tr('The game closed with code {code}', { code: app.game.lastExit })}</span>
     {/if}
   </div>
+
+  <!-- What the build needs from the player, each with its action: a status block as the Display page's DLSS one. -->
+  {#if built && !nupOk}
+    <div class="card notice">
+      <span class="chip err"><Icon name="warn" size={15} /> {tr('Your game file has moved')}</span>
+      <p class="help">{tr('The game reads from your .nup while you play, and it is not where it was when the game was built. Put it back there, or set up again with the file where it is now.')}</p>
+      <p class="mono where">{app.launcher?.game.nup ?? ''}</p>
+      <div class="actions">
+        <button class="btn" onclick={() => (app.page = 'setup')}>{tr('Choose game file')} <Icon name="arrow" size={16} /></button>
+      </div>
+    </div>
+  {:else if engineChanged}
+    <div class="card notice">
+      <span class="chip warn"><Icon name="refresh" size={15} /> {tr('Rebuild available')}</span>
+      <p class="help">{tr('The engine was updated since your game was built. Rebuild to get its fixes: your game files, settings and saves are kept. The game you have still plays.')}</p>
+      <div class="actions">
+        <button class="btn" disabled={app.game.running} onclick={() => (app.page = 'setup')}><Icon name="refresh" size={16} /> {tr('Rebuild the game')}</button>
+      </div>
+    </div>
+  {/if}
 
   <div class="grid">
     <div class="card">
@@ -85,7 +134,7 @@
       {:else}
         <p class="muted">{tr('No controller connected. Xbox, PlayStation, Switch and Switch 2 controllers work natively: just connect one.')}</p>
       {/if}
-      <button class="btn ghost more" onclick={() => (app.page = 'pads')}>{tr('Test and assign controllers')} <Icon name="arrow" size={16} /></button>
+      <button class="btn ghost more" onclick={() => (app.page = 'controls')}>{tr('Test and assign controllers')} <Icon name="arrow" size={16} /></button>
     </div>
   </div>
 </section>
@@ -177,6 +226,28 @@
     align-items: center;
     gap: 8px;
     font-size: 13.5px;
+  }
+  /* A card laid out as the Display page's DLSS block: chip, help text, actions. */
+  .notice {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .help {
+    color: var(--text-dim);
+    font-size: 13.5px;
+    max-width: 62ch;
+  }
+  .where {
+    color: var(--text-dim);
+    overflow-wrap: anywhere;
+    user-select: text;
+  }
+  .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
   }
   .grid {
     display: grid;

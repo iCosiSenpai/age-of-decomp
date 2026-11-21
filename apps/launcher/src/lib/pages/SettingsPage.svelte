@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A settings page for one catalogue group.
+  // A settings page for one catalogue group. The Controls group has its own page (Pads.svelte).
   import { api } from '../api';
   import { tr, trc } from '../i18n.svelte';
   import { app, catalog } from '../state.svelte';
@@ -13,7 +13,6 @@
     picture: 'Colour adjustments applied when the picture is shown. They cost nothing in performance.',
     game: 'Language and console mode.',
     audio: 'Sound output.',
-    controls: 'Players, controllers and feel. Keyboard and button bindings are in the game menu (Esc → Controls).',
     performance: 'Engine options for speed and memory. The defaults are the tested ones: change them only to compare or to work around a problem.',
     diagnostics: 'Options for bug reports. They slow the game down.',
   };
@@ -27,13 +26,13 @@
     app.toast(tr('Defaults restored'), 'ok');
   }
 
-  // NVIDIA DLSS for DLAA: NVIDIA's own nvngx_dlss.dll, which Age of Decomp cannot ship (src-tauri/src/dlss.rs). Its
+  // NVIDIA DLSS (Upscaling = NVIDIA DLSS): NVIDIA's own nvngx_dlss.dll, which Age of Decomp cannot ship (src-tauri/src/dlss.rs). Its
   // status, the download and its error live on `app.dlss`, so leaving this page mid-download keeps them; only the
   // licence question is this page's own, and leaving the page closes it unanswered.
   let dlssAsking = $state(false);
-  let wantsDlaa = $derived(group === 'display' && app.settings.temporal === 'dlaa');
+  let wantsDlss = $derived(group === 'display' && app.settings.temporal === 'dlss');
   $effect(() => {
-    if (wantsDlaa) void app.loadDlss();
+    if (wantsDlss) void app.loadDlss();
   });
 
   function dlssDownload() {
@@ -63,11 +62,11 @@
   <div class="card list">
     {#each rows as s (s.key)}
       <SettingRow {s} />
-      {#if s.key === 'temporal' && wantsDlaa && app.dlss.status}
+      {#if s.key === 'temporal' && wantsDlss && app.dlss.status}
         <div class="dlss">
           {#if !app.dlss.status.rtx}
             <span class="chip warn"><Icon name="warn" size={15} /> {tr('Needs an NVIDIA RTX card')}</span>
-            <p class="help">{tr('DLAA runs only on NVIDIA RTX cards. On this PC the game plays without it.')}</p>
+            <p class="help">{tr('DLSS runs only on NVIDIA RTX cards. On this PC the game plays without it.')}</p>
           {:else if app.dlss.status.ready}
             <span class="chip ok"><Icon name="check" size={15} /> {tr("NVIDIA's DLSS file is ready")}</span>
           {:else}
@@ -86,7 +85,7 @@
                 <button class="btn" onclick={dlssDownload}>{tr('Accept and download')}</button>
               </div>
             {:else}
-              <p class="help">{tr("DLAA needs NVIDIA's own DLSS file, which Age of Decomp cannot include. Download it from NVIDIA, or choose a copy you already have.")}</p>
+              <p class="help">{tr("DLSS needs NVIDIA's own DLSS file, which Age of Decomp cannot include. Download it from NVIDIA, or choose a copy you already have.")}</p>
               <div class="actions">
                 <button class="btn" disabled={app.dlss.downloading || app.dlss.checking} onclick={() => (dlssAsking = true)}>{tr('Download from NVIDIA…')}</button>
                 <button class="btn" disabled={app.dlss.downloading || app.dlss.checking} onclick={dlssChoose}>{tr('Choose the file…')}</button>

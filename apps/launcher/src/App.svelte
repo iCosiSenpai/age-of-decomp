@@ -35,8 +35,10 @@
       requestAnimationFrame(() => moveFocus('down'));
     },
     start: () => {
-      if (app.launcher?.game.status === 'complete' && !app.game.running) api.play().catch((e) => app.toast(String(e), 'err'));
-      else app.page = app.launcher?.game.status === 'complete' ? 'home' : 'setup';
+      // Start plays when Play on the home page would; otherwise it goes where the next step is.
+      const game = app.launcher?.game;
+      if (game?.status === 'complete' && game.nup_present && !app.game.running) api.play().catch((e) => app.toast(String(e), 'err'));
+      else app.page = game?.status === 'complete' ? 'home' : 'setup';
     },
   };
 
@@ -90,7 +92,7 @@
               <Home />
             {:else if app.page === 'setup'}
               <Setup />
-            {:else if app.page === 'pads'}
+            {:else if app.page === 'controls' || app.page === 'pads'}
               <Pads />
             {:else if app.page === 'system'}
               <System />

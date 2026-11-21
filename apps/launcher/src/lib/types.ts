@@ -66,6 +66,8 @@ export interface GameState {
   status: BuildStatus;
   built_at: string | null;
   nup_present: boolean;
+  /** The engine in this launcher is not the one the game was built with: a rebuild is offered, the build still plays. */
+  engine_changed: boolean;
 }
 
 export interface UiPrefs {
@@ -76,7 +78,7 @@ export interface UiPrefs {
   rate_unlock: boolean;
 }
 
-/** NVIDIA's DLSS file for DLAA in the standalone compiler (src-tauri/src/dlss.rs). */
+/** NVIDIA's DLSS file for NVIDIA DLSS in the standalone compiler (src-tauri/src/dlss.rs). */
 export interface DlssStatus {
   ready: boolean;
   rtx: boolean;
@@ -141,6 +143,11 @@ export interface Pad {
   has_rumble: boolean;
   has_trigger_rumble: boolean;
   has_led: boolean;
+  /** Back buttons (paddles). */
+  has_paddles: boolean;
+  /** What is printed on the south, east, west and north buttons, as SDL reports it: a b x y, cross circle square
+   *  triangle, or '' when it does not know. */
+  labels: string[];
   battery: number | null;
   wired: boolean | null;
 }

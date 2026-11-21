@@ -2,6 +2,7 @@
   // One setting from catalog.json: label, help, restart badge and the matching control.
   import { tr, trc } from '../i18n.svelte';
   import { app } from '../state.svelte';
+  import { padOfValue, padTitle, padValue } from '../controls';
   import type { CatalogSetting } from '../types';
   import Segmented from './Segmented.svelte';
   import Cycle from './Cycle.svelte';
@@ -27,14 +28,13 @@
         { value: 'keyboard', label: tr('Keyboard and mouse') },
         { value: 'none', label: tr('pads|None') },
       ];
-      // pad:<SDL GUID>:<n>: the n-th connected pad with that GUID (runtime/input.c assign)
-      const seen = new Map<string, number>();
-      for (const p of app.pads) {
-        const n = (seen.get(p.guid) ?? 0) + 1;
-        seen.set(p.guid, n);
-        opts.push({ value: `pad:${p.guid}:${n}`, label: p.name + (n > 1 ? ` (${n})` : '') });
+      // pad:<SDL GUID>:<k>, k counting the connected pads of that GUID from 0 (runtime/input.c pad_value)
+      for (const p of app.pads) opts.push({ value: padValue(app.pads, p), label: padTitle(app.pads, p) });
+      if (!opts.some((o) => o.value === value)) {
+        // A value an older launcher wrote names its pad another way: the game still finds that pad, so it is shown.
+        const known = padOfValue(app.pads, value);
+        opts.push({ value, label: known ? padTitle(app.pads, known) : tr('A controller not connected now') });
       }
-      if (!opts.some((o) => o.value === value)) opts.push({ value, label: tr('A controller not connected now') });
       return opts;
     }
     return [];

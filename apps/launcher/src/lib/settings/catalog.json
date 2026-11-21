@@ -13,22 +13,25 @@
   "settings": [
     {
       "key": "output_res", "section": "display", "group": "display", "kind": "choice", "restart": true,
-      "label": "Resolution", "default": "1920x1080",
-      "help": "What the game draws at. 1080p is the tested baseline; 1440p and 4K are experimental (menus and movies may not scale yet).",
+      "label": "Game resolution", "default": "auto",
+      "help": "The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it. Larger sizes need more graphics power and video memory.",
       "choices": [
+        { "value": "auto", "label": "Automatic" },
         { "value": "1280x720", "label": "720p" },
         { "value": "1920x1080", "label": "1080p" },
-        { "value": "2560x1440", "label": "1440p (experimental)" },
-        { "value": "3840x2160", "label": "4K (experimental)" }
+        { "value": "2560x1440", "label": "1440p" },
+        { "value": "3840x2160", "label": "4K" }
       ]
     },
     {
-      "key": "fullscreen", "section": "display", "group": "display", "kind": "toggle", "label": "Fullscreen", "default": "0",
-      "help": "Fill the screen. F11 switches it while you play."
+      "key": "fullscreen", "section": "display", "group": "display", "kind": "toggle",
+      "label": "Fullscreen", "default": "0",
+      "help": "Fills the screen. F11 switches it while you play."
     },
     {
-      "key": "window_size", "section": "display", "group": "display", "kind": "choice", "label": "Window size", "default": "1280x720",
-      "help": "The size of the window when not in fullscreen.", "when": { "fullscreen": "0" },
+      "key": "window_size", "section": "display", "group": "display", "kind": "choice",
+      "label": "Window size", "default": "1280x720", "when": { "fullscreen": "0" },
+      "help": "The size of the window when not in fullscreen.",
       "choices": [
         { "value": "1280x720", "label": "1280 × 720" },
         { "value": "1600x900", "label": "1600 × 900" },
@@ -37,7 +40,8 @@
       ]
     },
     {
-      "key": "fps_limit", "section": "frame rate", "group": "display", "kind": "choice", "label": "Frame rate", "default": "60",
+      "key": "fps_limit", "section": "frame rate", "group": "display", "kind": "choice",
+      "label": "Frame rate", "default": "60",
       "help": "60 is the game's normal speed. 30 saves power.",
       "choices": [
         { "value": "30", "label": "30 FPS" },
@@ -45,54 +49,91 @@
       ]
     },
     {
-      "key": "vk_present", "section": "display", "group": "display", "kind": "choice", "label": "V-Sync", "default": "mailbox",
-      "help": "Mailbox shows the newest frame without tearing. V-Sync waits for the screen. Immediate has the lowest latency but can tear.",
+      "key": "vk_present", "section": "display", "group": "display", "kind": "choice",
+      "label": "Screen sync", "default": "mailbox",
+      "help": "How finished frames reach the screen. Fast shows the newest frame without tearing. V-Sync waits for the screen. Off has the least delay and can tear.",
       "choices": [
-        { "value": "mailbox", "label": "Mailbox" },
+        { "value": "mailbox", "label": "Fast" },
         { "value": "fifo", "label": "V-Sync" },
-        { "value": "immediate", "label": "Off (tearing)" }
+        { "value": "immediate", "label": "Off" }
       ]
     },
     {
-      "key": "render_scale", "section": "display", "group": "display", "kind": "choice", "restart": true, "label": "3D resolution", "default": "100",
-      "help": "Native draws the 3D scene at the full resolution: sharpest, with no smoothing of edges. Console is the game's own: a 1600×900 scene its upscaler brings to 1080p, softer with steadier edges, lower in busy scenes. Console always draws at 1080p.",
+      "key": "render_scale", "section": "display", "group": "display", "kind": "choice", "restart": true,
+      "label": "3D rendering", "default": "100",
+      "help": "Native draws the 3D scene at the game resolution: the sharpest picture. As on the console runs the game's own path, a 1600×900 scene scaled to 1080p: softer and lighter, and the game resolution is then 1080p.",
       "choices": [
         { "value": "100", "label": "Native" },
-        { "value": "game", "label": "Console (1080p)" }
+        { "value": "game", "label": "As on the console" }
       ]
     },
     {
-      "key": "temporal", "section": "display", "group": "display", "kind": "choice", "restart": true, "label": "Anti-aliasing",
-      "default": "off",
-      "help": "Smooths jagged, shimmering edges in the 3D scene at Native 3D resolution. NVIDIA DLAA needs an RTX card and NVIDIA's own DLSS file.",
+      "key": "temporal", "section": "display", "group": "display", "kind": "choice", "restart": true,
+      "label": "Upscaling", "default": "off",
+      "help": "Rebuilds the 3D picture from several frames: cleaner edges and, at a lower quality, more speed. AMD FSR works on most graphics cards and is downloaded from AMD the first time. NVIDIA DLSS needs an RTX card and NVIDIA's own DLSS file.",
       "choices": [
         { "value": "off", "label": "Off" },
-        { "value": "dlaa", "label": "NVIDIA DLAA" }
+        { "value": "fsr", "label": "AMD FSR" },
+        { "value": "dlss", "label": "NVIDIA DLSS" }
       ]
     },
     {
-      "key": "upscaler", "section": "display", "group": "display", "kind": "choice", "label": "Upscaling", "default": "fsr",
-      "help": "How the picture is fitted to your screen. AMD FSR keeps it sharp on any graphics card.",
+      "key": "dlss_quality", "section": "display", "group": "display", "kind": "choice", "restart": true,
+      "label": "DLSS quality", "default": "native", "when": { "temporal": "dlss" },
+      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer.",
+      "choices": [
+        { "value": "native", "label": "DLAA" },
+        { "value": "quality", "label": "Quality" },
+        { "value": "balanced", "label": "Balanced" },
+        { "value": "performance", "label": "Performance" }
+      ]
+    },
+    {
+      "key": "fsr_quality", "section": "display", "group": "display", "kind": "choice", "restart": true,
+      "label": "FSR quality", "default": "native", "when": { "temporal": "fsr" },
+      "help": "Native keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer.",
+      "choices": [
+        { "value": "native", "label": "Native" },
+        { "value": "quality", "label": "Quality" },
+        { "value": "balanced", "label": "Balanced" },
+        { "value": "performance", "label": "Performance" }
+      ]
+    },
+    {
+      "key": "antialiasing", "section": "display", "group": "display", "kind": "choice",
+      "label": "Edge smoothing", "default": "off",
+      "help": "SMAA smooths jagged edges in the finished picture on any graphics card, at a small cost. With FSR or DLSS it is not needed.",
+      "choices": [
+        { "value": "off", "label": "Off" },
+        { "value": "smaa", "label": "SMAA" }
+      ]
+    },
+    {
+      "key": "upscaler", "section": "display", "group": "display", "kind": "choice",
+      "label": "Fit to the window", "default": "fsr",
+      "help": "How the finished picture is scaled when the window is larger than the game resolution. AMD FSR 1 keeps edges sharper than Bilinear.",
       "choices": [
         { "value": "fsr", "label": "AMD FSR 1" },
         { "value": "bilinear", "label": "Bilinear" }
       ]
     },
     {
-      "key": "sharpness", "section": "display", "group": "display", "kind": "slider", "label": "Sharpness", "default": "80",
-      "min": 0, "max": 100, "step": 5, "format": "%.0f", "unit": "%", "when": { "upscaler": "fsr" },
-      "help": "FSR sharpening. 0 is soft, 100 is crisp."
+      "key": "sharpness", "section": "display", "group": "display", "kind": "slider",
+      "label": "Sharpness", "default": "80", "min": 0, "max": 100, "step": 5, "format": "%.0f", "unit": "%", "when": { "upscaler": "fsr" },
+      "help": "Sharpening after the picture is scaled. 0 turns it off."
     },
     {
-      "key": "aspect", "section": "display", "group": "display", "kind": "choice", "label": "Aspect ratio", "default": "fit",
-      "help": "Keep 16:9 adds borders on other screens. Stretch fills them.",
+      "key": "aspect", "section": "display", "group": "display", "kind": "choice",
+      "label": "Picture shape", "default": "fit",
+      "help": "The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same.",
       "choices": [
-        { "value": "fit", "label": "Keep 16:9" },
+        { "value": "fit", "label": "Black bars" },
         { "value": "stretch", "label": "Stretch" }
       ]
     },
     {
-      "key": "perf_overlay", "section": "display", "group": "display", "kind": "choice", "label": "Performance overlay", "default": "off",
+      "key": "perf_overlay", "section": "display", "group": "display", "kind": "choice",
+      "label": "Performance overlay", "default": "off",
       "help": "Frame rate and timings in a corner of the game. F10 cycles it while you play.",
       "choices": [
         { "value": "off", "label": "Off" },
@@ -102,11 +143,13 @@
     },
     {
       "key": "gpu_index", "section": "display", "group": "display", "kind": "dynamic", "source": "gpus", "restart": true,
-      "label": "Graphics card", "default": "", "help": "Which graphics card runs the game. Automatic picks the fastest."
+      "label": "Graphics card", "default": "",
+      "help": "Which graphics card runs the game. Automatic takes a dedicated card before an integrated one."
     },
     {
       "key": "device_profile", "section": "display", "group": "display", "kind": "choice", "restart": true, "advanced": true,
-      "label": "Device profile", "default": "auto", "help": "Steam Deck uses lighter defaults for handheld PCs.",
+      "label": "Device profile", "default": "auto",
+      "help": "Steam Deck starts with lighter settings for handheld PCs.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "desktop", "label": "Desktop" },
@@ -114,33 +157,40 @@
       ]
     },
     {
-      "key": "color_preset", "section": "display", "group": "picture", "kind": "choice", "label": "Colour", "default": "default",
-      "help": "Game's own colours, a more vivid look, extra clarity, or your own values below.",
+      "key": "color_preset", "section": "display", "group": "picture", "kind": "choice",
+      "label": "Colour", "default": "default",
+      "help": "The game's own colours, a more vivid look, extra clarity, deeper blacks for OLED screens, or your own values below.",
       "choices": [
         { "value": "default", "label": "Game's own" },
         { "value": "vivid", "label": "Vivid" },
         { "value": "clarity", "label": "Clarity" },
+        { "value": "oled", "label": "OLED" },
         { "value": "custom", "label": "Custom" }
       ]
     },
     {
-      "key": "color_brightness", "section": "display", "group": "picture", "kind": "slider", "label": "Brightness", "default": "0",
-      "min": -30, "max": 30, "step": 1, "format": "%.0f", "when": { "color_preset": "custom" }, "help": "Lighter or darker picture."
+      "key": "color_brightness", "section": "display", "group": "picture", "kind": "slider",
+      "label": "Brightness", "default": "0", "min": -30, "max": 30, "step": 1, "format": "%.0f", "when": { "color_preset": "custom" },
+      "help": "Lighter or darker picture."
     },
     {
-      "key": "color_contrast", "section": "display", "group": "picture", "kind": "slider", "label": "Contrast", "default": "100",
-      "min": 70, "max": 150, "step": 1, "format": "%.0f", "unit": "%", "when": { "color_preset": "custom" }, "help": "Difference between light and dark."
+      "key": "color_contrast", "section": "display", "group": "picture", "kind": "slider",
+      "label": "Contrast", "default": "100", "min": 70, "max": 150, "step": 1, "format": "%.0f", "unit": "%", "when": { "color_preset": "custom" },
+      "help": "Difference between light and dark."
     },
     {
-      "key": "color_saturation", "section": "display", "group": "picture", "kind": "slider", "label": "Saturation", "default": "100",
-      "min": 50, "max": 200, "step": 1, "format": "%.0f", "unit": "%", "when": { "color_preset": "custom" }, "help": "Colour strength."
+      "key": "color_saturation", "section": "display", "group": "picture", "kind": "slider",
+      "label": "Saturation", "default": "100", "min": 50, "max": 200, "step": 1, "format": "%.0f", "unit": "%", "when": { "color_preset": "custom" },
+      "help": "Colour strength."
     },
     {
-      "key": "color_gamma", "section": "display", "group": "picture", "kind": "slider", "label": "Gamma", "default": "1",
-      "min": 0.8, "max": 1.2, "step": 0.01, "format": "%.2f", "when": { "color_preset": "custom" }, "help": "Mid-tone brightness."
+      "key": "color_gamma", "section": "display", "group": "picture", "kind": "slider",
+      "label": "Gamma", "default": "1", "min": 0.8, "max": 1.2, "step": 0.01, "format": "%.2f", "when": { "color_preset": "custom" },
+      "help": "Mid-tone brightness."
     },
     {
-      "key": "lang", "section": "language", "group": "game", "kind": "choice", "restart": true, "label": "Game language", "default": "",
+      "key": "lang", "section": "language", "group": "game", "kind": "choice", "restart": true,
+      "label": "Game language", "default": "",
       "help": "The language of the game's text and voices menu. Automatic follows your system.",
       "choices": [
         { "value": "", "label": "Automatic" },
@@ -163,17 +213,20 @@
       ]
     },
     {
-      "key": "menu_lang", "section": "language", "group": "game", "kind": "choice", "label": "In-game menu language", "default": "",
+      "key": "menu_lang", "section": "language", "group": "game", "kind": "choice",
+      "label": "In-game menu language", "default": "",
       "help": "The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system.",
       "choices": [
         { "value": "", "label": "Automatic" },
         { "value": "en", "label": "English" },
         { "value": "it", "label": "Italiano" },
-        { "value": "ru", "label": "Русский" }
+        { "value": "ru", "label": "Русский" },
+        { "value": "zh-Hans", "label": "简体中文" }
       ]
     },
     {
-      "key": "operation_mode", "section": "language", "group": "game", "kind": "choice", "label": "Console mode", "default": "docked",
+      "key": "operation_mode", "section": "language", "group": "game", "kind": "choice",
+      "label": "Console mode", "default": "docked",
       "help": "Docked is the TV mode. Handheld uses the console's portable settings, lighter on slower PCs.",
       "choices": [
         { "value": "docked", "label": "Docked" },
@@ -181,24 +234,29 @@
       ]
     },
     {
-      "key": "assume_focus", "section": "display", "group": "game", "kind": "toggle", "label": "Keep running in the background", "default": "1",
+      "key": "assume_focus", "section": "display", "group": "game", "kind": "toggle",
+      "label": "Keep running in the background", "default": "1",
       "help": "Off pauses the game when you switch to another window."
     },
     {
-      "key": "linked_saves", "section": "language", "group": "game", "kind": "toggle", "label": "Bonuses for other games' saves", "default": "0",
+      "key": "linked_saves", "section": "language", "group": "game", "kind": "toggle",
+      "label": "Bonuses for other games' saves", "default": "0",
       "help": "Tells the game you have Age of Calamity and Tears of the Kingdom saves, for their bonus items."
     },
     {
-      "key": "volume", "section": "audio", "group": "audio", "kind": "slider", "label": "Master volume", "default": "100",
-      "min": 0, "max": 300, "step": 5, "format": "%.0f", "unit": "%", "help": "Above 100 % boosts quiet speakers."
+      "key": "volume", "section": "audio", "group": "audio", "kind": "slider",
+      "label": "Master volume", "default": "100", "min": 0, "max": 300, "step": 5, "format": "%.0f", "unit": "%",
+      "help": "Above 100 % boosts quiet speakers."
     },
     {
-      "key": "mute_unfocused", "section": "audio", "group": "audio", "kind": "toggle", "label": "Mute in the background",
-      "default": "0", "help": "Silences the game while another window is in front."
+      "key": "mute_unfocused", "section": "audio", "group": "audio", "kind": "toggle",
+      "label": "Mute in the background", "default": "0",
+      "help": "Silences the game while another window is in front."
     },
     {
-      "key": "audio_latency", "section": "audio", "group": "audio", "kind": "choice", "restart": true, "label": "Audio buffer",
-      "default": "low", "help": "Raise it if the sound crackles or drops out. Low reacts fastest.",
+      "key": "audio_latency", "section": "audio", "group": "audio", "kind": "choice", "restart": true,
+      "label": "Audio buffer", "default": "low",
+      "help": "Raise it if the sound crackles or drops out. Low reacts fastest.",
       "choices": [
         { "value": "low", "label": "Low (10 ms)" },
         { "value": "normal", "label": "Normal (20 ms)" },
@@ -207,123 +265,152 @@
     },
     {
       "key": "player1_device", "section": "input", "group": "controls", "kind": "dynamic", "source": "pads",
-      "label": "Player 1", "default": "auto", "help": "Automatic takes the first controller, or the keyboard and mouse."
-    },
-    {
-      "key": "player1_type", "section": "input", "group": "controls", "kind": "choice", "label": "Player 1 controller", "default": "pro",
-      "help": "What the game sees: one Pro Controller, or a pair of Joy-Con.",
-      "choices": [
-        { "value": "pro", "label": "Pro Controller" },
-        { "value": "dual", "label": "Joy-Con pair" }
-      ]
+      "label": "Player 1 plays with", "default": "auto",
+      "help": "Automatic takes the first controller connected, with the keyboard and mouse beside it."
     },
     {
       "key": "player2_device", "section": "input", "group": "controls", "kind": "dynamic", "source": "pads",
-      "label": "Player 2", "default": "auto", "help": "The second player in co-op. None turns co-op input off."
+      "label": "Player 2 plays with", "default": "auto",
+      "help": "The second player in co-op. Automatic takes the second controller; None leaves player 2 out."
     },
     {
-      "key": "player2_type", "section": "input", "group": "controls", "kind": "choice", "label": "Player 2 controller", "default": "pro",
-      "help": "What the game sees for player 2.",
+      "key": "player1_type", "section": "input", "group": "controls", "kind": "choice", "advanced": true,
+      "label": "Player 1 appears to the game as", "default": "pro",
+      "help": "The Switch controller the game is told this player holds, whatever the real one is. Change it only if the game asks for the other kind.",
       "choices": [
         { "value": "pro", "label": "Pro Controller" },
         { "value": "dual", "label": "Joy-Con pair" }
       ]
     },
     {
-      "key": "pad_layout", "section": "input", "group": "controls", "kind": "choice", "label": "Button layout", "default": "auto",
-      "help": "Nintendo keeps A on the right. Xbox puts A at the bottom. Xbox labels makes the button marked A confirm on any pad.",
+      "key": "player2_type", "section": "input", "group": "controls", "kind": "choice", "advanced": true,
+      "label": "Player 2 appears to the game as", "default": "pro",
+      "help": "The Switch controller the game is told player 2 holds.",
       "choices": [
-        { "value": "auto", "label": "Automatic" },
-        { "value": "nintendo", "label": "Nintendo" },
-        { "value": "xbox", "label": "Xbox positions" },
-        { "value": "xbox_prompts", "label": "Xbox labels" }
+        { "value": "pro", "label": "Pro Controller" },
+        { "value": "dual", "label": "Joy-Con pair" }
       ]
     },
     {
-      "key": "stick_deadzone", "section": "input", "group": "controls", "kind": "slider", "label": "Stick dead zone", "default": "8",
-      "min": 0, "max": 50, "step": 1, "format": "%.0f", "unit": "%", "help": "Raise it if the camera or character drifts on its own."
+      "key": "pad_layout", "section": "input", "group": "controls", "kind": "choice",
+      "label": "Button layout", "default": "auto",
+      "help": "Which button is the game's A. Automatic: the right button on a controller that has A there (Switch controllers), the bottom one on the others (Xbox A, PlayStation cross).",
+      "choices": [
+        { "value": "auto", "label": "Automatic" },
+        { "value": "nintendo", "label": "A on the right" },
+        { "value": "xbox", "label": "A at the bottom" }
+      ]
     },
     {
-      "key": "motion", "section": "input", "group": "controls", "kind": "toggle", "label": "Motion controls", "default": "1",
-      "help": "Gyro and accelerometer from controllers that have them (Switch, Switch 2, DualSense, DualShock 4)."
+      "key": "stick_deadzone", "section": "input", "group": "controls", "kind": "slider",
+      "label": "Stick dead zone", "default": "8", "min": 0, "max": 50, "step": 1, "format": "%.0f", "unit": "%",
+      "help": "Raise it if the camera or the character moves on its own."
     },
     {
-      "key": "rumble_strength", "section": "input", "group": "controls", "kind": "slider", "label": "Rumble strength", "default": "130",
-      "min": 0, "max": 300, "step": 10, "format": "%.0f", "unit": "%", "help": "0 turns rumble off."
+      "key": "motion", "section": "input", "group": "controls", "kind": "toggle",
+      "label": "Motion controls", "default": "1",
+      "help": "Uses the controller's gyro and accelerometer where the game asks for motion."
     },
     {
-      "key": "rumble_curve", "section": "input", "group": "controls", "kind": "slider", "label": "Rumble curve", "default": "0.6",
-      "min": 0.2, "max": 1.5, "step": 0.05, "format": "%.2f", "advanced": true,
+      "key": "rumble_strength", "section": "input", "group": "controls", "kind": "slider",
+      "label": "Rumble strength", "default": "130", "min": 0, "max": 300, "step": 10, "format": "%.0f", "unit": "%",
+      "help": "0 turns rumble off."
+    },
+    {
+      "key": "rumble_curve", "section": "input", "group": "controls", "kind": "slider", "advanced": true,
+      "label": "Rumble curve", "default": "0.6", "min": 0.2, "max": 1.5, "step": 0.05, "format": "%.2f",
       "help": "Lower values make light rumble stronger; 1 is linear."
     },
     {
-      "key": "rumble_triggers", "section": "input", "group": "controls", "kind": "toggle", "label": "Trigger rumble", "default": "0",
-      "help": "Impulse triggers on Xbox One and Series controllers."
+      "key": "rumble_triggers", "section": "input", "group": "controls", "kind": "toggle",
+      "label": "Trigger rumble", "default": "0",
+      "help": "Also drives the motors in the triggers of controllers that have them."
     },
     {
-      "key": "mouse_sens", "section": "input", "group": "controls", "kind": "slider", "label": "Mouse sensitivity", "default": "1",
-      "min": 0.1, "max": 10, "step": 0.1, "format": "%.1f", "help": "Camera speed with the mouse."
+      "key": "mouse_sens", "section": "input", "group": "controls", "kind": "slider",
+      "label": "Mouse sensitivity", "default": "1", "min": 0.1, "max": 10, "step": 0.1, "format": "%.1f",
+      "help": "Camera speed with the mouse."
+    },
+    {
+      "key": "pipe_prebuild", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
+      "label": "Prepare shaders at start", "default": "1",
+      "help": "Builds the shaders the game used before while it starts, in the background: fewer hitches in play."
+    },
+    {
+      "key": "xlate_prefetch", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
+      "label": "Translate effect shaders early", "default": "1",
+      "help": "Translates compute shaders as the game registers them, before an effect first needs them."
     },
     {
       "key": "replay_async", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
-      "label": "Asynchronous GPU replay", "default": "0",
-      "help": "Experimental: about 15 % more FPS in tests, not yet checked in every scene."
-    },
-    {
-      "key": "async_preempt", "section": "performance", "group": "performance", "kind": "choice", "restart": true,
-      "label": "Thread preemption", "default": "1", "help": "How the game's threads share your CPU. Leave on unless told otherwise.",
-      "choices": [ { "value": "0", "label": "Off" }, { "value": "1", "label": "On" }, { "value": "2", "label": "Aggressive" } ]
-    },
-    {
-      "key": "free_cores", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
-      "label": "Leave cores free", "default": "0", "help": "Keeps some CPU cores free for streaming or recording."
+      "label": "Draw on a second thread", "default": "0",
+      "help": "Lets the game's own thread run ahead while another one draws. Can raise the frame rate when the processor is the limit, and adds one frame of delay. Experimental."
     },
     {
       "key": "timer_1ms", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
-      "label": "Precise timer", "default": "1", "help": "1 ms system timer for steadier frame pacing."
+      "label": "Precise timer", "default": "1",
+      "help": "Asks Windows for a 1 ms timer, so the game's short waits do not last a whole 15 ms tick."
     },
     {
       "key": "lazy_heap", "section": "performance", "group": "performance", "kind": "choice", "restart": true,
       "label": "Memory on demand", "default": "auto",
-      "help": "Windows: commit game memory only when used. Helps PCs with 16 GB of RAM. Automatic turns it on when memory is short.",
-      "choices": [ { "value": "auto", "label": "Automatic" }, { "value": "0", "label": "Off" }, { "value": "1", "label": "On" } ]
+      "help": "Windows: takes game memory as it is first used. About 2 GB less is reserved, with more small hitches while loading. Automatic turns it on only when the PC could not give the game all its memory otherwise.",
+      "choices": [
+        { "value": "auto", "label": "Automatic" },
+        { "value": "0", "label": "Off" },
+        { "value": "1", "label": "On" }
+      ]
     },
     {
       "key": "small_memory_pools", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
-      "label": "Small memory pools", "default": "1", "help": "Smaller GPU upload blocks: less RAM, same speed."
+      "label": "Smaller video memory blocks", "default": "1",
+      "help": "Takes video memory 128 MB at a time instead of 256: less is held unused."
     },
     {
       "key": "source_compress", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
-      "label": "Compress shader sources", "default": "1", "help": "Saves about 160 MB of RAM."
-    },
-    {
-      "key": "pipe_prebuild", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
-      "label": "Prepare shaders early", "default": "1", "help": "Builds pipelines in the background to reduce stutter."
-    },
-    {
-      "key": "xlate_prefetch", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
-      "label": "Translate compute shaders early", "default": "1", "help": "Less stutter the first time an effect appears."
+      "label": "Compress shader sources", "default": "1",
+      "help": "Keeps the game's shader programs compressed in memory."
     },
     {
       "key": "astc", "section": "performance", "group": "performance", "kind": "choice", "restart": true,
-      "label": "Texture decoding", "default": "auto", "help": "Where the game's compressed textures are decoded.",
+      "label": "Texture decoding", "default": "auto",
+      "help": "Where the game's ASTC textures are decoded. Automatic: by the graphics card itself where it can read them, else by a compute shader on it, else on the processor.",
       "choices": [
-        { "value": "auto", "label": "Automatic" }, { "value": "gpu", "label": "GPU" },
-        { "value": "native", "label": "Native" }, { "value": "cpu", "label": "CPU" }
+        { "value": "auto", "label": "Automatic" },
+        { "value": "native", "label": "Graphics card" },
+        { "value": "gpu", "label": "Compute shader" },
+        { "value": "cpu", "label": "Processor" }
       ]
     },
     {
       "key": "tex_vram_pressure", "section": "performance", "group": "performance", "kind": "slider", "restart": true,
-      "label": "VRAM budget", "default": "90", "min": 50, "max": 100, "step": 5, "format": "%.0f", "unit": "%",
-      "help": "How much of your graphics memory textures may use before older ones are released."
+      "label": "Video memory limit for kept textures", "default": "90", "min": 50, "max": 100, "step": 5, "format": "%.0f", "unit": "%",
+      "help": "Above this share of video memory in use, textures the game has released are dropped instead of being kept for reuse."
+    },
+    {
+      "key": "async_preempt", "section": "performance", "group": "performance", "kind": "choice", "restart": true, "advanced": true,
+      "label": "Thread hand-over", "default": "1",
+      "help": "How a waiting game thread gets a processor core from the one holding it. Full interrupts the holder, Light only passes its priority on, Off waits. For bug reports.",
+      "choices": [
+        { "value": "1", "label": "Full" },
+        { "value": "2", "label": "Light" },
+        { "value": "0", "label": "Off" }
+      ]
+    },
+    {
+      "key": "free_cores", "section": "performance", "group": "performance", "kind": "toggle", "restart": true, "advanced": true,
+      "label": "No limit of one thread per console core", "default": "0",
+      "help": "The console runs one game thread per core, and the game is timed for that. On lets its threads run on any core at once. For bug reports: it can break the game's timing."
     },
     {
       "key": "vk_validation", "section": "performance", "group": "diagnostics", "kind": "toggle", "restart": true,
-      "label": "Vulkan validation", "default": "0", "help": "For bug reports only: much slower. Needs the Vulkan SDK."
+      "label": "Vulkan validation", "default": "0",
+      "help": "For bug reports only: much slower. Needs the Vulkan SDK."
     },
     {
       "key": "flight", "section": "diagnostics", "group": "diagnostics", "kind": "toggle", "restart": true,
-      "label": "Flight recorder", "default": "0", "help": "Records timing spikes into the log for bug reports."
+      "label": "Flight recorder", "default": "0",
+      "help": "Records timing spikes into the log for bug reports."
     }
   ]
 }

@@ -84,12 +84,30 @@ pub struct GameState {
     pub status: &'static str,
     pub built_at: Option<String>,
     pub nup_present: bool,
+    /// The engine this launcher carries is not the one the game was built with: a rebuild brings its changes, and
+    /// the build the player has still plays (a rebuild that is needed is `status` "stale").
+    pub engine_changed: bool,
 }
 
 /// The engine's own state file in the output folder (compiler/backend.py `STATE`).
 pub fn engine_state(output: &Path) -> Option<serde_json::Value> {
     let text = std::fs::read_to_string(output.join("hwaoi-compiler.json")).ok()?;
     serde_json::from_str(&text).ok()
+}
+
+/// The engine revision of a bundle (`bundle.json`, written by tools/engine.py stage); None for a folder without one.
+pub fn bundle_revision(engine: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(engine.join("bundle.json")).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+    json.get("source_revision")?.as_str().filter(|r| !r.is_empty()).map(str::to_string)
+}
+
+/// A complete build made by another engine revision than the bundle's. Unknown on either side is not a change.
+pub fn engine_changed(state: &serde_json::Value, bundle: Option<&str>) -> bool {
+    match (state.get("source_revision").and_then(|r| r.as_str()), bundle) {
+        (Some(built), Some(now)) => !built.is_empty() && built != now,
+        _ => false,
+    }
 }
 
 pub(crate) fn prepare_version() -> u64 {
@@ -119,7 +137,9 @@ pub fn game_state(cfg: &Config, paths: &Paths) -> GameState {
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs().to_string());
+    let bundle = paths.engine.as_deref().and_then(bundle_revision);
     GameState {
+        engine_changed: status == "complete" && st.as_ref().is_some_and(|s| engine_changed(s, bundle.as_deref())),
         nup_present: cfg.nup.as_ref().is_some_and(|n| Path::new(n).is_file()),
         nup: cfg.nup.clone(),
         update_nup: cfg.update_nup.clone(),
@@ -141,6 +161,24 @@ mod tests {
         assert!(rebuild_required(&serde_json::json!({"aod_prepare_version": required - 1})));
         assert!(!rebuild_required(&serde_json::json!({"aod_prepare_version": required, "source_revision": "old"})));
         assert!(!rebuild_required(&serde_json::json!({"aod_prepare_version": required + 1})));
+    }
+
+    #[test]
+    fn another_engine_revision_offers_a_rebuild_and_an_unknown_one_does_not() {
+        let built = serde_json::json!({"status": "complete", "source_revision": "aaa"});
+        assert!(engine_changed(&built, Some("bbb")));
+        assert!(!engine_changed(&built, Some("aaa")));
+        assert!(!engine_changed(&built, None));
+        assert!(!engine_changed(&serde_json::json!({"status": "complete"}), Some("bbb")));
+        assert!(!engine_changed(&serde_json::json!({"source_revision": ""}), Some("bbb")));
+        let dir = std::env::temp_dir().join(format!("aod-bundle-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(bundle_revision(&dir), None);
+        std::fs::write(dir.join("bundle.json"), r#"{"source_revision": "abc", "files": {}}"#).unwrap();
+        assert_eq!(bundle_revision(&dir).as_deref(), Some("abc"));
+        std::fs::write(dir.join("bundle.json"), "{}").unwrap();
+        assert_eq!(bundle_revision(&dir), None);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

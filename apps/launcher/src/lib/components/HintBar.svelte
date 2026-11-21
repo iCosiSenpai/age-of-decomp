@@ -3,7 +3,8 @@
   import { app } from '../state.svelte';
   import Glyph from './Glyph.svelte';
 
-  let pad = $derived(app.pads[0]);
+  // The device in use: the pad pressed last, or the keyboard and mouse after a key or a click.
+  let pad = $derived(app.usedPad);
 </script>
 
 <footer class="hints">
@@ -11,6 +12,9 @@
     {#if pad}
       <span class="pad"><span class="dot"></span>{pad.name}{#if pad.battery !== null} · {pad.battery}%{/if}</span>
       {#if app.pads.length > 1}<span class="faint">+{app.pads.length - 1}</span>{/if}
+    {:else if app.pads.length}
+      <span class="pad"><span class="dot"></span>{tr('Keyboard and mouse')}</span>
+      <span class="faint">+{app.pads.length}</span>
     {:else}
       <span class="faint">{tr('No controller connected: keyboard and mouse work everywhere')}</span>
     {/if}

@@ -7,10 +7,63 @@ report names who reported it: thank you all for testing and writing in.
 
 Build the game again once after installing this version. Setup keeps your settings and saves.
 
+### Picture
+- Above 1080p the game's menus, map and movies fill the picture instead of sitting small in the middle. Thanks to a
+  player on RecompLauncher who reported it on 2026-11-19, and to @ripps818, whose work it is
+  (Alano6678/hwaoi-recomp#22).
+- Fullscreen shows the whole picture from the start. Before, the game could open in fullscreen with the picture only
+  in the top left corner, or with thin black bands, until F11 was pressed twice. Thanks to kenroark on RecompLauncher,
+  who reported it on 2026-11-21.
+- New: Game resolution → Automatic, the default. The game takes your screen's resolution when your graphics card has
+  the memory for it: 1440p from 11 GB, 4K from 15 GB, 1080p otherwise.
+- New: Upscaling (Display) with NVIDIA DLSS next to AMD FSR. Upscaling quality goes from DLAA, which only cleans the
+  edges at full resolution, to Quality, Balanced and Performance, which draw the 3D scene smaller and scale it up for
+  more speed. DLSS needs an RTX card and NVIDIA's own DLSS file, as DLAA did in 0.1.2; a saved DLAA setting becomes
+  DLSS with DLAA quality. Asked for upstream by @lustrousdragon (Alano6678/hwaoi-recomp#29).
+- New from upstream, thanks to @ripps818: AMD FSR 3.1 and FSR 4 upscaling (Alano6678/hwaoi-recomp#25), SMAA edge
+  smoothing (#23) and HDR10 output (#24).
+- New: an OLED colour profile (Picture): deeper blacks, a little more contrast and saturation.
+- The game's window has its own icon, the launcher's seal in other colours, in the title bar, the taskbar and Alt+Tab.
+
+### Controllers
+- New: the launcher's Controls page shows every device the game can be played with: the keyboard and mouse, and each
+  connected controller with its battery, what it has (rumble, trigger rumble, motion sensors, back buttons) and which
+  player it is. For the device you select it shows where each of the game's buttons is, with the names printed on that
+  controller (LB and RT on Xbox, L1 and Options on PlayStation, ZL and + on Nintendo) or the keys, only the options
+  that controller can use, and a live test with a rumble test.
+- The launcher's button hints follow the device you used last: the controller you pressed, or the keyboard and mouse
+  after a key or a click. Before, they always showed the first controller's buttons.
+- The game menu's Controls page lists the connected devices the same way, shows only the options the connected
+  controllers have, and its hints follow the device in use too.
+- A controller chosen for a player in the launcher is the one the game uses. The launcher counted controllers of the
+  same model from 1 and the game from 0, so with two of them the choice could land on the other one or on none.
+- The Xbox prompts choice of Button layout is gone: this game has no button pictures with Xbox letters, so it only did
+  what "A on the right" does. A saved Xbox prompts setting becomes "A on the right".
+- The launcher confirms with the big A button of a GameCube controller.
+
+### Launcher
+- New: the Play page says when the game should be built again and why: after an engine update that needs it, when a
+  rebuild is only on offer because the engine changed, when the build was stopped, or when your game file is no longer
+  where it was. Each comes with its button.
+- Display, Picture and Performance settings are named and explained in plainer words, and each Performance setting
+  says what it really does.
+- F5 starts the game from the keyboard, as the hint bar says.
+
+### In-game menu
+- Italian, Russian and Simplified Chinese have every text of the menu. Simplified Chinese is new, from upstream
+  (Alano6678/hwaoi-recomp).
+- The descriptions of the buttons say what this game does with them where that was checked, and nothing where it was
+  not. They used to describe another game.
+- Screen sync and the player rows use the same words as the launcher.
+
 ### Game
 - New: Bonuses for other games' saves (Settings → Game). It tells the game you have Age of Calamity and Tears of the
   Kingdom save data, so it gives the bonus items it has for them as the story goes on. Off until you turn it on.
   Thanks to @Konia1234-Pega for asking (#1).
+
+### Stability
+- When the game stops showing new frames for 20 seconds, its log says where every thread is. The game is left as it
+  is; the report is for the next bug report of a freeze.
 
 ### Overlay
 - The frame rate counter (F10) sits just under the game's small "NORMAL" label in the top right corner instead of
@@ -18,6 +71,11 @@ Build the game again once after installing this version. Setup keeps your settin
 
 ### Downloads
 - `SHA256SUMS.txt` has Unix line ends, so `sha256sum -c` on Linux checks the download.
+
+### For builders
+- The engine is developed in this repository from now on, in `engine/source`. It was imported from HWAoI Recomp at
+  `c6c96e6` with everything Age of Decomp had changed; `engine/ORIGIN.md` names its authors. Building from source no
+  longer needs `engine.py fetch`.
 
 ## 0.1.2 (2026-11-20)
 

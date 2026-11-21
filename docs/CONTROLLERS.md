@@ -19,20 +19,33 @@ SDL's own HIDAPI drivers talk to the pads.
 
 - **SDL build**: `SDL3.dll` in the engine bundle is SDL 3.4.20 built from the official source with
   `SDL_HIDAPI_LIBUSB=ON` (libusb loaded at run time from `libusb-1.0.dll`, shipped beside the game and the launcher's
-  SDL). The game turns on every HIDAPI driver (engine patch 0004); `SDL_*` environment variables still override them.
+  SDL). The game turns on every HIDAPI driver (`runtime/input.c` `hidapi_hints`); `SDL_*` environment variables still
+  override them.
 - **Switch 2 Pro Controller over Bluetooth** uses the included Windows transport adapted from iCosiSenpai's
   NxToWin. Close other controller bridge apps and press **Sync** next to the PC. One Pro Controller 2 can connect
   this way, with standard controls, motion and rumble. It requires no separate app, driver or Steam Input.
 
-- **Confirm / back in the launcher**: Nintendo pads confirm with **A (right)** and go back with **B (bottom)**, as on
-  the console; all others confirm with the bottom button (A / ✕) and go back with the right one (B / ○). The hint bar
-  shows the glyphs of the first connected pad's family.
-- **In game**: `PAD_LAYOUT` decides the mapping — `auto` (Nintendo positions for Nintendo pads, Xbox positions for
-  the rest), `nintendo`, `xbox`, `xbox_prompts` (the button labelled A confirms on any pad). Xbox, DualShock 4
-  and DualSense images adapt in the compiler and Age of Decomp's in-game settings menu. The original game HUD
-  still uses its Nintendo art.
-- **Players**: `PLAYER1_DEVICE` / `PLAYER2_DEVICE` = `auto | keyboard | none | pad:<SDL GUID>:<n>` (the n-th connected
-  pad with that GUID). The launcher's *Controllers* page assigns them with one button.
+- **Confirm / back in the launcher**: the button marked **A** confirms: the right one on a pad that has A there
+  (Switch controllers), the bottom one on the others (Xbox A, PlayStation ✕, the GameCube pad's big A); the other of
+  the two goes back. The launcher asks SDL what is printed on the buttons (`SDL_GetGamepadButtonLabel`), as the game
+  does. The hint bar and the page hints show the buttons of the device used last: the pad that was pressed, or the
+  keyboard after a key or a mouse button (`pad-active` event, `app.lastUsed`).
+- **In game**: `PAD_LAYOUT` decides which face button is the game's A: `auto` (the right one on a pad with A there,
+  the bottom one on the rest), `nintendo`, `xbox`. `xbox_prompts` (A on the right with Xbox letters on screen) needs
+  an overlay this game's build does not have: the launcher no longer offers it, the game menu shows it only where
+  the overlay exists. Xbox, DualShock 4 and DualSense button images and each maker's button names (LB, L1, ZL)
+  appear in the launcher and in Age of Decomp's own menu. The game's HUD still uses its Nintendo art.
+- **Players**: `PLAYER1_DEVICE` / `PLAYER2_DEVICE` = `auto | keyboard | none | pad:<SDL GUID>:<k>`, k counting the
+  connected pads of that GUID from 0 (`runtime/input.c` `pad_value`). Launchers up to 0.1.2 counted from 1: the game
+  still finds the pad such a value meant when it is the last of its model. The launcher's *Controls* page shows each
+  device with the player it is and assigns it with one button.
+- **The Controls page** (launcher, `src/lib/pages/Pads.svelte`) and the game menu's Controls page list the
+  keyboard and mouse and every connected controller, with what each has. What the launcher says about the game
+  (who plays with what, where each game button is, the default keys) comes from `src/lib/controls.ts`, a mirror of
+  `runtime/input.c` and `runtime/input_map.c`: change both sides together. The settings are shared by every
+  controller; a controller only lists the ones it has the hardware for.
+- **Not used by the game**: touchpads, controller lights, the Home and Share / Capture buttons. Back buttons
+  (paddles) have no game button until the player gives them one in the game menu.
 - **Rumble** is on in Age of Decomp (`HWAOI_RUMBLE=1`; the upstream launcher forces it off). Strength 0–300 %,
   curve, Xbox trigger rumble in *Controls*.
 - **While the game runs** the compiler gives the game exclusive input. The game reuses the compiler's open Switch 2
