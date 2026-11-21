@@ -12,6 +12,7 @@
 #include <windows.h>
 #include <imm.h>
 
+#include "aod_dlss.h"
 #include "cfg.h"
 #include "game_target.h"
 #include "flight.h"
@@ -356,10 +357,9 @@ int wsys_open(void) {
 }
 
 VkSurfaceKHR wsys_surface(VkInstance inst) {
-    VkWin32SurfaceCreateInfoKHR si = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-                                      .hinstance = GetModuleHandleW(NULL), .hwnd = g_hwnd};
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkResult r = vkCreateWin32SurfaceKHR(inst, &si, NULL, &surface);
+    // through Streamline while frame generation runs (it keeps which window a surface belongs to), else the loader's
+    VkResult r = aod_fg_win32_surface(inst, GetModuleHandleW(NULL), g_hwnd, &surface);
     if (r != VK_SUCCESS) rt_log("gfx: vkCreateWin32SurfaceKHR failed (%d)", (int)r);
     return r == VK_SUCCESS ? surface : VK_NULL_HANDLE;
 }

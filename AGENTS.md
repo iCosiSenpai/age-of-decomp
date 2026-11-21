@@ -136,7 +136,12 @@ game (`runtime/color_presets.h`, with OLED); the menu's Restart (exit code from 
 `TOTK_MENU_TEST_SET=<frame>:RESTART=1` in tests); `RENDER_SCALE=game` = the game's own 1600x900 path; NVIDIA DLSS and
 DLAA through Streamline on the temporal path (`TEMPORAL=dlss`, `DLSS_QUALITY`; `runtime/vk_dlss.c`, `aod_dlss.cpp`, MIT
 headers in `runtime/third_party/streamline/`; the signed Streamline DLLs in `<exe>/streamline`, the player's
-`nvngx_dlss.dll` there, in `<exe>/ngx` or at `TOTK_DLSS_NGX`; never ship nvngx); `OUTPUT_RES=auto` (the screen's size
+`nvngx_dlss.dll` there, in `<exe>/ngx` or at `TOTK_DLSS_NGX`; never ship nvngx); NVIDIA DLSS frame generation up to
+6x with Reflex through the same Streamline (`FRAME_GEN=off|2..6`, with or without an upscaler; the swapchain and the
+present are Streamline's then, each game frame has a number for its token, depth and motion vectors come from the
+temporal path, the player's `nvngx_dlssg.dll` is found like the DLSS file or at `TOTK_FRAME_GEN_NGX`; frames are
+generated only while the game's window is in front, so a test brings it there; `TOTK_DLSS_LOG=verbose` logs what DLSS-G
+does every two seconds; never ship `NvLowLatencyVk.dll`, NVIDIA's SDK licence); `OUTPUT_RES=auto` (the screen's size
 when the graphics card has the memory, `runtime/resolution.c`); the swapchain made again when the window changed size
 while it was created (`gfx_present.c`); the game window's own icon; Intel's pipeline cache copied only between
 pipeline builds; a fault outside the executable reported with module and frames (exit 71) and a report of every
@@ -171,7 +176,8 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
   `HWAOI_<KEY>` environment variables override). The launcher edits it line-by-line (keeps comments/unknown keys),
   like RecompLauncher does. Key catalogue: `docs/SETTINGS.md`.
 - Build: `aod-cli [cli] prepare --game <nup> --out <dir> [--update <nup>] [--dlc[=]<nup>] [--jobs N]
-  [--resolution WxH] [--unlock]` → stdout `progress <0..1> <text>` (RecompLauncher protocol), engine output on
+  [--resolution WxH] [--unlock] [--fetch-frame-gen --accept-nvidia-license]` (the last two together: NVIDIA's
+  `nvngx_dlssg.dll` from NVIDIA into `<data>/ngx` before the build; a failed download does not stop it) → stdout `progress <0..1> <text>` (RecompLauncher protocol), engine output on
   stderr; on success writes the versioned `<dir>/aod-ready-v<prepare.version>.json` and the launcher config. Exit: 0 ok, 2 arguments, 3 wrong game
   file, 4 build failed, 5 cancelled. The GUI runs the same code (`src-tauri/src/prepare.rs`, Tauri event `prepare`).
 - Play: `AgeOfDecomp --play [--game-dir <dir>] [--game=<nup>]` / `aod-cli play [--out <dir>] [--game <nup>]` start
@@ -202,7 +208,10 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
 input `nup` (no `game` section: RecompLauncher's Easy Setup, 0.90 beta 65/66, refuses `game` + named inputs when the
 copy is picked in its window = player report RL-1; `tools/test_release_guards.py` keeps it so); the setup step checks
 the build ID `659cb288…e1ba` itself (exit 3 + reason); `prepare` = `aod-cli cli prepare --game {input:nup} --out
-{install}/game --dlc={input:dlc}`, done marker `{install}/game/aod-ready-v<prepare.version>.json`; `start` =
+{install}/game --dlc={input:dlc}`, done marker `{install}/game/aod-ready-v<prepare.version>.json`, and one
+`prepare.options` tick, "NVIDIA frame generation" (NVIDIA cards on Windows, off until the player accepts NVIDIA's
+licence), which adds `--fetch-frame-gen --accept-nvidia-license`: RecompLauncher's shared `nvidia.dlss` input is the
+DLSS file alone, so the setup step fetches `nvngx_dlssg.dll` itself into `{data}/ngx`; `start` =
 `AgeOfDecomp --play --game-dir {install}/game --game={input:nup} --dlss={input:dlss}` (the game reads the NUP while
 playing); `config` =
 `{install}/game/work/build/hwaoi196608/hwaoi.ini`. Release asset names:

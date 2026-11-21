@@ -392,6 +392,26 @@ expect-status 3
 shot state-save-failed
 expect-color ff5a4f 8 20
 """, 1920, 1080, 96, "en", None, True)
+    # Frame generation: asked for at 6x on a card that reaches 4x. The row says what is in use; its list is Off, 2x to
+    # 4x and the 6x that is set (5x, which the card cannot do, is not offered); another value needs a restart; the
+    # overlay shows the frames shown and the ones drawn.
+    for lang in ("en", "it"):
+        yield (f"state-frame-gen-{lang}", """
+set FRAME_GEN=6
+open
+""" + "key DownArrow tap\n" * 8 + f"""
+expect FRAME_GEN=6
+shot state-frame-gen-{lang}
+key LeftArrow tap
+expect FRAME_GEN=4
+key LeftArrow tap
+expect FRAME_GEN=3
+expect-status 2
+close
+set PERF_OVERLAY=fps
+sleep 650
+shot state-frame-gen-overlay-{lang}
+""", 1920, 1080, 96, lang, {"MENU_PREVIEW_FG": "6"}, False)
     yield ("state-segment-hover", f"""
 open
 mouse {SEGMENT_HOVER[0]} {SEGMENT_HOVER[1]}

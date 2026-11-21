@@ -136,6 +136,12 @@ void vk_hdr_ui_compose(VkCommandBuffer cb, VkImageView dst_view, VkFormat fmt, u
 void vk_hdr_to_srgb8(const uint8_t *in, uint8_t *out, size_t px, int a2r);
 void vk_hdr_release(void);   // before the device goes away
 void vk_present_flip(void);
+// Before vk_present_image or vk_present_blit: the game's frame that call shows, as aod_fg_frame_end numbered it
+// (aod_dlss.h), so frame generation finds the scene that belongs to the picture. 0, or no call: none of the game's.
+void vk_present_frame(uint32_t fg_frame);
+// vkDeviceWaitIdle for the runtime (vk_device.c): through Streamline while frame generation runs, whose own thread
+// presents on queues of its own (aod_dlss.h). The caller holds the queue lock, as for vkDeviceWaitIdle.
+VkResult vk_device_idle(VkDevice device);
 // Every submission to ctx->gfx_queue (and xfer_queue when shared) takes this lock; vk_present_image and the swapchain
 // rebuild do. Recursive.
 void vk_queue_lock(void);

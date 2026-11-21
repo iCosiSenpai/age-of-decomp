@@ -185,9 +185,14 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
         if cfg!(windows) && streamline.join("sl.interposer.dll").is_file() { cmd.env("HWAOI_DLSS_DIR", streamline); }
     }
     // The player's own nvngx_dlss.dll (never shipped by us): RecompLauncher's nvidia.dlss input, else <data>/ngx.
-    let own = paths.data.join("ngx").join("nvngx_dlss.dll");
+    let own = crate::dlss::file(paths, crate::dlss::Kind::Dlss);
     if let Some(ngx) = dlss.filter(|d| d.is_file()).or_else(|| own.is_file().then_some(own.as_path())) {
         cmd.env("HWAOI_DLSS_NGX", ngx);
+    }
+    // NVIDIA's frame generation file (frame_gen), the player's own too: in <data>/ngx, whoever fetched the other one.
+    let frame_gen = crate::dlss::file(paths, crate::dlss::Kind::FrameGen);
+    if frame_gen.is_file() {
+        cmd.env("HWAOI_FRAME_GEN_NGX", frame_gen);
     }
     cmd.env_remove("AOD_NINTENDO_HANDOFF");
     if let Some(handoff) = handoff { handoff.pass_to(&mut cmd); }

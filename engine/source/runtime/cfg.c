@@ -59,7 +59,7 @@ static const char *const known[] = {
     "VK_PRESENT", "VK_RECORDER", "VK_SSBO_ALIGN", "VK_SUBGROUP", "VK_SUBGROUP_PIN", "VK_VALIDATION", "VOLUME", "VRAM_HEADROOM", "SMALL_MEMORY_POOLS", "COPY_RECLAIM", "SOURCE_COMPRESS", "LAZY_HEAP", "LAZY_HEAP_KIB", "LAZY_HEAP_AUTO_FREE_MB", "VS_OUTS",
     "TEMPORAL", "TEMPORAL_JITTER", "TEMPORAL_MV", "TEMPORAL_DEBUG", "TEMPORAL_LOG", "FSR_QUALITY", "FSR_JITTER_SIGN",
     "FSR_DEBUG", "FSR_MODEL", "FSR_VERSION",
-    "DLSS_DIR", "DLSS_JITTER_SIGN", "DLSS_LOG", "DLSS_NGX", "DLSS_QUALITY",
+    "DLSS_DIR", "DLSS_JITTER_SIGN", "DLSS_LOG", "DLSS_NGX", "DLSS_QUALITY", "FRAME_GEN", "FRAME_GEN_NGX",
     "WB_EXACT", "WB_FENCE_LIMIT", "WINDOW_SIZE", "XLATE", "XLATE_ID", "XLATE_PREFETCH", "XLATE_PROCS", "ZSTD_CHECK", "ZSTD_NATIVE",
 };
 
@@ -70,7 +70,7 @@ static const struct { const char *key, *section; } sections[] = {
     {"FULLSCREEN", "display"}, {"WINDOW_SIZE", "display"}, {"PERF_OVERLAY", "display"}, {"VK_PRESENT", "display"},
     {"GPU_INDEX", "display"}, {"OUTPUT_RES", "display"}, {"RENDER_SCALE", "display"}, {"UPSCALER", "display"},
     {"TEMPORAL", "display"}, {"FSR_QUALITY", "display"}, {"FSR_VERSION", "display"}, {"SCENE_SHARPNESS", "display"},
-    {"DLSS_QUALITY", "display"},
+    {"DLSS_QUALITY", "display"}, {"FRAME_GEN", "display"},
     {"SHARPNESS", "display"}, {"ASPECT", "display"}, {"FOV", "display"}, {"COLOR_PRESET", "display"},
     {"ANTIALIASING", "display"},
     {"COLOR_BRIGHTNESS", "display"}, {"COLOR_CONTRAST", "display"}, {"COLOR_SATURATION", "display"},
@@ -132,6 +132,9 @@ static const CfgMeta metas[] = {
     {"TEMPORAL", "off", "off|fsr|dlss|dlaa", RESTART},
     {"FSR_QUALITY", "native", "native|quality|balanced|performance", RESTART}, {"FSR_VERSION", "auto", NULL, RESTART},
     {"DLSS_QUALITY", "native", "native|quality|balanced|performance", RESTART},
+    // NVIDIA DLSS frame generation (aod_dlss.cpp): frames shown per rendered one; with any TEMPORAL value, as it
+    // takes the scene's depth and motion from the same path. Streamline loads its part before the instance exists.
+    {"FRAME_GEN", "off", "off|2|3|4|5|6", RESTART},
     // the game's own sharpening while temporal AA runs: unset = off then (FSR sharpens), game, or 0..100; read once
     {"SCENE_SHARPNESS", "", NULL, RESTART},
     // colour adjustment (vk_color.c); the preset is the menu's, the four values are what the present uses

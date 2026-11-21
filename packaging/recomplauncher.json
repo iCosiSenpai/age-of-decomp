@@ -66,6 +66,25 @@
     "version": "5",
     "done": [
       "{install}/game/aod-ready-v5.json"
+    ],
+    "options": [
+      {
+        "id": "frame_gen",
+        "label": "NVIDIA frame generation",
+        "note": "Downloads NVIDIA's frame generation file (7 MB) from NVIDIA. For GeForce RTX 40 and 50 cards.",
+        "gpu": "nvidia",
+        "os": [
+          "windows"
+        ],
+        "args": [
+          "--fetch-frame-gen",
+          "--accept-nvidia-license"
+        ],
+        "license": {
+          "name": "NVIDIA RTX SDKs license",
+          "url": "https://github.com/NVIDIA/DLSS/blob/v310.9.16/LICENSE.txt"
+        }
+      }
     ]
   },
   "start": {
@@ -381,6 +400,53 @@
       },
       "when": {
         "temporal": "fsr"
+      }
+    },
+    {
+      "id": "frame_gen",
+      "label": "Frame generation",
+      "help": "NVIDIA DLSS draws extra frames between the game's own, so motion looks smoother on a fast screen: 4x turns 60 frames per second into 240. The game itself does not run faster, and your input is felt a little later. Needs a GeForce RTX 40 or 50 card and NVIDIA's own frame generation file. Pick a number your screen can show. While it is on, Screen sync is Off.",
+      "group": "Display",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "frame_gen": "off"
+          }
+        },
+        {
+          "label": "2x",
+          "set": {
+            "frame_gen": "2"
+          }
+        },
+        {
+          "label": "3x",
+          "set": {
+            "frame_gen": "3"
+          }
+        },
+        {
+          "label": "4x",
+          "set": {
+            "frame_gen": "4"
+          }
+        },
+        {
+          "label": "5x",
+          "set": {
+            "frame_gen": "5"
+          }
+        },
+        {
+          "label": "6x",
+          "set": {
+            "frame_gen": "6"
+          }
+        }
+      ],
+      "defaults": {
+        "frame_gen": "off"
       }
     },
     {

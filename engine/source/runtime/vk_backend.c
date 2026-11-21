@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "aod_dlss.h"
 #include "cfg.h"
 #include "flight.h"
 #include "gfx.h"
@@ -33,7 +34,13 @@
 
 #define WEAK __attribute__((weak))
 
-typedef struct { VkImage image; VkFormat format; int w, h, has_crop, crop[4]; uint64_t frame, at, queued, value; } PresentJob;
+typedef struct {
+    VkImage image;
+    VkFormat format;
+    int w, h, has_crop, crop[4];
+    uint64_t frame, at, queued, value;
+    uint32_t fg_frame;   // frame generation: the game's frame this picture belongs to (aod_dlss.h), 0 without it
+} PresentJob;
 
 static PlatMutex pl = PLAT_MUTEX_INIT;
 static PlatCond pcv = PLAT_COND_INIT;   // job queued, job taken, job submitted
@@ -77,6 +84,7 @@ static void present_main(void *arg) {
         plat_cond_broadcast(&pcv);
         plat_mutex_unlock(&pl);
         if (flight_on) vk_thumbs_frame(j.frame);
+        vk_present_frame(j.fg_frame);
         vk_present_blit(j.image, VK_IMAGE_LAYOUT_GENERAL, j.format, j.w, j.h, j.has_crop ? j.crop : NULL);
         uint64_t f = vk_sync_submit(NULL, 0, 0); // no guest reports; this value only covers the blit
         if (j.value && f != j.value)
@@ -133,8 +141,10 @@ static void present_image(const tex_t *t, const int crop[4], uint64_t at_ns, uin
         }
         return;
     }
+    // Frame generation: the game's frame ends here. Its number goes with the picture, so the present finds the scene
+    // (depth, motion vectors, camera) that made it even when the next frame's scene is recorded first.
     PresentJob j = {.image = img->image, .format = img->format, .w = (int)img->width, .h = (int)img->height, .frame = frame,
-                    .at = at_ns, .queued = queued, .value = value};
+                    .at = at_ns, .queued = queued, .value = value, .fg_frame = aod_fg_frame_end()};
     if (crop) {
         j.has_crop = 1;
         for (int i = 0; i < 4; i++) j.crop[i] = crop[i];
@@ -150,6 +160,7 @@ static void present_image(const tex_t *t, const int crop[4], uint64_t at_ns, uin
     pending = 1;
     plat_cond_broadcast(&pcv);
     plat_mutex_unlock(&pl);
+    aod_fg_frame_begin();   // the next frame starts once this one's picture is on its way (Reflex may wait here)
     if (rdoc_active()) { vk_present_drain(); rdoc_after_present(frame); }
 }
 
@@ -205,6 +216,7 @@ uint64_t gfx_replayed_submits(void) {
 
 static uint64_t submit_sync(const uint64_t *handles, int n, uint64_t submitted_ticks) {
     vk_sync_start();
+    aod_fg_render_begin();   // frame generation: the frame's first submission ends its simulation (Reflex's marks)
     vk_present_drain();
     vk_texture_new_submit();
     return vk_sync_submit(handles, n, submitted_ticks);

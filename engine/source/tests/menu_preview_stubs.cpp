@@ -61,6 +61,15 @@ int rt_patch_set(const char *) { return -1; }
 int vk_dlss_offered(void) { const char *v = getenv("MENU_PREVIEW_NO_DLSS"); return !(v && *v == '1'); }
 // MENU_PREVIEW_DLSS_OFF=1: as after a start where DLSS was asked for and could not run (the "in use: Off" note).
 int vk_dlss_failed(void) { const char *v = getenv("MENU_PREVIEW_DLSS_OFF"); return v && *v == '1'; }
+// The Frame generation row is hidden, as on a PC without an RTX 40 or 50 card or without NVIDIA's file, unless
+// MENU_PREVIEW_FG=<n> makes the preview a run started with FRAME_GEN=<n> on a card that reaches 4x.
+static int preview_fg(void) { const char *v = getenv("MENU_PREVIEW_FG"); return v ? atoi(v) : 0; }
+int vk_fg_offered(void) { return preview_fg() != 0; }
+int vk_fg_wanted(void) { return preview_fg(); }
+int vk_fg_failed(void) { return 0; }
+int vk_fg_max(void) { return preview_fg() ? 4 : 0; }
+int vk_fg_factor(void) { int n = preview_fg(); return n > 4 ? 4 : n; }
+double vk_fg_rate(void) { return vk_fg_factor() ? vk_fg_factor() : 1.0; }
 // AMD's FSR library: present, so the row shows no download note; nothing is fetched in the preview.
 int vk_ffx_lib_present(void) { return 1; }
 void vk_ffx_fetch_async(void) {}

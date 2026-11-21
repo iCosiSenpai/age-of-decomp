@@ -248,6 +248,26 @@ fixtures; the reporter's full co-op mission still needs a hardware run.
 source, and Windows' own `Get-AuthenticodeSignature` verdict naming NVIDIA Corporation for a file the player picks.
 No code was copied; the SHA-256 pin and the download/pick flow are ours.
 
+## NVIDIA DLSS frame generation (2026-11-21)
+
+`engine/source/runtime/aod_dlss.cpp` (the Streamline wrapper), the frame generation parts of `vk_dlss.c`,
+`vk_temporal.c`, `gfx_present.c`, `vk_device.c` and `vk_backend.c`, and the launcher's side are own code, written from
+NVIDIA's Streamline SDK 2.14.16 documents (`docs/ProgrammingGuideDLSS_G.md`, `ProgrammingGuideManualHooking.md`,
+`ProgrammingGuideReflex.md`, `ProgrammingGuidePCL.md`) and its MIT headers, three more of which are in
+`runtime/third_party/streamline/` unmodified (`sl_dlss_g.h`, `sl_reflex.h`, `sl_pcl.h`). Streamline's open source
+(MIT, github.com/NVIDIA-RTX/Streamline at `v2.14.16`: `sl.interposer/vulkan/wrapper.cpp`, `sl.chi/vulkan.cpp`,
+`sl.common/resourceTaggingForFrame.cpp`, `sl.reflex/reflexEntry.cpp`, `sl.pcl/pclEntry.cpp`, `sl.api/sl.cpp`) was read
+for behaviour: where its own queues start, the optical flow queue's family, how a tag is copied, the ring of frame
+tokens, the present marks. No code was copied from it.
+
+NVIDIA's `nvngx_dlssg.dll` is fetched on the player's PC from the same place and tag as the DLSS file (`NVIDIA/DLSS`
+v310.9.16 `lib/Windows_x86_64/rel/nvngx_dlssg.dll`, 7,506,544 bytes; the same bytes as the file in the Streamline
+SDK 2.14.16 zip, compared by Git blob hash), pinned by SHA-256, after the player accepts NVIDIA's licence: in the
+launcher's Display page, or as RecompLauncher's setup option, whose shape follows RecompLauncher's developer guide
+("Vendor SDKs the build needs"). `NvLowLatencyVk.dll` of the SDK is under NVIDIA's SDK licence
+(`bin/x64/reflex.license.txt`), not MIT: it is not shipped and not fetched, Reflex runs through the driver's
+`VK_NV_low_latency2`.
+
 ## Intel pipeline cache and crash reports (engine patches 0031–0032, 2026-11-20)
 
 Both are own code, written from our own diagnosis on an Intel Xe iGPU (driver 101.9175): a debugger backtrace put

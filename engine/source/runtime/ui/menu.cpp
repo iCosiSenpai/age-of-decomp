@@ -54,6 +54,12 @@ void vk_ffx_fetch_async(void);  // vk_ffx_fetch.h
 int vk_ffx_fetch_state(void);
 int vk_dlss_offered(void);      // vk_dlss.h
 int vk_dlss_failed(void);
+int vk_fg_wanted(void);         // frame generation (vk_dlss.h)
+int vk_fg_offered(void);
+int vk_fg_failed(void);
+int vk_fg_factor(void);
+int vk_fg_max(void);
+double vk_fg_rate(void);
 void vk_queue_lock(void);
 void vk_queue_unlock(void);
 void res_sizes(unsigned out[2], unsigned scene[2]);
@@ -790,6 +796,35 @@ static void rows_temporal(void) {
     opt_choice_list("TOTK_SCENE_SHARPNESS", UI_MENU_SCENE_SHARP, sv, sn, 5, UI_MENU_SCENE_SHARP_DESC);
 }
 
+// NVIDIA DLSS frame generation (FRAME_GEN, read at start; vk_dlss.c): frames shown per frame the game draws. Offered
+// on NVIDIA cards that have its files beside the game, and shown while it is the setting. Once it runs, the list ends
+// at the multiplier the graphics card reaches.
+static void row_frame_gen(void) {
+    static const char *const all[] = {"off", "2", "3", "4", "5", "6"};
+    static const char *const all_names[] = {nullptr, "2x", "3x", "4x", "5x", "6x"};
+    static const int at_start = vk_fg_wanted();
+    int now = atoi(cfg_value("TOTK_FRAME_GEN"));   // "off" reads as 0
+    if (!vk_fg_offered() && now < 2) return;
+    // Off, then 2x up to what the card reaches (6x until that is known), and the value set if it is beyond that
+    const char *values[6], *names[6];
+    int max = vk_fg_max(), top = max >= 2 ? max : 6, n = 0;
+    for (int i = 0; i < 6; i++) {
+        int factor = i ? i + 1 : 0;
+        if (factor > top && factor != now) continue;
+        values[n] = all[i], names[n++] = i ? all_names[i] : menu_text(UI_MENU_TEMPORAL_OFF);
+    }
+    static char in_use[96];
+    const char *note = nullptr;
+    // asked for at start and it does not run (no RTX 40 or 50 card, a file missing), or the card stops below it
+    int running = vk_fg_factor();
+    if (at_start && now == at_start && (vk_fg_failed() || (running && running != at_start))) {
+        snprintf(in_use, sizeof in_use, menu_text(UI_MENU_PRESENT_IN_USE),
+                 running >= 2 && running <= 6 ? all_names[running - 1] : menu_text(UI_MENU_TEMPORAL_OFF));
+        note = in_use;
+    }
+    opt_choice_list("TOTK_FRAME_GEN", UI_MENU_FRAME_GEN, values, names, n, UI_MENU_FRAME_GEN_DESC, -1, note);
+}
+
 static void tab_screen(float scale) {
     opt_begin("##screen", scale);
     static const UiTextId fullscreen[] = {UI_MENU_WINDOWED, UI_MENU_FULLSCREEN_MODE};   // TOTK_FULLSCREEN 0, 1
@@ -804,6 +839,7 @@ static void tab_screen(float scale) {
     row_output_res();
     row_render_scale();
     if (RT_TARGET_HWAOI) rows_temporal();
+    if (RT_TARGET_HWAOI) row_frame_gen();
     static const UiTextId up[] = {UI_MENU_UPSCALER_FSR, UI_MENU_UPSCALER_BILINEAR};
     opt_choice("TOTK_UPSCALER", UI_MENU_UPSCALER, up, 2, UI_MENU_UPSCALER_DESC);
     opt_slider("TOTK_SHARPNESS", UI_MENU_SHARPNESS, 0, 100, UI_MENU_SHARPNESS_DESC, 5, "%.0f %%");
@@ -1516,7 +1552,10 @@ static void perf_tick(uint64_t now, const MenuTarget *t) {
         g_perf_frames++;
         if (d > g_perf_max_ns) g_perf_max_ns = d;
         if (g_perf_win_ns >= 500000000ull) {
-            snprintf(g_perf_text, sizeof g_perf_text, menu_text(UI_PERF_LINE_FPS), g_perf_frames * 1e9 / g_perf_win_ns);
+            // with frame generation: the frames shown, then the ones the game drew
+            double fps = g_perf_frames * 1e9 / g_perf_win_ns, gen = vk_fg_rate();
+            if (gen > 1.05) snprintf(g_perf_text, sizeof g_perf_text, menu_text(UI_PERF_LINE_FPS_GEN), fps * gen, fps);
+            else snprintf(g_perf_text, sizeof g_perf_text, menu_text(UI_PERF_LINE_FPS), fps);
             g_perf_win_ns = g_perf_max_ns = 0;
             g_perf_frames = 0;
         }
@@ -1569,7 +1608,7 @@ static float perf_gb(float mb) { return mb < 0 ? -1 : mb / 1024; }
 // present scales the image to the window (gfx_present.c, the last present), the frame limit and the presentation mode
 // in use.
 static void perf_picture(const MenuTarget *t, const ImVec4 &c) {
-    char v[6][64];
+    char v[7][64];
     snprintf(v[0], sizeof v[0], menu_text(UI_MENU_OV_FMT_SIZE), t->width, t->height);
     snprintf(v[1], sizeof v[1], menu_text(UI_MENU_OV_FMT_SIZE), (unsigned)t->image_w, (unsigned)t->image_h);
     unsigned out[2], scene[2];
@@ -1588,14 +1627,21 @@ static void perf_picture(const MenuTarget *t, const ImVec4 &c) {
     if (hz > 0) snprintf(v[4], sizeof v[4], menu_text(UI_MENU_OV_FPS), hz);
     const char *pm = present_name(gfx_window_present_mode());
     snprintf(v[5], sizeof v[5], "%s", pm ? pm : menu_text(UI_MENU_OV_NONE));
-    static const UiTextId labels[6] = {UI_MENU_OV_WINDOW, UI_MENU_OV_OUTPUT, UI_MENU_OV_SCENE,
-                                       UI_MENU_OV_SCALING, UI_MENU_OV_LIMIT, UI_MENU_OV_PRESENT};
+    // frame generation, while it is loaded: the multiplier, and the frames the screen gets per second right now
+    int rows = 6, fg = vk_fg_factor();
+    if (fg) {
+        PerfStats ps;
+        perfmon_snapshot(&ps);
+        snprintf(v[rows++], sizeof v[0], menu_text(UI_MENU_OV_FMT_FRAME_GEN), fg, ps.fps * vk_fg_rate());
+    }
+    static const UiTextId labels[7] = {UI_MENU_OV_WINDOW, UI_MENU_OV_OUTPUT, UI_MENU_OV_SCENE,   UI_MENU_OV_SCALING,
+                                       UI_MENU_OV_LIMIT,  UI_MENU_OV_PRESENT, UI_MENU_OV_FRAME_GEN};
     if (!ImGui::BeginTable("##perfp", 2, ImGuiTableFlags_SizingFixedFit)) return;
     float vw = 0;
-    for (auto &s : v) vw = fmaxf(vw, ImGui::CalcTextSize(s).x);
+    for (int i = 0; i < rows; i++) vw = fmaxf(vw, ImGui::CalcTextSize(v[i]).x);
     ImGui::TableSetupColumn("##p0", ImGuiTableColumnFlags_WidthStretch);
     ImGui::TableSetupColumn("##p1", ImGuiTableColumnFlags_WidthFixed, vw);
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < rows; i++) {
         perf_label(labels[i], c);
         ImGui::TableNextColumn();
         perf_right(v[i], false);

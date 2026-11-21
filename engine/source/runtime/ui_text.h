@@ -35,6 +35,7 @@ typedef enum {
     UI_MENU_GPU, UI_MENU_GPU_DESC, UI_MENU_GPU_AUTO,
     UI_MENU_PERF_OVERLAY, UI_MENU_PERF_OVERLAY_DESC, UI_MENU_PERF_OFF, UI_MENU_PERF_FPS, UI_MENU_PERF_FULL,
     UI_PERF_LINE_FPS,
+    UI_PERF_LINE_FPS_GEN,     // with frame generation: the frames shown, then the ones the game drew
     UI_MENU_GRAPHICS,         // group heading over the resolution rows
     UI_MENU_OUTPUT_RES, UI_MENU_OUTPUT_RES_DESC,
     UI_MENU_OUTPUT_RES_AUTO,   // "Automatic (%u × %u)": the size the automatic choice gives on this PC
@@ -49,6 +50,7 @@ typedef enum {
     // The upscaler of the 3D scene (TEMPORAL: off, AMD FSR, NVIDIA DLSS) and its quality row
     UI_MENU_TEMPORAL, UI_MENU_TEMPORAL_DESC, UI_MENU_TEMPORAL_OFF, UI_MENU_TEMPORAL_FSR, UI_MENU_TEMPORAL_DLSS,
     UI_MENU_TEMPORAL_QUALITY, UI_MENU_TEMPORAL_QUALITY_DESC, UI_MENU_DLSS_Q_NATIVE, UI_MENU_NEEDS_UPSCALING,
+    UI_MENU_FRAME_GEN, UI_MENU_FRAME_GEN_DESC,   // NVIDIA DLSS frame generation (FRAME_GEN)
     UI_MENU_ASPECT, UI_MENU_ASPECT_DESC, UI_MENU_ASPECT_FIT, UI_MENU_ASPECT_STRETCH,
     UI_MENU_AA, UI_MENU_AA_DESC, UI_MENU_AA_OFF, UI_MENU_AA_SMAA,   // SMAA row (HWAoI)
     UI_MENU_FOV, UI_MENU_FOV_DESC,
@@ -200,6 +202,7 @@ typedef enum {
     UI_MENU_OV_FMT_GB_OF, UI_MENU_OV_GAME_GB, UI_MENU_OV_FMT_MS, UI_MENU_OV_PER_FRAME,
     // the picture lines: window, game image and 3D scene sizes, the scaling to the window, frame limit and presentation
     UI_MENU_OV_WINDOW, UI_MENU_OV_OUTPUT, UI_MENU_OV_SCENE, UI_MENU_OV_SCALING, UI_MENU_OV_LIMIT, UI_MENU_OV_PRESENT,
+    UI_MENU_OV_FRAME_GEN, UI_MENU_OV_FMT_FRAME_GEN,   // "Frame generation", "4x, 240 FPS shown"
     UI_MENU_OV_FMT_SIZE,      // "%ux%u"
     UI_MENU_OV_FMT_SCENE,     // "%ux%u, %.0f%%": the scene and its share of the game image's width
     UI_MENU_OV_FMT_FSR,       // "AMD FSR 1, sharpness %d%%"

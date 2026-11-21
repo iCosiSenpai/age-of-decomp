@@ -4,7 +4,7 @@ import { api } from './api';
 import { padFamily, type PadFamily } from './controller-glyphs';
 import catalogJson from './settings/catalog.json';
 import { resolveLocale, setLocale } from './i18n.svelte';
-import type { Catalog, CatalogSetting, DlssStatus, LauncherState, PageId, Pad, PrepareEvent, SettingValues, SystemInfo, UpdateInfo } from './types';
+import type { Catalog, CatalogSetting, DlssStatus, LauncherState, NvidiaFile, PageId, Pad, PrepareEvent, SettingValues, SystemInfo, UpdateInfo } from './types';
 
 export const catalog = catalogJson as unknown as Catalog;
 
@@ -31,6 +31,11 @@ class AppState {
   dlss = $state<{ status: DlssStatus | null; downloading: boolean; checking: boolean; progress: number; error: string | null }>({
     status: null, downloading: false, checking: false, progress: 0, error: null,
   });
+  /** The same for NVIDIA's frame generation file (Frame generation): its own download, check, progress and error. The
+   *  status is `dlss.status`, which says of both files whether they are there. */
+  fg = $state<{ downloading: boolean; checking: boolean; progress: number; error: string | null }>({
+    downloading: false, checking: false, progress: 0, error: null,
+  });
 
   /** The pad in use: the one used last, or the first one before any input. Null with the keyboard and mouse. */
   get usedPad(): Pad | null {
@@ -53,6 +58,7 @@ class AppState {
     setLocale(resolveLocale(this.launcher.ui.language, this.launcher.system_locale));
     api.onUpdateProgress((fraction) => (this.update.progress = fraction));
     api.onDlssProgress((fraction) => (this.dlss.progress = fraction));
+    api.onFgProgress((fraction) => (this.fg.progress = fraction));
     if (this.launcher.ui.check_updates) void this.checkUpdates();
     if (this.launcher.game.status !== 'complete') this.page = 'setup';
     const params = new URLSearchParams(location.search);
@@ -129,25 +135,28 @@ class AppState {
     finally { this.dlssLoading = false; }
   }
 
-  /** Downloads NVIDIA's DLSS file; the Display page calls it once the player has accepted NVIDIA's licence. */
-  async downloadDlss() {
-    if (this.dlss.downloading || this.dlss.checking) return;
-    this.dlss.downloading = true;
-    this.dlss.progress = 0;
-    this.dlss.error = null;
-    try { this.dlss.status = await api.dlssDownload(); }
-    catch (e) { this.dlss.error = String(e); }
-    finally { this.dlss.downloading = false; }
+  /** Downloads one of NVIDIA's files (the DLSS file, or the frame generation one); the Display page calls it once the
+   *  player has accepted NVIDIA's licence. */
+  async downloadDlss(kind: NvidiaFile = 'dlss') {
+    const job = this[kind];
+    if (job.downloading || job.checking) return;
+    job.downloading = true;
+    job.progress = 0;
+    job.error = null;
+    try { this.dlss.status = await api.dlssDownload(kind); }
+    catch (e) { job.error = String(e); }
+    finally { job.downloading = false; }
   }
 
-  /** Checks a copy of NVIDIA's DLSS file the player chose and keeps it when it is NVIDIA's. */
-  async pickDlss(file: string) {
-    if (this.dlss.downloading || this.dlss.checking) return;
-    this.dlss.checking = true;
-    this.dlss.error = null;
-    try { this.dlss.status = await api.dlssPick(file); }
-    catch (e) { this.dlss.error = String(e); }
-    finally { this.dlss.checking = false; }
+  /** Checks a copy of one of NVIDIA's files the player chose and keeps it when it is NVIDIA's. */
+  async pickDlss(file: string, kind: NvidiaFile = 'dlss') {
+    const job = this[kind];
+    if (job.downloading || job.checking) return;
+    job.checking = true;
+    job.error = null;
+    try { this.dlss.status = await api.dlssPick(file, kind); }
+    catch (e) { job.error = String(e); }
+    finally { job.checking = false; }
   }
 
   onPrepare(e: PrepareEvent) {

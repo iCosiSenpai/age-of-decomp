@@ -104,6 +104,18 @@ def manifest() -> dict:
             "timeout": 14400,
             "version": PREPARE_VERSION,
             "done": [GAME_DIR + f"/aod-ready-v{PREPARE_VERSION}.json"],
+            # Frame generation (frame_gen) needs NVIDIA's nvngx_dlssg.dll, which is not ours to ship, and the shared
+            # nvidia.dlss input is the DLSS file alone: the setup step fetches it from NVIDIA's DLSS repository into
+            # {data}/ngx when the player ticks this (the SDK guide's "Vendor SDKs the build needs"). Ticking is the
+            # player accepting NVIDIA's licence, which the second argument passes on; off, the step is as before.
+            "options": [{
+                "id": "frame_gen", "label": "NVIDIA frame generation",
+                "note": "Downloads NVIDIA's frame generation file (7 MB) from NVIDIA. For GeForce RTX 40 and 50 cards.",
+                "gpu": "nvidia", "os": ["windows"],
+                "args": ["--fetch-frame-gen", "--accept-nvidia-license"],
+                "license": {"name": "NVIDIA RTX SDKs license",
+                            "url": "https://github.com/NVIDIA/DLSS/blob/v310.9.16/LICENSE.txt"},
+            }],
         },
         # The copy in start too: the game reads the player's .nup while it plays (raw RomFS members stay in it);
         # --play checks it is the copy of the build and hands where it is now to the game (game.rs, HWAOI_NUP_PATH).

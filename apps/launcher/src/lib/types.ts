@@ -78,13 +78,20 @@ export interface UiPrefs {
   rate_unlock: boolean;
 }
 
-/** NVIDIA's DLSS file for NVIDIA DLSS in the standalone compiler (src-tauri/src/dlss.rs). */
+/** NVIDIA's own files in the standalone compiler (src-tauri/src/dlss.rs): the DLSS file for NVIDIA DLSS (`ready`) and
+ *  the frame generation file (`fg_ready`). */
 export interface DlssStatus {
   ready: boolean;
+  fg_ready: boolean;
   rtx: boolean;
+  /** One of this PC's cards is of a series frame generation runs on (RTX 40 and later). */
+  fg_card: boolean;
   version: string;
   license_url: string;
 }
+
+/** Which of NVIDIA's two files: DLSS itself, or frame generation. */
+export type NvidiaFile = 'dlss' | 'fg';
 
 export interface UpdateInfo {
   current: string;

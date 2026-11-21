@@ -3,13 +3,18 @@
 //!
 //!   aod-cli verify  --game <file.nup> [--update <file.nup>]
 //!   aod-cli prepare --game <file.nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution auto|WxH] [--unlock]
+//!                   [--fetch-frame-gen --accept-nvidia-license]
 //!   aod-cli play    [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>]
 //!   aod-cli info
 //!
 //! `prepare` prints `progress <0..1> <text>` lines on stdout (RecompLauncher protocol) and the engine's own output on
 //! stderr; exit 0 = built. Exit codes: 2 bad arguments, 3 wrong game file, 4 build failed, 5 cancelled.
+//! `--fetch-frame-gen` (RecompLauncher's setup option "NVIDIA frame generation") also downloads NVIDIA's
+//! `nvngx_dlssg.dll` from NVIDIA's DLSS repository into `<data>/ngx`, and only together with
+//! `--accept-nvidia-license`: ticking the option is the player accepting NVIDIA's licence. A download that fails does
+//! not stop the setup: the game then plays without frame generation and its log says why.
 
-use aod_launcher_lib::{config::Config, paths::Paths, prepare};
+use aod_launcher_lib::{config::Config, dlss, paths::Paths, prepare};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -29,7 +34,7 @@ fn parse_jobs(args: &[String]) -> Result<u32, String> {
 }
 
 fn usage() -> i32 {
-    eprintln!("usage: aod-cli verify --game <nup> [--update <nup>] | prepare --game <nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution auto|WxH] [--unlock] | play [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>] | info");
+    eprintln!("usage: aod-cli verify --game <nup> [--update <nup>] | prepare --game <nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution auto|WxH] [--unlock] [--fetch-frame-gen --accept-nvidia-license] | play [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>] | info");
     2
 }
 
@@ -79,6 +84,26 @@ fn main() {
     std::process::exit(code);
 }
 
+/// `--fetch-frame-gen`: NVIDIA's frame generation file, from NVIDIA, into `<data>/ngx` (where `--play` looks for it).
+/// Err: the flag came without `--accept-nvidia-license`, so nothing may be downloaded.
+fn fetch_frame_gen(args: &[String], paths: &Paths) -> Result<(), String> {
+    if !args.iter().any(|a| a == "--fetch-frame-gen") {
+        return Ok(());
+    }
+    if !args.iter().any(|a| a == "--accept-nvidia-license") {
+        return Err(format!("--fetch-frame-gen downloads NVIDIA's file only with --accept-nvidia-license ({})", dlss::LICENSE_URL));
+    }
+    if !cfg!(windows) || dlss::file(paths, dlss::Kind::FrameGen).is_file() {
+        return Ok(());
+    }
+    println!("progress 0.00 Downloading NVIDIA's frame generation file");
+    let _ = std::io::stdout().flush();
+    if let Err(e) = dlss::download(paths, dlss::Kind::FrameGen, |_| {}) {
+        eprintln!("{e}");
+    }
+    Ok(())
+}
+
 fn prepare_cmd(args: &[String]) -> i32 {
     let (Some(game), Some(out)) = (arg(args, "--game"), arg(args, "--out")) else { return usage() };
     let jobs = match parse_jobs(args) {
@@ -100,6 +125,10 @@ fn prepare_cmd(args: &[String]) -> i32 {
         (Ok(update), Ok(dlc)) => (update, dlc),
         _ => { eprintln!("Could not resolve the update or DLC path"); return 2; }
     };
+    if let Err(e) = fetch_frame_gen(args, &paths) {
+        eprintln!("{e}");
+        return 2;
+    }
     println!("progress 0.00 Checking your game file");
     match verify(&game, update.as_deref()) {
         Ok(r) if r.ok => {}
@@ -161,6 +190,24 @@ fn prepare_cmd(args: &[String]) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nvidias_file_is_fetched_only_with_the_licence_accepted() {
+        let args = |values: &[&str]| values.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let dir = std::env::temp_dir().join(format!("aod-cli-fg-{}", std::process::id()));
+        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None, portable: false };
+        // without the option nothing happens; with it alone nothing is downloaded and the step stops
+        assert_eq!(fetch_frame_gen(&args(&["prepare"]), &paths), Ok(()));
+        assert!(fetch_frame_gen(&args(&["prepare", "--fetch-frame-gen"]), &paths).is_err());
+        assert!(!dlss::file(&paths, dlss::Kind::FrameGen).exists());
+        // a file that is already there is kept as it is (no download)
+        let file = dlss::file(&paths, dlss::Kind::FrameGen);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, b"kept").unwrap();
+        assert_eq!(fetch_frame_gen(&args(&["prepare", "--fetch-frame-gen", "--accept-nvidia-license"]), &paths), Ok(()));
+        assert_eq!(std::fs::read(&file).unwrap(), b"kept");
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn jobs_must_be_in_range() {

@@ -28,11 +28,16 @@
 
   // NVIDIA DLSS (Upscaling = NVIDIA DLSS): NVIDIA's own nvngx_dlss.dll, which Age of Decomp cannot ship (src-tauri/src/dlss.rs). Its
   // status, the download and its error live on `app.dlss`, so leaving this page mid-download keeps them; only the
-  // licence question is this page's own, and leaving the page closes it unanswered.
+  // licence question is this page's own, and leaving the page closes it unanswered. One question is open at a time
+  // (asking for one file closes the other's): the page's focus goes to the first `data-autofocus` it finds.
   let dlssAsking = $state(false);
   let wantsDlss = $derived(group === 'display' && app.settings.temporal === 'dlss');
+  // Frame generation (any value but Off) needs NVIDIA's nvngx_dlssg.dll the same way: the same status, its own
+  // download and licence question.
+  let fgAsking = $state(false);
+  let wantsFg = $derived(group === 'display' && !!app.settings.frame_gen && app.settings.frame_gen !== 'off');
   $effect(() => {
-    if (wantsDlss) void app.loadDlss();
+    if (wantsDlss || wantsFg) void app.loadDlss();
   });
 
   function dlssDownload() {
@@ -43,6 +48,16 @@
   async function dlssChoose() {
     const file = await api.pickDlssFile(tr("Choose NVIDIA's nvngx_dlss.dll"));
     if (file) void app.pickDlss(file);
+  }
+
+  function fgDownload() {
+    fgAsking = false;
+    void app.downloadDlss('fg');
+  }
+
+  async function fgChoose() {
+    const file = await api.pickDlssFile(tr("Choose NVIDIA's nvngx_dlssg.dll"), 'fg');
+    if (file) void app.pickDlss(file, 'fg');
   }
 </script>
 
@@ -87,12 +102,44 @@
             {:else}
               <p class="help">{tr("DLSS needs NVIDIA's own DLSS file, which Age of Decomp cannot include. Download it from NVIDIA, or choose a copy you already have.")}</p>
               <div class="actions">
-                <button class="btn" disabled={app.dlss.downloading || app.dlss.checking} onclick={() => (dlssAsking = true)}>{tr('Download from NVIDIA…')}</button>
+                <button class="btn" disabled={app.dlss.downloading || app.dlss.checking} onclick={() => ((fgAsking = false), (dlssAsking = true))}>{tr('Download from NVIDIA…')}</button>
                 <button class="btn" disabled={app.dlss.downloading || app.dlss.checking} onclick={dlssChoose}>{tr('Choose the file…')}</button>
               </div>
             {/if}
           {/if}
           {#if app.dlss.error}<p class="error" role="alert">{tr(app.dlss.error)}</p>{/if}
+        </div>
+      {/if}
+      {#if s.key === 'frame_gen' && wantsFg && app.dlss.status}
+        <div class="dlss">
+          {#if !app.dlss.status.fg_card}
+            <span class="chip warn"><Icon name="warn" size={15} /> {tr('Needs a GeForce RTX 40 or 50 card')}</span>
+            <p class="help">{tr('Frame generation runs only on GeForce RTX 40 and 50 cards. On this PC the game plays without it.')}</p>
+          {:else if app.dlss.status.fg_ready}
+            <span class="chip ok"><Icon name="check" size={15} /> {tr("NVIDIA's frame generation file is ready")}</span>
+          {:else}
+            <span class="chip warn"><Icon name="warn" size={15} /> {tr("NVIDIA's frame generation file is missing")}</span>
+            {#if app.fg.downloading}
+              <strong>{tr("Downloading NVIDIA's frame generation file… {percent}%", { percent: Math.round(app.fg.progress * 100) })}</strong>
+            {:else if app.fg.checking}
+              <strong>{tr('Checking the file…')}</strong>
+            {/if}
+            {#if fgAsking}
+              <p class="help">{tr("NVIDIA DLSS is NVIDIA's software, not part of Age of Decomp. Downloading it from NVIDIA's GitHub means you accept NVIDIA's DLSS licence.")}</p>
+              <div class="actions">
+                <button class="btn ghost" onclick={() => api.dlssLicense()}>{tr("NVIDIA's licence")}</button>
+                <button class="btn" data-autofocus onclick={() => (fgAsking = false)}>{tr('Cancel')}</button>
+                <button class="btn" onclick={fgDownload}>{tr('Accept and download')}</button>
+              </div>
+            {:else}
+              <p class="help">{tr("Frame generation needs NVIDIA's own frame generation file, which Age of Decomp cannot include. Download it from NVIDIA, or choose a copy you already have.")}</p>
+              <div class="actions">
+                <button class="btn" disabled={app.fg.downloading || app.fg.checking} onclick={() => ((dlssAsking = false), (fgAsking = true))}>{tr('Download from NVIDIA…')}</button>
+                <button class="btn" disabled={app.fg.downloading || app.fg.checking} onclick={fgChoose}>{tr('Choose the file…')}</button>
+              </div>
+            {/if}
+          {/if}
+          {#if app.fg.error}<p class="error" role="alert">{tr(app.fg.error)}</p>{/if}
         </div>
       {/if}
     {/each}
@@ -134,8 +181,9 @@
   .more {
     align-self: flex-start;
   }
-  /* The DLSS file block under the Anti-aliasing row: a row's inset and divider (SettingRow .row), chips as Home's,
-     text as a row's help, actions as Updates'. Top 12px: the row above keeps its own divider. */
+  /* The DLSS file block under the Upscaling row, and the frame generation file's under its own: a row's inset and
+     divider (SettingRow .row), chips as Home's, text as a row's help, actions as Updates'. Top 12px: the row above
+     keeps its own divider. */
   .dlss {
     display: flex;
     flex-direction: column;

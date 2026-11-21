@@ -93,7 +93,10 @@ PINS = {  # name: (url, sha256)
     "streamline-sdk": ("https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.14.16/streamline-sdk-v2.14.16.zip",
                        "32041e51db0cab709a271b72a352281b690c2abbd669a827809401a5dd23956b"),
 }
-STREAMLINE_DLLS = ("sl.interposer.dll", "sl.common.dll", "sl.dlss.dll")
+# Streamline's own modules (MIT, the SDK's license.txt; signed by NVIDIA): DLSS, and for frame generation DLSS-G, Reflex
+# and its latency marks. Never the SDK's other binaries: nvngx_*.dll (NVIDIA RTX SDK licence) and NvLowLatencyVk.dll
+# (NVIDIA's SDK licence, bin/x64/reflex.license.txt; Reflex runs through the driver's VK_NV_low_latency2 instead).
+STREAMLINE_DLLS = ("sl.interposer.dll", "sl.common.dll", "sl.dlss.dll", "sl.dlss_g.dll", "sl.reflex.dll", "sl.pcl.dll")
 # The Python packages the engine's generator and NUP tools need (upstream tools/requirements-hwaoi.txt).
 PY_REQUIREMENTS = ROOT / "tools/requirements-engine.txt"
 # llvm-mingw: only the x86_64 Windows target is needed.

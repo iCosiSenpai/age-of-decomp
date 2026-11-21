@@ -3,7 +3,7 @@
 
 pub mod config;
 mod diagnostics;
-mod dlss;
+pub mod dlss;
 pub mod game;
 pub mod gamepad;
 mod nintendo;
@@ -130,7 +130,8 @@ async fn system_info() -> system::SystemInfo {
     tauri::async_runtime::spawn_blocking(system::system_info).await.unwrap_or_else(|_| system::system_info())
 }
 
-/// NVIDIA DLSS in the standalone compiler (dlss.rs): is the player's file there, is there an RTX card.
+/// NVIDIA DLSS and frame generation in the standalone compiler (dlss.rs): are the player's files there, is there an
+/// RTX card.
 #[tauri::command]
 async fn dlss_status(app: tauri::State<'_, App>) -> Res<dlss::Status> {
     let paths = app.paths.clone();
@@ -138,18 +139,25 @@ async fn dlss_status(app: tauri::State<'_, App>) -> Res<dlss::Status> {
         .await.map_err(|e| e.to_string())
 }
 
-/// Downloads NVIDIA's file from NVIDIA's GitHub; the UI calls it only after the player accepted NVIDIA's licence.
-/// Event `dlss-progress`: 0..1, at most once per percent.
+/// Which of NVIDIA's two files a command is about: `dlss` (also when the UI names none) or `fg`, frame generation.
+fn dlss_kind(kind: Option<&str>) -> Res<dlss::Kind> {
+    dlss::Kind::parse(kind.unwrap_or("dlss")).ok_or_else(|| "That NVIDIA file is not known.".to_string())
+}
+
+/// Downloads one of NVIDIA's files from NVIDIA's GitHub; the UI calls it only after the player accepted NVIDIA's
+/// licence. Event `dlss-progress` (`fg-progress` for the frame generation file): 0..1, at most once per percent.
 #[tauri::command]
-async fn dlss_download(app: tauri::State<'_, App>, handle: tauri::AppHandle) -> Res<dlss::Status> {
+async fn dlss_download(app: tauri::State<'_, App>, handle: tauri::AppHandle, kind: Option<String>) -> Res<dlss::Status> {
     let paths = app.paths.clone();
+    let kind = dlss_kind(kind.as_deref())?;
+    let event = if kind == dlss::Kind::FrameGen { "fg-progress" } else { "dlss-progress" };
     tauri::async_runtime::spawn_blocking(move || {
         let mut shown = -1i64;
-        dlss::download(&paths, |p| {
+        dlss::download(&paths, kind, |p| {
             let percent = (p * 100.0) as i64;
             if percent != shown {
                 shown = percent;
-                let _ = handle.emit("dlss-progress", p);
+                let _ = handle.emit(event, p);
             }
         })?;
         Ok(dlss::status(&paths, &system::system_info().gpus))
@@ -166,10 +174,11 @@ fn dlss_license() -> Res<()> {
 
 /// A copy the player picked: kept only when it is NVIDIA's (pinned, or signed by NVIDIA Corporation).
 #[tauri::command]
-async fn dlss_pick(app: tauri::State<'_, App>, path: String) -> Res<dlss::Status> {
+async fn dlss_pick(app: tauri::State<'_, App>, path: String, kind: Option<String>) -> Res<dlss::Status> {
     let paths = app.paths.clone();
+    let kind = dlss_kind(kind.as_deref())?;
     tauri::async_runtime::spawn_blocking(move || {
-        dlss::pick(&paths, Path::new(&path))?;
+        dlss::pick(&paths, kind, Path::new(&path))?;
         Ok(dlss::status(&paths, &system::system_info().gpus))
     }).await.map_err(|e| e.to_string())?
 }

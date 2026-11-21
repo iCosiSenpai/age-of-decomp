@@ -59,6 +59,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_PERF_OFF] = "Off", [UI_MENU_PERF_FPS] = "FPS", [UI_MENU_PERF_FULL] = "Full",
     // printf format of the overlay line in FPS mode: the frame rate
     [UI_PERF_LINE_FPS] = "%.0f fps",
+    [UI_PERF_LINE_FPS_GEN] = "%.0f fps (%.0f drawn)",
     [UI_MENU_GRAPHICS] = "Picture",
     [UI_MENU_OUTPUT_RES] = "Game resolution",
 #if RT_TARGET_HWAOI
@@ -103,6 +104,11 @@ static const char *const text_en[UI_TEXT_COUNT] = {
                                       "each side and scale it up: faster, a little softer.",
     [UI_MENU_DLSS_Q_NATIVE] = "DLAA",
     [UI_MENU_NEEDS_UPSCALING] = "Choose AMD FSR or NVIDIA DLSS in Upscaling first.",
+    [UI_MENU_FRAME_GEN] = "Frame generation",
+    [UI_MENU_FRAME_GEN_DESC] = "NVIDIA DLSS draws extra frames between the game's own, so motion looks smoother on a fast "
+                               "screen: 4x turns 60 frames per second into 240. The game itself does not run faster, and "
+                               "your input is felt a little later. Needs a GeForce RTX 40 or 50 card. Pick a number your "
+                               "screen can show.",
     [UI_MENU_ASPECT] = "Picture shape",
     [UI_MENU_ASPECT_DESC] = "When the window's shape differs from the game resolution's (a 16:9 picture on a 21:9 "
                             "screen): keep the picture's shape with black bars, or stretch it over the window.",
@@ -368,6 +374,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_OV_GAME_GB] = "game %.1f GB", [UI_MENU_OV_FMT_MS] = "%.2f ms", [UI_MENU_OV_PER_FRAME] = "%.1f per frame",
     [UI_MENU_OV_WINDOW] = "Window", [UI_MENU_OV_OUTPUT] = "Game image", [UI_MENU_OV_SCENE] = "3D scene",
     [UI_MENU_OV_SCALING] = "Scaling", [UI_MENU_OV_LIMIT] = "Target FPS", [UI_MENU_OV_PRESENT] = "Presentation",
+    [UI_MENU_OV_FRAME_GEN] = "Frame generation", [UI_MENU_OV_FMT_FRAME_GEN] = "%dx, %.0f FPS shown",
     [UI_MENU_OV_FMT_SIZE] = "%ux%u", [UI_MENU_OV_FMT_SCENE] = "%ux%u, %.0f%%",
     [UI_MENU_OV_FMT_FSR] = "AMD FSR 1, sharpness %d%%", [UI_MENU_OV_SCALE_NONE] = "none (1:1)",
     [UI_MENU_OV_SCALE_BILINEAR] = "bilinear",
@@ -418,6 +425,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
                                   "режимы.",
     [UI_MENU_PERF_OFF] = "Выкл.", [UI_MENU_PERF_FPS] = "FPS", [UI_MENU_PERF_FULL] = "Полный",
     [UI_PERF_LINE_FPS] = "%.0f к/с",
+    [UI_PERF_LINE_FPS_GEN] = "%.0f к/с (нарисовано %.0f)",
     [UI_MENU_GRAPHICS] = "Изображение",
     [UI_MENU_OUTPUT_RES] = "Разрешение игры",
     [UI_MENU_OUTPUT_RES_DESC] = "Размер, в котором игра рисует картинку и интерфейс. Выше 1920 × 1080 игре нужно больше "
@@ -699,6 +707,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_OV_GAME_GB] = "игра %.1f ГБ", [UI_MENU_OV_FMT_MS] = "%.2f мс", [UI_MENU_OV_PER_FRAME] = "%.1f за кадр",
     [UI_MENU_OV_WINDOW] = "Окно", [UI_MENU_OV_OUTPUT] = "Изображение игры", [UI_MENU_OV_SCENE] = "3D-сцена",
     [UI_MENU_OV_SCALING] = "Масштабирование", [UI_MENU_OV_LIMIT] = "Лимит кадров", [UI_MENU_OV_PRESENT] = "Вывод кадров",
+    [UI_MENU_OV_FRAME_GEN] = "Генерация кадров", [UI_MENU_OV_FMT_FRAME_GEN] = "%dx, показано %.0f FPS",
     [UI_MENU_OV_FMT_SIZE] = "%ux%u", [UI_MENU_OV_FMT_SCENE] = "%ux%u, %.0f%%",
     [UI_MENU_OV_FMT_FSR] = "AMD FSR 1, резкость %d%%", [UI_MENU_OV_SCALE_NONE] = "нет (1:1)",
     [UI_MENU_OV_SCALE_BILINEAR] = "билинейное",
@@ -722,6 +731,10 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
         "стороне и увеличивают её: быстрее, но чуть мягче.",
     [UI_MENU_DLSS_Q_NATIVE] = "DLAA",
     [UI_MENU_NEEDS_UPSCALING] = "Сначала выберите AMD FSR или NVIDIA DLSS в пункте «Апскейлинг».",
+    [UI_MENU_FRAME_GEN] = "Генерация кадров",
+    [UI_MENU_FRAME_GEN_DESC] = "NVIDIA DLSS дорисовывает кадры между кадрами игры: 4x превращает 60 кадров в секунду в 240. "
+        "Сама игра не ускоряется, управление отзывается чуть позже. Нужна GeForce RTX 40 или 50. "
+        "Выберите число под свой экран.",
     [UI_MENU_DEVICES] = "Подключённые устройства",
     [UI_MENU_DEVICES_NONE] = "Контроллер не подключён. Подключите его кабелем или по Bluetooth: он появится здесь со своими "
         "настройками.",
@@ -779,6 +792,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_PERF_FPS] = "仅帧率",
     [UI_MENU_PERF_FULL] = "完整",
     [UI_PERF_LINE_FPS] = "%.0f FPS",
+    [UI_PERF_LINE_FPS_GEN] = "%.0f FPS（绘制 %.0f）",
     [UI_MENU_GRAPHICS] = "图像",
     [UI_MENU_OUTPUT_RES] = "游戏分辨率",
 #if RT_TARGET_HWAOI
@@ -1154,6 +1168,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_OV_SCALING] = "缩放",
     [UI_MENU_OV_LIMIT] = "目标帧率",
     [UI_MENU_OV_PRESENT] = "帧呈现模式",
+    [UI_MENU_OV_FRAME_GEN] = "帧生成",
+    [UI_MENU_OV_FMT_FRAME_GEN] = "%dx，显示 %.0f FPS",
     [UI_MENU_OV_FMT_SIZE] = "%ux%u",
     [UI_MENU_OV_FMT_SCENE] = "%ux%u，%.0f%%",
     [UI_MENU_OV_FMT_FSR] = "AMD FSR 1，锐化 %d%%",
@@ -1172,6 +1188,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_TEMPORAL_QUALITY_DESC] = "“原生”保持完整的 3D 分辨率，只做边缘抗锯齿（使用 DLSS 时即 DLAA）。“质量”“平衡”“性能”以每边百分之 67、59、50 的大小渲染 3D 场景再放大：更快，画面略软。",
     [UI_MENU_DLSS_Q_NATIVE] = "DLAA",
     [UI_MENU_NEEDS_UPSCALING] = "请先在“超分辨率”中选择 AMD FSR 或 NVIDIA DLSS。",
+    [UI_MENU_FRAME_GEN] = "帧生成",
+    [UI_MENU_FRAME_GEN_DESC] = "NVIDIA DLSS 在游戏自己绘制的帧之间补上额外的帧，在高刷新率屏幕上动作更流畅：4x 能把每秒 60 帧变成 240 帧。游戏本身不会运行得更快，操作的响应会稍晚一点。需要 GeForce RTX 40 或 50 系列显卡。请选择屏幕能够显示的倍数。",
     [UI_MENU_DEVICES] = "已连接的设备",
     [UI_MENU_DEVICES_NONE] = "未连接手柄。用数据线或蓝牙连接后，它会带着自己的选项显示在这里。",
     [UI_MENU_DEVICE_KEYBOARD_DESC] = "键盘和鼠标。下方表格列出每个按键对应的键位；鼠标控制视角。",
@@ -1257,6 +1275,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
                                   "carico di CPU, GPU e memoria, temperature e attese del thread di rendering. F10 cambia modalità.",
     [UI_MENU_PERF_OFF] = "Disattivato", [UI_MENU_PERF_FPS] = "FPS", [UI_MENU_PERF_FULL] = "Completo",
     [UI_PERF_LINE_FPS] = "%.0f fps",
+    [UI_PERF_LINE_FPS_GEN] = "%.0f fps (%.0f disegnati)",
     [UI_MENU_GRAPHICS] = "Immagine", [UI_MENU_OUTPUT_RES] = "Risoluzione del gioco",
 #if RT_TARGET_HWAOI
     [UI_MENU_OUTPUT_RES_DESC] = "Dimensione nativa della scena 3D e dell'immagine del gioco. Riavvia per applicarla. "
@@ -1541,6 +1560,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_OV_WINDOW] = "Finestra", [UI_MENU_OV_OUTPUT] = "Immagine del gioco", [UI_MENU_OV_SCENE] = "Scena 3D",
     [UI_MENU_OV_SCALING] = "Ridimensionamento", [UI_MENU_OV_LIMIT] = "FPS obiettivo",
     [UI_MENU_OV_PRESENT] = "Presentazione", [UI_MENU_OV_FMT_SIZE] = "%ux%u",
+    [UI_MENU_OV_FRAME_GEN] = "Generazione fotogrammi", [UI_MENU_OV_FMT_FRAME_GEN] = "%dx, %.0f FPS mostrati",
     [UI_MENU_OV_FMT_SCENE] = "%ux%u, %.0f%%", [UI_MENU_OV_FMT_FSR] = "AMD FSR 1, nitidezza %d%%",
     [UI_MENU_OV_SCALE_NONE] = "nessuno (1:1)", [UI_MENU_OV_SCALE_BILINEAR] = "bilineare",
     [UI_MENU_OV_UNMEASURED] = "Non misurato",
@@ -1580,6 +1600,10 @@ static const char *const text_it[UI_TEXT_COUNT] = {
         "ingrandiscono: più veloce, un po' più morbida.",
     [UI_MENU_DLSS_Q_NATIVE] = "DLAA",
     [UI_MENU_NEEDS_UPSCALING] = "Scegli prima AMD FSR o NVIDIA DLSS in Upscaling.",
+    [UI_MENU_FRAME_GEN] = "Generazione di fotogrammi",
+    [UI_MENU_FRAME_GEN_DESC] = "NVIDIA DLSS aggiunge fotogrammi tra quelli del gioco: con 4x, 60 al secondo diventano 240 e il "
+        "movimento è più fluido. Il gioco non va più veloce e i comandi rispondono un po' dopo. Richiede "
+        "una GeForce RTX 40 o 50. Scegli un numero che il tuo schermo riesce a mostrare.",
     [UI_MENU_AA] = "Anti-aliasing (SMAA)",
     [UI_MENU_AA_DESC] = "SMAA ammorbidisce i bordi seghettati dell'immagine finale con un piccolo costo per la scheda "
         "video.",

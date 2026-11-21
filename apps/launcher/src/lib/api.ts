@@ -4,6 +4,7 @@
 import type {
   DiskInfo,
   DlssStatus,
+  NvidiaFile,
   GameEvent,
   LauncherState,
   NupReport,
@@ -89,12 +90,13 @@ export const api = {
   logTail: (kind: 'prepare' | 'game') => invoke<string>('log_tail', { kind }),
   licenses: () => invoke<string>('licenses'),
   dlssStatus: () => invoke<DlssStatus>('dlss_status'),
-  dlssDownload: () => invoke<DlssStatus>('dlss_download'),
+  dlssDownload: (kind: NvidiaFile = 'dlss') => invoke<DlssStatus>('dlss_download', { kind }),
   onDlssProgress: (cb: (fraction: number) => void) => listen<number>('dlss-progress', cb),
-  dlssPick: (path: string) => invoke<DlssStatus>('dlss_pick', { path }),
+  onFgProgress: (cb: (fraction: number) => void) => listen<number>('fg-progress', cb),
+  dlssPick: (path: string, kind: NvidiaFile = 'dlss') => invoke<DlssStatus>('dlss_pick', { path, kind }),
   dlssLicense: () => invoke<void>('dlss_license'),
-  pickDlssFile: async (title: string): Promise<string | null> => {
-    if (!isTauri) return 'D:\\Games\\Some game\\nvngx_dlss.dll';
+  pickDlssFile: async (title: string, kind: NvidiaFile = 'dlss'): Promise<string | null> => {
+    if (!isTauri) return kind === 'fg' ? 'D:\\Games\\Some game\\nvngx_dlssg.dll' : 'D:\\Games\\Some game\\nvngx_dlss.dll';
     const { open } = await import('@tauri-apps/plugin-dialog');
     const r = await open({ title, multiple: false, directory: false, filters: [{ name: 'NVIDIA DLSS', extensions: ['dll'] }] });
     return typeof r === 'string' ? r : null;
@@ -233,12 +235,14 @@ async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknow
     case 'dlss_download':
       for (let i = 1; i <= 10; i++) {
         await new Promise((r) => setTimeout(r, 150));
-        demoListeners['dlss-progress']?.(i / 10);
+        demoListeners[args?.kind === 'fg' ? 'fg-progress' : 'dlss-progress']?.(i / 10);
       }
-      demoDlss.ready = true;
+      if (args?.kind === 'fg') demoDlss.fg_ready = true;
+      else demoDlss.ready = true;
       return { ...demoDlss };
     case 'dlss_pick':
-      demoDlss.ready = true;
+      if (args?.kind === 'fg') demoDlss.fg_ready = true;
+      else demoDlss.ready = true;
       return { ...demoDlss };
     case 'dlss_license':
       return;
@@ -248,10 +252,13 @@ async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknow
 }
 
 let demoCancelled = false;
-// `?dlss=none` previews a PC without an RTX card, `?dlss=ready` one with the file already there.
+// `?dlss=none` previews a PC without an RTX card, `?dlss=old` one whose RTX card is too old for frame generation,
+// `?dlss=ready` one with the files already there.
 const demoDlss: DlssStatus = {
   ready: params.get('dlss') === 'ready',
+  fg_ready: params.get('dlss') === 'ready',
   rtx: params.get('dlss') !== 'none',
+  fg_card: params.get('dlss') !== 'none' && params.get('dlss') !== 'old',
   version: '310.9.16',
   license_url: 'https://github.com/NVIDIA/DLSS/blob/v310.9.16/LICENSE.txt',
 };

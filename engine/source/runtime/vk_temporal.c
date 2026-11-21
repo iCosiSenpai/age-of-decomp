@@ -60,6 +60,7 @@ typedef struct {
 
 static struct {
     int tried, failed;
+    int backend;                      // the BACKEND_* this run settled on, once tried
     // this frame
     int gbuf, armed, done, cam_ok, jit_used, ended;
     uint32_t gw, gh;                  // the G-buffer's size
@@ -103,28 +104,47 @@ static int knob(const char *name, int def) {
 }
 
 // The upscaler of this run, fixed at start: NVIDIA DLSS through Streamline (vk_dlss.c) or AMD FSR (vk_ffx.c). Both take
-// the same inputs here and run at the same two places in the frame.
-enum { BACKEND_NONE, BACKEND_FSR, BACKEND_DLSS };
-static int backend(void) { return vk_dlss_wanted() ? BACKEND_DLSS : vk_ffx_wanted() ? BACKEND_FSR : BACKEND_NONE; }
-static const char *backend_name(void) { return backend() == BACKEND_DLSS ? "DLSS" : "FSR"; }
-static int backend_usable(void) { return backend() == BACKEND_DLSS ? vk_dlss_available() : vk_ffx_available(); }
+// the same inputs here and run at the same two places in the frame. BACKEND_FG is no upscaler: frame generation
+// (FRAME_GEN, vk_dlss.c) alone needs the scene's depth and motion vectors, so the scene is found and the motion pass
+// runs, with no jitter and nothing changed in the picture; with an upscaler it takes the same two images as it does.
+enum { BACKEND_NONE, BACKEND_FSR, BACKEND_DLSS, BACKEND_FG };
+static int backend(void) {
+    if (T.tried) return T.backend;
+    return vk_dlss_wanted() ? BACKEND_DLSS : vk_ffx_wanted() ? BACKEND_FSR : vk_fg_wanted() ? BACKEND_FG : BACKEND_NONE;
+}
+static const char *backend_name(void) {
+    int b = backend();
+    return b == BACKEND_DLSS ? "DLSS" : b == BACKEND_FG ? "frame generation's motion pass" : "FSR";
+}
+static int backend_usable(void) {
+    int b = backend();
+    return b == BACKEND_DLSS ? vk_dlss_available() : b == BACKEND_FG ? vk_fg_available() : vk_ffx_available();
+}
 
 int vk_temporal_wanted(void) { return backend() != BACKEND_NONE; }
 
 int vk_temporal_active(void) {
     if (!backend() || T.failed) return 0;
     if (!T.tried) {
-        T.tried = 1;
-        if (!backend_usable()) {
-            T.failed = 1;
+        int b = backend(), usable = backend_usable();
+        T.backend = b, T.tried = 1;
+        if (!usable && b != BACKEND_FG)
             rt_log("temporal: TEMPORAL=%s but %s is not usable on this PC (see the %s lines above): rendering unchanged, "
-                   "no jitter", cfg_value("TOTK_TEMPORAL"), backend_name(), backend() == BACKEND_DLSS ? "dlss:" : "fsr:");
+                   "no jitter", cfg_value("TOTK_TEMPORAL"), backend_name(), b == BACKEND_DLSS ? "dlss:" : "fsr:");
+        // without its upscaler the scene is still read when frame generation runs
+        if (!usable && vk_fg_available()) T.backend = BACKEND_FG, usable = 1;
+        if (!usable) {   // frame generation alone that does not run said why at start ("frame generation: off: ...")
+            T.failed = 1;
             return 0;
         }
         T.jit_ok = 0, T.reset = 1;
-        rt_log("temporal: %s on the lighting target (%s); jitter %s, camera motion %s, sharpness %d", backend_name(),
-               backend() == BACKEND_DLSS ? vk_dlss_quality() : vk_ffx_version(),
-               knob("TEMPORAL_JITTER", 1) ? "on" : "off", knob("TEMPORAL_MV", 1) ? "on" : "off", cfg_int("TOTK_SHARPNESS"));
+        if (T.backend == BACKEND_FG)
+            rt_log("temporal: the scene's depth and camera motion for frame generation (no upscaler, no jitter)");
+        else
+            rt_log("temporal: %s on the lighting target (%s); jitter %s, camera motion %s, sharpness %d%s", backend_name(),
+                   backend() == BACKEND_DLSS ? vk_dlss_quality() : vk_ffx_version(),
+                   knob("TEMPORAL_JITTER", 1) ? "on" : "off", knob("TEMPORAL_MV", 1) ? "on" : "off",
+                   cfg_int("TOTK_SHARPNESS"), vk_fg_available() ? "; its depth and motion also go to frame generation" : "");
     }
     return 1;
 }
@@ -256,20 +276,21 @@ static void full_barrier(VkCommandBuffer cb) {
 static int size_for(VkCommandBuffer cb, uint32_t w, uint32_t h, uint32_t ow, uint32_t oh, int hdr) {
     if (T.ctx && T.w == w && T.h == h && T.ow == ow && T.oh == oh) return 1;   // the mode (hdr) follows the sizes
     if (T.ctx) {
-        vkDeviceWaitIdle(vk_ctx()->device);
+        vk_device_idle(vk_ctx()->device);
         if (backend() == BACKEND_FSR) vk_ffx_release(T.ctx);
         T.ctx = NULL;
         free_img(&T.mv), free_img(&T.zcopy), free_img(&T.out), free_img(&T.cin);
     }
     VkImageUsageFlags u = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                           VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    int upscaler = backend() != BACKEND_FG;   // frame generation alone: the motion vectors and the depth copy only
     if (!image2d(w, h, VK_FORMAT_R16G16_SFLOAT, u, &T.mv) || !image2d(w, h, VK_FORMAT_R32_SFLOAT, u, &T.zcopy) ||
-        !image2d(ow, oh, VK_FORMAT_R16G16B16A16_SFLOAT, u, &T.out) ||
-        (!hdr && !image2d(w, h, VK_FORMAT_R16G16B16A16_SFLOAT, u, &T.cin)))
+        (upscaler && !image2d(ow, oh, VK_FORMAT_R16G16B16A16_SFLOAT, u, &T.out)) ||
+        (upscaler && !hdr && !image2d(w, h, VK_FORMAT_R16G16B16A16_SFLOAT, u, &T.cin)))
         return 0;
     VkImageMemoryBarrier2 ib[4];
     VkImage im[4] = {T.mv.img, T.zcopy.img, T.out.img, T.cin.img};
-    uint32_t nim = T.cin.img ? 4 : 3;
+    uint32_t nim = !upscaler ? 2 : T.cin.img ? 4 : 3;
     for (uint32_t i = 0; i < nim; i++)
         ib[i] = (VkImageMemoryBarrier2){.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
                                         .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
@@ -283,7 +304,7 @@ static int size_for(VkCommandBuffer cb, uint32_t w, uint32_t h, uint32_t ow, uin
                            .pImageMemoryBarriers = ib};
     vkCmdPipelineBarrier2(cb, &di);
     // DLSS keeps its state inside Streamline, per size (aod_dlss.cpp): only the work images are ours
-    T.ctx = backend() == BACKEND_DLSS ? (void *)&T : vk_ffx_create(w, h, ow, oh, hdr, 1, 0);
+    T.ctx = backend() != BACKEND_FSR ? (void *)&T : vk_ffx_create(w, h, ow, oh, hdr, 1, 0);
     if (!T.ctx) return 0;
     T.w = w, T.h = h, T.ow = ow, T.oh = oh, T.reset = 1;
     return 1;
@@ -420,9 +441,33 @@ static int scene_end(VkExec *ex, uint32_t ow, uint32_t oh, int hdr) {
     if (T.cam_ok) memcpy(T.prev, T.cam, sizeof T.prev);
     T.prev_ok = T.cam_ok;
     T.sw = w, T.sh = h;
+    // Frame generation takes this frame's cameras, depth and motion vectors now: Streamline copies the two images
+    // inside the command buffer, since the next frame's scene may overwrite them before this frame is shown.
+    if (vk_fg_available()) {
+        const VkImageUsageFlags work = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                       VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        VkDlssDispatch fd = {.depth = {T.zcopy.img, T.zcopy.view, VK_FORMAT_R32_SFLOAT, w, h, work},
+                             .mv = {T.mv.img, T.mv.view, VK_FORMAT_R16G16_SFLOAT, w, h, work},
+                             .jx = T.ux, .jy = T.uy, .vp = T.dlss_cam_ok ? T.dlss_cam : NULL,
+                             .prev_vp = T.dlss_prev_ok ? T.dlss_prev : NULL, .reset = T.reset, .moving = T.dlss_moving};
+        rec_drain();   // Streamline records into the command buffer itself
+        vk_fg_scene(cb, &fd);
+        full_barrier(cb);
+        ex->recorded += 3;
+    }
     vk_exec_draw_new_cb();   // the motion pass bound a pipeline of its own
     ex->dirty |= VK_EXEC_DIRTY_ALL;
     return 1;
+}
+
+// Frame generation without an upscaler: nothing in the picture changes, the frame is done once its depth and motion
+// vectors are handed over.
+static void fg_only_done(void) {
+    T.reset = 0, T.done = 1;
+    if (++T.runs == 1 || T.runs == 300 || T.runs % LOG_EVERY == 0)
+        rt_log("temporal: %llu scenes for frame generation at %ux%u (%llu frames without the scene's end, %llu without a "
+               "camera; camera %.0f %.0f %.0f)", (unsigned long long)T.runs, T.w, T.h, (unsigned long long)T.missed,
+               (unsigned long long)T.nocam, (double)T.cam_pos[0], (double)T.cam_pos[1], (double)T.cam_pos[2]);
 }
 
 // FSR from color (the render size) into T.out (RGBA16F, the output size), then T.out blitted into dst: the lighting
@@ -535,8 +580,10 @@ int vk_temporal_draw(VkExec *ex, const GfxShader *fs, int32_t count) {
         int open = ex->in_pass, native = T.color.width >= o[0];
         if (T.color.level || T.color.base_layer) fail("a lighting target that is not level 0 / layer 0");
         // native: FSR in place now; upscaling: FSR runs in place of the game's EASU (vk_temporal_dispatch)
-        else if (scene_end(ex, native ? T.color.width : o[0], native ? T.color.height : o[1], native) && native)
-            fsr(ex, T.color.image, T.color.format, T.color.image, 0, 0, 0);
+        else if (scene_end(ex, native ? T.color.width : o[0], native ? T.color.height : o[1], native)) {
+            if (backend() == BACKEND_FG) fg_only_done();
+            else if (native) fsr(ex, T.color.image, T.color.format, T.color.image, 0, 0, 0);
+        }
         if (open) vk_exec_pass_begin(ex);
         return 0;
     }

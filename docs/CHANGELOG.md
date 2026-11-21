@@ -20,6 +20,15 @@ Build the game again once after installing this version. Setup keeps your settin
   edges at full resolution, to Quality, Balanced and Performance, which draw the 3D scene smaller and scale it up for
   more speed. DLSS needs an RTX card and NVIDIA's own DLSS file, as DLAA did in 0.1.2; a saved DLAA setting becomes
   DLSS with DLAA quality. Asked for upstream by @lustrousdragon (Alano6678/hwaoi-recomp#29).
+- New: Frame generation (Display) on GeForce RTX 40 and 50 cards. NVIDIA DLSS draws extra frames between the game's
+  own, from 2x up to 6x: on an RTX 5070 Ti at 1440p the game's 60 frames per second reach the screen as 237 at 4x and
+  359 at 6x. The list ends at what your card can do. The game itself still runs at 60, and your input is felt a
+  little later. It works with or without Upscaling, adds frames only while the game's window is in front, rests in
+  the menu, in movies and on loading screens, and shows its frames without waiting for the screen (Screen sync is Off
+  while it is on). It needs NVIDIA's own frame generation file: the launcher downloads it from NVIDIA when you turn
+  the setting on, and in RecompLauncher the setup does when you tick NVIDIA frame generation. The frame rate overlay
+  shows the frames shown and the ones drawn. A player on RecompLauncher asked for more than 60 frames per second on
+  2026-11-21: this is how far it goes while the game's own speed is tied to 60. Thank you.
 - New from upstream, thanks to @ripps818: AMD FSR 3.1 and FSR 4 upscaling (Alano6678/hwaoi-recomp#25), SMAA edge
   smoothing (#23) and HDR10 output (#24).
 - New: an OLED colour profile (Picture): deeper blacks, a little more contrast and saturation.

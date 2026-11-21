@@ -100,6 +100,19 @@
       ]
     },
     {
+      "key": "frame_gen", "section": "display", "group": "display", "kind": "choice", "restart": true,
+      "label": "Frame generation", "default": "off",
+      "help": "NVIDIA DLSS draws extra frames between the game's own, so motion looks smoother on a fast screen: 4x turns 60 frames per second into 240. The game itself does not run faster, and your input is felt a little later. Needs a GeForce RTX 40 or 50 card and NVIDIA's own frame generation file. Pick a number your screen can show. While it is on, Screen sync is Off.",
+      "choices": [
+        { "value": "off", "label": "Off" },
+        { "value": "2", "label": "2x" },
+        { "value": "3", "label": "3x" },
+        { "value": "4", "label": "4x" },
+        { "value": "5", "label": "5x" },
+        { "value": "6", "label": "6x" }
+      ]
+    },
+    {
       "key": "antialiasing", "section": "display", "group": "display", "kind": "choice",
       "label": "Edge smoothing", "default": "off",
       "help": "SMAA smooths jagged edges in the finished picture on any graphics card, at a small cost. With FSR or DLSS it is not needed.",
