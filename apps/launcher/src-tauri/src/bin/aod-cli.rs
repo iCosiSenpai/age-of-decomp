@@ -2,7 +2,7 @@
 //! scripting:
 //!
 //!   aod-cli verify  --game <file.nup> [--update <file.nup>]
-//!   aod-cli prepare --game <file.nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution WxH] [--unlock]
+//!   aod-cli prepare --game <file.nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution auto|WxH] [--unlock]
 //!   aod-cli play    [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>]
 //!   aod-cli info
 //!
@@ -29,7 +29,7 @@ fn parse_jobs(args: &[String]) -> Result<u32, String> {
 }
 
 fn usage() -> i32 {
-    eprintln!("usage: aod-cli verify --game <nup> [--update <nup>] | prepare --game <nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution WxH] [--unlock] | play [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>] | info");
+    eprintln!("usage: aod-cli verify --game <nup> [--update <nup>] | prepare --game <nup> --out <dir> [--update <nup>] [--dlc <nup>] [--jobs N] [--resolution auto|WxH] [--unlock] | play [--out <dir>] [--game <nup>] [--dlss <nvngx_dlss.dll>] | info");
     2
 }
 
@@ -121,7 +121,7 @@ fn prepare_cmd(args: &[String]) -> i32 {
         dlc: dlc.as_ref().map(PathBuf::from),
         output: PathBuf::from(&out),
         jobs,
-        resolution: arg(args, "--resolution").unwrap_or_else(|| "1920x1080".into()),
+        resolution: arg(args, "--resolution").unwrap_or_else(|| "auto".into()),
         unlock: args.iter().any(|a| a == "--unlock"),
     };
     let control = Arc::new(prepare::Control::default());
@@ -146,7 +146,7 @@ fn prepare_cmd(args: &[String]) -> i32 {
             cfg.nup = Some(game);
             cfg.update_nup = update;
             cfg.dlc_nup = dlc;
-            cfg.output = Some(out);
+            cfg.set_output(out);
             let _ = cfg.save(&paths);
             0
         }

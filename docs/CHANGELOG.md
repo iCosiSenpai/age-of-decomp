@@ -60,6 +60,11 @@ Build the game again once after installing this version. Setup keeps your settin
 - New: Bonuses for other games' saves (Settings → Game). It tells the game you have Age of Calamity and Tears of the
   Kingdom save data, so it gives the bonus items it has for them as the story goes on. Off until you turn it on.
   Thanks to @Konia1234-Pega for asking (#1).
+- A game folder that has no save yet takes the save of the folder this PC used before: the standalone launcher's game
+  folder when you move to RecompLauncher, or the folder you built into until now. It is copied the first time you
+  press Play there, and nothing is deleted or overwritten. Before, a new game folder started the game from its
+  beginning while your save stayed behind in the old one. Thanks to a player on RecompLauncher whose report of a lost
+  save on 2026-11-21 led to it.
 
 ### Stability
 - When the game stops showing new frames for 20 seconds, its log says where every thread is. The game is left as it

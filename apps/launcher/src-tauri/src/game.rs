@@ -113,6 +113,13 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
     std::fs::create_dir_all(&logs).map_err(|e| LaunchError::Other(e.to_string()))?;
     let saves = paths::saves_dir(&output);
     std::fs::create_dir_all(&saves).map_err(|e| LaunchError::Other(e.to_string()))?;
+    // A game folder without a save takes the one of a folder this PC used before: the standalone launcher's, or the
+    // folder the game was built into until now (saves.rs). A copy that fails does not stop the game.
+    match crate::saves::adopt_for(cfg, paths, &output) {
+        Ok(Some(from)) => eprintln!("Age of Decomp: this game folder had no save yet: copied the one from {}", from.display()),
+        Ok(None) => {}
+        Err(e) => eprintln!("Age of Decomp: the save of an earlier game folder could not be copied ({e}); the game starts without it"),
+    }
     crate::settings::retire_values(&paths::game_ini(&output)).map_err(LaunchError::Other)?;
     let log_path = logs.join(format!("game-{}.log", paths::stamp()));
     let log = std::fs::File::create(&log_path).map_err(|e| LaunchError::Other(e.to_string()))?;

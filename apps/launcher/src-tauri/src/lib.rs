@@ -10,6 +10,7 @@ mod nintendo;
 pub mod ini;
 pub mod paths;
 pub mod prepare;
+pub mod saves;
 pub mod settings;
 pub mod system;
 pub mod update;
@@ -205,7 +206,7 @@ fn set_game(app: tauri::State<'_, App>, nup: String, update: Option<String>, dlc
         cfg.nup = Some(nup);
         cfg.update_nup = update;
         cfg.dlc_nup = dlc;
-        cfg.output = Some(output);
+        cfg.set_output(output);
         cfg.save(&app.paths)?;
     }
     Ok(state_of(&app))
@@ -217,7 +218,8 @@ fn start_prepare(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()
     if *updating { return Err("An update is being installed".into()); }
     if *app.game_running.lock().unwrap() { return Err("Close the game before rebuilding".into()); }
     let cfg = app.cfg.lock().unwrap().clone();
-    let resolution = settings::read(&cfg, &app.paths).get("output_res").cloned().unwrap_or_else(|| "1920x1080".into());
+    // Unset is Automatic, the default: the game then takes the screen's resolution when it starts.
+    let resolution = settings::read(&cfg, &app.paths).get("output_res").cloned().unwrap_or_else(|| "auto".into());
     let job = prepare::Job::from_config(&cfg, &app.paths, resolution)?;
     {
         let mut busy = app.preparing.lock().unwrap();

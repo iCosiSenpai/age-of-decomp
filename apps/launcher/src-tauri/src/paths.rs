@@ -55,6 +55,12 @@ fn data_dir(aod: Option<OsString>, recomplauncher: Option<OsString>, portable: b
     }
 }
 
+/// The standalone launcher's data folder (its settings, and the game folder it builds into by default), wherever
+/// this run keeps its own.
+pub fn standalone_data_dir() -> PathBuf {
+    platform_data_dir().join("AgeOfDecomp")
+}
+
 fn platform_data_dir() -> PathBuf {
     if cfg!(windows) {
         std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."))

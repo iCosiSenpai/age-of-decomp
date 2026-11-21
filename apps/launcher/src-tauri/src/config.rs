@@ -27,10 +27,21 @@ pub struct Config {
     pub update_nup: Option<String>,
     pub dlc_nup: Option<String>,
     pub output: Option<String>,
+    /// The game folder used before `output`, when the player chose another one: its save is copied into the new
+    /// folder the first time the game starts there (saves.rs).
+    pub previous_output: Option<String>,
     pub ui: UiPrefs,
 }
 
 impl Config {
+    /// The game folder becomes `output`; the one it replaces is remembered.
+    pub fn set_output(&mut self, output: String) {
+        if let Some(old) = self.output.take().filter(|old| !old.is_empty() && *old != output) {
+            self.previous_output = Some(old);
+        }
+        self.output = Some(output);
+    }
+
     pub fn load(paths: &Paths) -> Config {
         let file = paths.config_file();
         let error = match std::fs::read_to_string(&file) {
