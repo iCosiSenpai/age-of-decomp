@@ -1,9 +1,0 @@
-{
-  "repository": "https://github.com/Alano6678/hwaoi-recomp",
-  "commit": "ce035e02f5d77ced2ba967905e45c7226a063656",
-  "commit_date": "2026-11-14",
-  "pinned_on": "2026-11-16",
-  "license": "GPL-3.0-or-later (inherited MIT parts in LICENSE-MIT)",
-  "lineage": "hwaoi-recomp <- DKB Recomp (Lucas-blip-png/dkb-pc-recomp @ 42fcd9d78b4b44c2831b68ba21e5807d74a96f45) <- TotK Recomp lineage",
-  "game_profile": "config/games/hwaoi-update-196608.json"
-}

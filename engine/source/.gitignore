@@ -1,0 +1,57 @@
+# The engine's own build folders and anything made from a game. The repository's .gitignore and tools/check_content.py
+# guard the same things; these lines keep them out when a tool is run from this folder.
+/work/
+/build/
+/generated/
+/game/
+/toolchain/
+/.venv/
+/.venv-py314/
+__pycache__/
+*.py[cod]
+/config.local.toml
+
+# Game inputs and everything derived from them. Never commit these.
+*.nup
+*.xci
+*.xcz
+*.nsp
+*.nsz
+*.nca
+*.ncz
+*.tik
+*.keys
+*.nso
+*.npdm
+*.zs
+*.pack
+*.sarc
+*.bfres
+*.bntx
+*.bnsh
+*.webm
+
+# Build outputs
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.obj
+*.o
+*.lib
+*.a
+*.so
+*.so.*
+*.AppImage
+
+# .NET build output of the shader translator
+/tools/xlate/bin/
+/tools/xlate/obj/
+
+# Patch leftovers, logs and OS files
+*.orig
+*.rej
+*.log
+Thumbs.db
+desktop.ini
+.DS_Store

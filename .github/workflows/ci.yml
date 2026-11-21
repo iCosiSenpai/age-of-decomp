@@ -22,17 +22,18 @@ jobs:
       - name: Triage and RecompLauncher guide scripts
         run: node --test .github/scripts/triage.test.js
 
-  engine-patches:
+  engine-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - run: AOD_CACHE_DIR="$RUNNER_TEMP/aod" python3 tools/engine.py fetch
-      - name: Check GPU recorder policy without a game
+      - name: Check GPU recorder policy and the input focus gate without a game
         run: |
           sudo apt-get update
           sudo apt-get install -y clang libvulkan-dev
-          python3 "$RUNNER_TEMP/aod/engine/hwaoi-recomp/tests/hwaoi/test_amd_recorder_default.py"
-          python3 "$RUNNER_TEMP/aod/engine/hwaoi-recomp/tests/hwaoi/test_input_focus_gate.py"
+          python3 engine/source/tests/hwaoi/test_amd_recorder_default.py
+          python3 engine/source/tests/hwaoi/test_input_focus_gate.py
+      - name: Catalogue layout
+        run: python3 tools/catalog_fmt.py --check
 
   nintendo-transport:
     runs-on: windows-latest
@@ -47,12 +48,11 @@ jobs:
           dotnet-version: "10.0.x"
       - run: python tools/engine.py toolchain
       - run: python tools/test_nintendo_transport.py
-      - run: python tools/engine.py fetch
       - name: Test depth and stencil transfers
         env:
           AOD_CC: ${{ github.workspace }}/.cache/toolchain/windows/llvm/bin/clang.exe
           AOD_DEPS: ${{ github.workspace }}/.cache/toolchain/windows/deps/include
-        run: python -I -B .cache/engine/hwaoi-recomp/tests/hwaoi/test_depth_stencil_copy.py
+        run: python -I -B engine/source/tests/hwaoi/test_depth_stencil_copy.py
 
   generated:
     runs-on: ubuntu-latest

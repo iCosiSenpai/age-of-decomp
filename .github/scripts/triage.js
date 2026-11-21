@@ -15,7 +15,7 @@ const LABELS = {
   'steam-deck': ['c5def5', 'Steam Deck'],
   'needs-info': ['ffb547', 'Waiting for the version or a log from the reporter'],
   'game-files': ['ff5a4f', 'Game files, keys or saves were posted: remove them'],
-  engine: ['3fc6ff', 'Engine patches and runtime'],
+  engine: ['3fc6ff', 'Engine: compiler and runtime'],
   launcher: ['e7b75a', 'The Age of Decomp launcher'],
   nup: ['bfdadc', 'The NUP reader crate'],
   docs: ['0075ca', 'Documentation'],

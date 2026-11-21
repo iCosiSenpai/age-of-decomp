@@ -2,8 +2,6 @@
 """Age of Decomp engine tooling (Python 3.12+, standard library only; Windows x64 and Linux x64).
 
   py tools/engine.py toolchain         pinned tools and libraries  -> .cache/toolchain/<os>/
-  py tools/engine.py fetch [--force]   engine checkout at engine/upstream.json + engine/patches -> .cache/engine/hwaoi-recomp
-  py tools/engine.py export-patches    commits on branch `aod` above the pin -> engine/patches/*.patch
   py tools/engine.py translator        Ryujinx-based shader translator (self-contained .NET publish)
   py tools/engine.py stage             portable engine bundle -> out/engine/<os>/ (format hwaoi-compiler-v1)
   py tools/engine.py game --nup F [--out D]   developer build of the game from a NUP with the staged bundle
@@ -15,7 +13,8 @@ Nothing is installed system-wide. No game content is ever written outside ignore
 Linux: clang, lld, ninja, the .NET SDK and the SDL3/Opus/libvpx/zstd/Vulkan/zlib headers come from the distribution
 (`toolchain` checks them and prints the packages to install); Python is a pinned relocatable CPython
 (python-build-standalone) with the generator's packages, so the staged bundle carries its own interpreter.
-AOD_CACHE_DIR moves .cache elsewhere, e.g. a separate engine checkout for WSL when the folder is shared with Windows.
+The engine's sources are in this repository, engine/source (engine/ORIGIN.md says where they came from).
+AOD_CACHE_DIR moves .cache elsewhere, e.g. a toolchain of its own for WSL when the folder is shared with Windows.
 """
 from __future__ import annotations
 
@@ -41,12 +40,10 @@ CACHE = Path(os.environ.get("AOD_CACHE_DIR") or ROOT / ".cache").expanduser().re
 DL = CACHE / "downloads"
 TC = CACHE / "toolchain" / OSNAME
 UNPACK = CACHE / "unpacked"
-ENGINE = CACHE / "engine" / "hwaoi-recomp"
+ENGINE = ROOT / "engine" / "source"
 STAGE = ROOT / "out" / "engine" / OSNAME
-UPSTREAM = ROOT / "engine" / "upstream.json"
-PATCHES = ROOT / "engine" / "patches"
-OWN_SRC = ROOT / "engine" / "src" / "aod"
-# build_xlate_hwaoi.py requires this parent; one folder per OS, so a checkout shared by Windows and WSL keeps both
+# build_xlate_hwaoi.py requires this parent (engine/source/work is ignored); one folder per OS, so a checkout shared
+# by Windows and WSL keeps both
 XLATE_OUT = ENGINE / "work" / "build" / "hwaoi196608" / ("xlate-managed-irbanks" if WIN else "xlate-linux-x64")
 XLATE_EXE = "totk_xlate.exe" if WIN else "totk_xlate"
 
@@ -212,12 +209,6 @@ def copy_tree(src: Path, dst: Path, skip=lambda rel: False) -> int:
         n += 1
     return n
 
-
-def upstream() -> dict:
-    return json.loads(UPSTREAM.read_text(encoding="utf-8"))
-
-
-# ── toolchain ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 def toolchain_windows() -> None:
     TC.mkdir(parents=True, exist_ok=True)
@@ -409,89 +400,12 @@ def cmd_toolchain(_args) -> None:
     toolchain_windows() if WIN else toolchain_linux()
 
 
-# ── engine checkout and patch queue ──────────────────────────────────────────────────────────────────────────────────
-
-def patch_id(diff: bytes) -> str:
-    """`git patch-id --stable` of a diff: the same id for a commit and for its exported patch file."""
-    out = subprocess.run(["git", "patch-id", "--stable"], cwd=ENGINE, input=diff, capture_output=True, check=True)
-    return out.stdout.split()[0].decode("ascii") if out.stdout.strip() else ""
-
-
-def queue_mismatch(pin: str) -> str:
-    """Why branch aod is not exactly the pin plus engine/patches in order; empty when it is."""
-    if (ENGINE / ".git" / "rebase-apply").exists():
-        return "a `git am` is still in progress"
-    commits = git("rev-list", "--reverse", f"{pin}..HEAD").stdout.split()
-    patches = sorted(PATCHES.glob("*.patch"))
-    if len(commits) != len(patches):
-        return f"{len(commits)} commit(s) on the pin, {len(patches)} patch file(s)"
-    for commit, patch in zip(commits, patches):
-        shown = subprocess.run(["git", "show", "--format=", "--full-index", commit], cwd=ENGINE, capture_output=True,
-                               check=True).stdout
-        if patch_id(shown) != patch_id(patch.read_bytes()):
-            return f"commit {commit[:10]} differs from {patch.name}"
-    return ""
-
-
-def cmd_fetch(args) -> None:
-    up = upstream()
-    if not ENGINE.is_dir():
-        ENGINE.parent.mkdir(parents=True, exist_ok=True)
-        ref = ROOT / "refs" / "hwaoi-recomp"
-        if ref.is_dir():  # fast local clone from the read-only reference, then point origin at upstream
-            run(["git", "clone", "--no-hardlinks", str(ref), str(ENGINE)])
-            git("remote", "set-url", "origin", up["repository"])
-        else:
-            run(["git", "clone", "--filter=blob:none", up["repository"], str(ENGINE)])
-        git("config", "user.name", "Age of Decomp patch queue")
-        git("config", "user.email", "aod-patches@localhost")
-        git("config", "core.autocrlf", "false")
-    if git("cat-file", "-e", up["commit"] + "^{commit}", check=False).returncode:
-        git("fetch", "origin", capture=False)
-    status = git("status", "--porcelain").stdout.strip()
-    if status and not args.force:
-        die(f"{ENGINE} has uncommitted changes; commit them on branch aod (then export-patches) or pass --force")
-    current = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-    if current == "aod" and not args.force:
-        base = git("merge-base", "HEAD", up["commit"]).stdout.strip()
-        if base == git("rev-parse", up["commit"]).stdout.strip():
-            mismatch = queue_mismatch(up["commit"])
-            if mismatch:
-                die(f"branch aod does not match engine/patches ({mismatch}): run export-patches to keep its "
-                    "commits, or fetch --force to rebuild it from the queue")
-            log("branch aod already is the pin plus engine/patches; use --force to rebuild it")
-            return
-    git("checkout", "-B", "aod", up["commit"], "--force", capture=False)
-    git("clean", "-fdq", "-e", "work/")
-    patches = sorted(PATCHES.glob("*.patch"))
-    for p in patches:
-        r = git("am", "--3way", "--keep-cr", str(p), check=False)
-        if r.returncode:
-            git("am", "--abort", check=False)
-            die(f"{p.name} does not apply on {up['commit'][:10]}: rebase it by hand in {ENGINE}")
-    log(f"engine at {up['commit'][:10]} + {len(patches)} patch(es) on branch aod")
-
-
-def cmd_export_patches(_args) -> None:
-    up = upstream()
-    if git("status", "--porcelain").stdout.strip():
-        die("commit your engine changes on branch aod first")
-    PATCHES.mkdir(parents=True, exist_ok=True)
-    for old in PATCHES.glob("*.patch"):
-        old.unlink()
-    git("format-patch", "--zero-commit", "--no-signature", "--full-index", "-N", "-o", str(PATCHES),
-        f"{up['commit']}..aod")
-    log(f"{len(list(PATCHES.glob('*.patch')))} patch(es) in {PATCHES.relative_to(ROOT)}")
-
-
 # ── shader translator ────────────────────────────────────────────────────────────────────────────────────────────────
 
 def cmd_translator(args) -> None:
-    if not ENGINE.is_dir():
-        die("run `engine.py fetch` first")
     dotnet = TC / "DotNet" / "dotnet.exe" if WIN else Path(shutil.which("dotnet") or "dotnet")
     python = TC / "python" / ("python.exe" if WIN else "bin/python3")
-    env = dict(os.environ, PYTHONUTF8="1", HWAOI_NUGET_CACHE=str(TC / "NuGet"))  # engine patch 0001
+    env = dict(os.environ, PYTHONUTF8="1", HWAOI_NUGET_CACHE=str(TC / "NuGet"))
     env.pop("HWAOI_TOOLS", None)
     if XLATE_OUT.exists():
         shutil.rmtree(XLATE_OUT)  # the builder refuses to overwrite a deployment
@@ -502,13 +416,31 @@ def cmd_translator(args) -> None:
 
 # ── staging the portable bundle ──────────────────────────────────────────────────────────────────────────────────────
 
+# The engine folders whose files make the game: the staged bundle's revision is taken over these alone.
+ENGINE_PARTS = ("compiler", "config", "recomp", "runtime", "tools")
+
+
 def source_files():
-    raw = git("ls-files", "-z").stdout
+    """The engine files a bundle carries: what git tracks under engine/source (so nothing ignored or left over from
+    a build gets in), paths relative to it."""
+    raw = git("ls-files", "-z", "--", ".").stdout
     for name in sorted(set(raw.split("\0")) - {""}):
         top = name.split("/", 1)[0]
-        if top in ("compiler", "config", "recomp", "runtime", "tools", "tests") or name in (
-                "LICENSE", "LICENSE-MIT", "THIRD_PARTY_NOTICES.md", "README.md", "VERSION", "AGENTS.md"):
+        if top in (*ENGINE_PARTS, "tests") or name in (
+                "LICENSE", "LICENSE-MIT", "THIRD_PARTY_NOTICES.md", "README.md", "VERSION"):
             yield name
+
+
+def engine_revision(files: dict[str, str]) -> str:
+    """One id for the engine a bundle carries: the staged files of compiler/, config/, recomp/, runtime/ and tools/
+    with their hashes. Tests, notices and VERSION stay out, so a release that changes only those does not tell
+    players that the engine changed (the launcher offers a rebuild when this id is not the build's)."""
+    h = hashlib.sha256()
+    for path in sorted(files):
+        parts = path.split("/")
+        if parts[0] == "source" and len(parts) > 2 and parts[1] in ENGINE_PARTS:
+            h.update(f"{path}\t{files[path]}\n".encode("utf-8"))
+    return h.hexdigest()[:40]
 
 
 def bundle_python(root: Path) -> Path:
@@ -532,19 +464,11 @@ def linux_python_skip(rel: str) -> bool:
 def cmd_stage(args) -> None:
     """Windows: the full portable compiler (Python, llvm-mingw, deps, Ninja). Linux: sources, Python and the translator;
     clang, lld, Ninja and the libraries are the system's (`toolchain` checks them)."""
-    if not ENGINE.is_dir():
-        die("run `engine.py fetch` first")
-    dirty = bool(git("status", "--porcelain").stdout.strip())
+    dirty = bool(git("status", "--porcelain", "--", ".").stdout.strip())
     if dirty and not args.allow_dirty:
-        die("engine checkout has uncommitted changes; commit them or pass --allow-dirty")
+        die("engine/source has uncommitted changes; commit them or pass --allow-dirty")
     if dirty:
-        log("staging a dirty engine checkout (--allow-dirty)")
-    mismatch = queue_mismatch(upstream()["commit"])
-    if mismatch and not args.allow_dirty:
-        die(f"engine checkout does not match engine/patches ({mismatch}): export-patches or fetch first, "
-            "or pass --allow-dirty")
-    if mismatch:
-        log(f"staging an engine that differs from engine/patches ({mismatch}, --allow-dirty)")
+        log("staging engine/source with uncommitted changes (--allow-dirty)")
     needs = [bundle_python(TC), XLATE_OUT / XLATE_EXE] + ([TC / "llvm" / "bin" / "clang.exe"] if WIN else [])
     for need in needs:
         if not need.is_file():
@@ -563,8 +487,6 @@ def cmd_stage(args) -> None:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     (STAGE / "source/runtime").mkdir(parents=True, exist_ok=True)
     (STAGE / "source/VERSION").write_text(version + "\n", encoding="utf-8")
-    for own in sorted(OWN_SRC.glob("aod_nintendo.*")):
-        shutil.copy2(own, STAGE / "source/runtime" / own.name)
     log(f"source: {n} files")
     copy_tree(TC / "python", STAGE / "python", lambda rel: "__pycache__" in rel or rel.endswith(".pyc") or
               (not WIN and linux_python_skip(rel)))
@@ -592,7 +514,7 @@ def cmd_stage(args) -> None:
                 die(f".NET runtime pack is missing {name}")
             shutil.copy2(notice, STAGE / "licenses" / f"dotnet-{name}")
         run([TC / "llvm/bin/clang.exe", "-shared", "-O2", "-Wall", "-Wextra", "-Werror", "-DAOD_NINTENDO_DLL",
-             "-D_WIN32_WINNT=0x0A00", "-I", TC / "deps/include", OWN_SRC / "aod_nintendo.c",
+             "-D_WIN32_WINNT=0x0A00", "-I", TC / "deps/include", ENGINE / "runtime" / "aod_nintendo.c",
              "-L", TC / "deps/lib", "-lSDL3", "-o", nintendo / "aod_nintendo.dll"], cwd=ROOT)
         run([nintendo / "AgeOfDecomp.Nintendo.exe", "--self-test"], cwd=ROOT)
         # DLAA (runtime/aod_dlss.cpp): the launcher points TOTK_DLSS_DIR at <bundle>/streamline. The player's own
@@ -607,11 +529,10 @@ def cmd_stage(args) -> None:
         (STAGE / "licenses").mkdir()
         for lic in sorted((TC / "python" / "lib").glob("python3.*/LICENSE.txt"))[:1]:
             shutil.copy2(lic, STAGE / "licenses" / "python-LICENSE.txt")
-    revision = git("rev-parse", "HEAD").stdout.strip()
     files = {p.relative_to(STAGE).as_posix(): sha256(p) for p in sorted(STAGE.rglob("*")) if p.is_file()}
-    manifest = {"format": "hwaoi-compiler-v1", "version": version, "source_revision": revision,
+    manifest = {"format": "hwaoi-compiler-v1", "version": version, "source_revision": engine_revision(files),
                 "aod_prepare_version": int((ROOT / "packaging/prepare-version.txt").read_text(encoding="ascii")),
-                "aod_upstream": upstream()["commit"], "files": files, "game_content_included": False}
+                "files": files, "game_content_included": False}
     if dirty:
         manifest["dirty"] = True
     (STAGE / "bundle.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -638,11 +559,10 @@ def cmd_game(args) -> None:
 
 
 def cmd_status(_args) -> None:
-    up = upstream()
-    rows = [("pin", f"{up['repository']} @ {up['commit'][:12]}"),
-            ("toolchain", "ok" if (TC / "llvm/bin/clang.exe" if WIN else bundle_python(TC)).exists() else "missing"),
-            ("engine checkout", git("rev-parse", "--short", "HEAD").stdout.strip() if ENGINE.is_dir() else "missing"),
-            ("patches", str(len(list(PATCHES.glob("*.patch"))))),
+    bundle = json.loads((STAGE / "bundle.json").read_text(encoding="utf-8")) if (STAGE / "bundle.json").is_file() else {}
+    rows = [("toolchain", "ok" if (TC / "llvm/bin/clang.exe" if WIN else bundle_python(TC)).exists() else "missing"),
+            ("engine source", f"{sum(1 for _ in source_files())} files" if ENGINE.is_dir() else "missing"),
+            ("staged engine", bundle.get("source_revision", "missing")[:12] + (" (dirty)" if bundle.get("dirty") else "")),
             ("translator", "ok" if (XLATE_OUT / XLATE_EXE).is_file() else "missing"),
             ("bundle", "ok" if (STAGE / "bundle.json").is_file() else "missing")]
     for k, v in rows:
@@ -655,9 +575,6 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("toolchain")
-    f = sub.add_parser("fetch")
-    f.add_argument("--force", action="store_true")
-    sub.add_parser("export-patches")
     sub.add_parser("translator")
     s = sub.add_parser("stage")
     s.add_argument("--allow-dirty", action="store_true")
@@ -665,11 +582,11 @@ def main() -> None:
     g.add_argument("--nup", required=True)
     g.add_argument("--out", default=str(ROOT / "work" / ("game" if WIN else "game-linux")))
     g.add_argument("--jobs", type=int, default=0)
-    g.add_argument("--resolution", default="1920x1080", choices=("1280x720", "1920x1080", "2560x1440", "3840x2160"))
+    g.add_argument("--resolution", default="auto", choices=("auto", "1280x720", "1920x1080", "2560x1440", "3840x2160"))
     sub.add_parser("status")
     args = ap.parse_args()
-    {"toolchain": cmd_toolchain, "fetch": cmd_fetch, "export-patches": cmd_export_patches,
-     "translator": cmd_translator, "stage": cmd_stage, "game": cmd_game, "status": cmd_status}[args.cmd](args)
+    {"toolchain": cmd_toolchain, "translator": cmd_translator, "stage": cmd_stage, "game": cmd_game,
+     "status": cmd_status}[args.cmd](args)
 
 
 if __name__ == "__main__":

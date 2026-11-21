@@ -1,5 +1,8 @@
 # Code provenance
 
+> Since 2026-11-21 the engine is in `engine/source` (see `engine/ORIGIN.md`), no longer a pin plus
+> `engine/patches`. The paths and the workflow below are the ones at the time of this review.
+
 Where reused code in Age of Decomp comes from, how it was checked and under which licence it is used. Written
 2026-11-18 at repository `5da1dbc5e2d15abbd1173a972077354b056e74ad`, engine pin hwaoi-recomp
 `ce035e02f5d77ced2ba967905e45c7226a063656` + `engine/patches/0001`–`0004`, before the in-game menu redesign; the last

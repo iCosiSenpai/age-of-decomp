@@ -1,5 +1,8 @@
 # Audit of the build, setup and launch flows (2026-11-18)
 
+> Since 2026-11-21 the engine is in `engine/source` (see `engine/ORIGIN.md`), no longer a pin plus
+> `engine/patches`. The paths and the workflow below are the ones at the time of this audit.
+
 Scope: Age of Decomp at `5da1dbc5e2d15abbd1173a972077354b056e74ad` (launcher, `aod-cli`, `crates/aod-nup`, `tools/`,
 `packaging/`, `.github/`) and the engine as the project builds it: hwaoi-recomp `ce035e02f5d77ced2ba967905e45c7226a063656`
 with `engine/patches/0001`–`0004`. Windows and Linux paths were both read; Windows is where things were executed.

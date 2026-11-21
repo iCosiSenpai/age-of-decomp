@@ -80,7 +80,7 @@ fn find_engine_from(exe_dir: &Path, configured: Option<PathBuf>) -> Option<PathB
     let os = if cfg!(windows) { "windows" } else { "linux" };
     let mut candidates = vec![exe_dir.join("engine"), exe_dir.join("../lib/age-of-decomp/engine")];
     for anc in exe_dir.ancestors().take(8) {
-        if anc.join("engine/upstream.json").is_file() && anc.join("apps/launcher").is_dir() {
+        if anc.join("engine/source/VERSION").is_file() && anc.join("apps/launcher").is_dir() {
             candidates.push(anc.join("out").join("engine").join(os));
         }
     }
@@ -140,8 +140,8 @@ mod tests {
         std::fs::create_dir_all(&engine).unwrap();
         std::fs::write(engine.join("bundle.json"), "{}").unwrap();
         assert!(find_engine_from(&exe, None).is_none());
-        std::fs::create_dir_all(root.join("engine")).unwrap();
-        std::fs::write(root.join("engine/upstream.json"), "{}").unwrap();
+        std::fs::create_dir_all(root.join("engine/source")).unwrap();
+        std::fs::write(root.join("engine/source/VERSION"), "0\n").unwrap();
         assert_eq!(find_engine_from(&exe, None), Some(plain(engine.canonicalize().unwrap())));
         let _ = std::fs::remove_dir_all(root);
     }

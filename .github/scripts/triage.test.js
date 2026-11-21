@@ -59,7 +59,7 @@ test('a log file name is not a game file', () => {
 
 test('pull request labels from paths', () => {
   assert.deepStrictEqual(pathLabels([
-    'engine/patches/0024-x.patch', 'apps/launcher/src-tauri/src/game.rs', 'apps/launcher/src/lib/settings/catalog.json',
+    'engine/source/runtime/input.c', 'apps/launcher/src-tauri/src/game.rs', 'apps/launcher/src/lib/settings/catalog.json',
     'packaging/recomplauncher.json', 'docs/SETTINGS.md', '.github/workflows/ci.yml', 'crates/aod-nup/src/lib.rs',
   ]).sort(), ['ci', 'docs', 'engine', 'launcher', 'nup', 'recomplauncher']);
 });

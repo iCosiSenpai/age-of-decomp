@@ -35,43 +35,39 @@ class StageGuardTests(unittest.TestCase):
                     engine.cmd_stage(SimpleNamespace(allow_dirty=False))
             self.assertEqual(sentinel.read_text(), "keep")
 
-    def test_engine_that_differs_from_the_queue_is_refused_before_stage_is_removed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            stage = root / "stage"
-            stage.mkdir()
-            (stage / "keep").write_text("keep")
-            with patch.object(engine, "ENGINE", root), patch.object(engine, "STAGE", stage), \
-                    patch.object(engine, "git", return_value=SimpleNamespace(stdout="")), \
-                    patch.object(engine, "upstream", return_value={"commit": "base"}), \
-                    patch.object(engine, "queue_mismatch", return_value="21 commit(s) on the pin, 20 patch file(s)"):
-                with self.assertRaises(SystemExit):
-                    engine.cmd_stage(SimpleNamespace(allow_dirty=False))
-            self.assertEqual((stage / "keep").read_text(), "keep")
-
     def test_allowed_dirty_engine_is_recorded_in_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            tc, xlate, stage, own = root / "tc", root / "xlate", root / "stage", root / "own"
+            tc, xlate, stage = root / "tc", root / "xlate", root / "stage"
             (tc / "python/bin").mkdir(parents=True)
             (tc / "python/bin/python3").touch()
             xlate.mkdir()
             (xlate / "totk_xlate").touch()
-            own.mkdir()
-            def git(*args):
-                return SimpleNamespace(stdout=" M runtime/a.c\n" if args[0] == "status" else "abc123\n")
             with patch.object(engine, "ENGINE", root), patch.object(engine, "TC", tc), \
                     patch.object(engine, "XLATE_OUT", xlate), patch.object(engine, "XLATE_EXE", "totk_xlate"), \
                     patch.object(engine, "STAGE", stage), patch.object(engine, "WIN", False), \
-                    patch.object(engine, "OWN_SRC", own), patch.object(engine, "queue_mismatch", return_value=""), \
-                    patch.object(engine, "git", side_effect=git), patch.object(engine, "source_files", return_value=[]), \
-                    patch.object(engine, "copy_tree"), patch.object(engine, "run"), \
-                    patch.object(engine, "upstream", return_value={"commit": "base"}):
+                    patch.object(engine, "git", return_value=SimpleNamespace(stdout=" M runtime/a.c\n")), \
+                    patch.object(engine, "source_files", return_value=[]), \
+                    patch.object(engine, "copy_tree"), patch.object(engine, "run"):
                 engine.cmd_stage(SimpleNamespace(allow_dirty=True))
             info = json.loads((stage / "bundle.json").read_text())
             self.assertTrue(info["dirty"])
-            self.assertEqual(info["source_revision"], "abc123")
+            self.assertEqual(info["source_revision"], engine.engine_revision(info["files"]))
             self.assertEqual((stage / "source/VERSION").read_text(encoding="utf-8").strip(), release.version())
+
+    def test_engine_revision_follows_only_what_makes_the_game(self):
+        base = {"source/runtime/a.c": "1", "source/compiler/backend.py": "2", "source/tools/x.py": "3",
+                "source/VERSION": "v1", "source/tests/t.py": "4", "source/README.md": "5", "python/python.exe": "6"}
+        rev = engine.engine_revision(base)
+        self.assertEqual(len(rev), 40)
+        # a release that changes only the version, a test, a notice or the bundled tools keeps the engine's id
+        for path in ("source/VERSION", "source/tests/t.py", "source/README.md", "python/python.exe"):
+            self.assertEqual(engine.engine_revision({**base, path: "changed"}), rev, path)
+        self.assertEqual(engine.engine_revision({**base, "source/tests/new.py": "7"}), rev)
+        # anything that goes into the game changes it
+        for path in ("source/runtime/a.c", "source/compiler/backend.py", "source/tools/x.py"):
+            self.assertNotEqual(engine.engine_revision({**base, path: "changed"}), rev, path)
+        self.assertNotEqual(engine.engine_revision({**base, "source/recomp/new.py": "8"}), rev)
 
 
 class ReleaseGuardTests(unittest.TestCase):

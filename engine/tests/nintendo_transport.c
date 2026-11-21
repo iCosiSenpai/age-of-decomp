@@ -1,7 +1,7 @@
 // Actual SDL mapping, sensor units, packet rejection, pipe delivery and child lifetime.
 #include <assert.h>
 #define AOD_NINTENDO_DLL
-#include "../src/aod/aod_nintendo.c"
+#include "../source/runtime/aod_nintendo.c"
 
 static SDL_Gamepad *await_virtual_gamepad(void) {
     Uint64 deadline = SDL_GetTicks() + 1000;

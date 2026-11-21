@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 /// Engine profile JSON (copy of upstream `config/games/hwaoi-update-196608.json`).
-pub const HWAOI_PROFILE_JSON: &str = include_str!("../../../engine/profile/hwaoi-update-196608.json");
+pub const HWAOI_PROFILE_JSON: &str = include_str!("../../../engine/source/config/games/hwaoi-update-196608.json");
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Inventory {
