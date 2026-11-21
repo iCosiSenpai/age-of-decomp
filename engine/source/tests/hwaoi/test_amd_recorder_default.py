@@ -58,6 +58,11 @@ static int rt_knob(const char *key, const char *fallback) {
     return selected;
 }
 static const char *cfg_get(const char *key) { (void)key; return override; }
+// rec_begin also reads how long the recorder polls before it sleeps (TOTK_REC_SPIN_US): 0 here, the choice of the
+// recorder itself is what is under test.
+static int cfg_int(const char *key) { (void)key; return 0; }
+static uint32_t plat_cpu_usable(void) { return 8; }
+static uint64_t rec_spin_ns;
 static void rt_log(const char *format, ...) { (void)format; }
 static int rt_ab(void) { return 1; }
 typedef struct { int unused; } PlatEvent;
