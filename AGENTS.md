@@ -146,7 +146,9 @@ when the graphics card has the memory, `runtime/resolution.c`); the swapchain ma
 while it was created (`gfx_present.c`); the game window's own icon; Intel's pipeline cache copied only between
 pipeline builds; a fault outside the executable reported with module and frames (exit 71) and a report of every
 thread when frames stop (`TOTK_HANG_SECONDS`, `TOTK_HANG_TEST=<frame>`); a rebuild from a moved NUP that is the same
-copy; other games' save data answered for the data-link bonuses (`linked_saves`); the frame rate overlay under the
+copy; other games' save data answered for the data-link bonuses (`linked_saves`); the account of the profile
+folder's only save taken when `account.uid` is missing or names an account without one (`runtime/save_identity.c`,
+`ov_system.c` `load_uid`); the frame rate overlay under the
 game's corner label; the Controls page's connected devices and the device in use (`runtime/input.c` `input_pads`,
 `runtime/ui/menu.cpp` `devices_rows`); `TOTK_SWAPCHAIN_TEST=1` resizes the window while its swapchain is made, to
 check that case in the log. Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder

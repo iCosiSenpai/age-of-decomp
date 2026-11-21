@@ -26,12 +26,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - name: Check GPU recorder policy and the input focus gate without a game
+      - name: Check GPU recorder policy, the input focus gate and the save's account without a game
         run: |
           sudo apt-get update
           sudo apt-get install -y clang libvulkan-dev
           python3 engine/source/tests/hwaoi/test_amd_recorder_default.py
           python3 engine/source/tests/hwaoi/test_input_focus_gate.py
+          python3 engine/source/tests/hwaoi/test_save_identity.py
       - name: Catalogue layout
         run: python3 tools/catalog_fmt.py --check
 

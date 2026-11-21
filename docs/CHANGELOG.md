@@ -74,6 +74,9 @@ Build the game again once after installing this version. Setup keeps your settin
   press Play there, and nothing is deleted or overwritten. Before, a new game folder started the game from its
   beginning while your save stayed behind in the old one. Thanks to a player on RecompLauncher whose report of a lost
   save on 2026-11-21 led to it.
+- A save folder you copy into the game folder yourself is found too. When the folder has one save and the game's own
+  account has none, the game uses that save: also when you copied `save` without `account.uid`, or started the game
+  there once before copying. The log says so in one line.
 
 ### Stability
 - When the game stops showing new frames for 20 seconds, its log says where every thread is. The game is left as it
