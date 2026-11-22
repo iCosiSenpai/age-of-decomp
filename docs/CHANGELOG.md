@@ -40,6 +40,9 @@ Build the game again once after installing this version. Setup keeps your settin
   Thank you.
 - New from upstream, thanks to @ripps818: AMD FSR 3.1 and FSR 4 upscaling (Alano6678/hwaoi-recomp#25), SMAA edge
   smoothing (#23) and HDR10 output (#24).
+- New: HDR output is in the launcher and in RecompLauncher too (Picture), with its three brightness values. It was
+  only in the game's own menu. It gives an HDR screen an HDR picture, so the desktop's HDR does not dim or wash out
+  the game; HDR has to be on for the screen in Windows.
 - DLSS quality says that a moving character can leave a faint trail in dark places: the game gives DLSS only the
   camera's movement, not each character's. Turn Upscaling off where it bothers you. Thanks to the player on
   RecompLauncher who reported the blur behind Zelda on 2026-11-21 and checked that it goes with DLAA off.
@@ -68,6 +71,8 @@ Build the game again once after installing this version. Setup keeps your settin
   Switch pictures. Where the game draws a whole controller, it stays a Switch controller. Thanks to a player on
   RecompLauncher, who asked for PlayStation buttons and reported on 2026-11-21 that a button moved to Square kept its
   old picture.
+- Buttons shown in the game is in the game menu's Controls page as well, so it can be changed while you play. The
+  Button layout row there no longer says that a button you move keeps its old letter.
 - The Xbox prompts choice of Button layout is gone: in this game it only did what "A on the right" does. A saved Xbox
   prompts setting becomes "A on the right".
 - The launcher confirms with the big A button of a GameCube controller.
@@ -79,6 +84,10 @@ Build the game again once after installing this version. Setup keeps your settin
 - Display, Picture and Performance settings are named and explained in plainer words, and each Performance setting
   says what it really does.
 - F5 starts the game from the keyboard, as the hint bar says.
+- A settings file that names Chinese as zh-CN or zh-TW, as the game also accepts, shows in the launcher as 简体中文 or
+  繁體中文 instead of an unknown value.
+- Game resolution says that Automatic wants a dedicated graphics card, and Italian says Automatico wherever a
+  description names that choice.
 - The game's update is called 1.0.3 everywhere, the name the console shows. It was called 3.0.0, after the number
   the dump carries inside (196608). It is the same update.
 - Setup's check of a .nup that holds the game as its 1.0.3 update alone, with no separate base game inside, says so
@@ -100,6 +109,8 @@ Build the game again once after installing this version. Setup keeps your settin
 - The descriptions of the buttons say what this game does with them where that was checked, and nothing where it was
   not. They used to describe another game.
 - Screen sync and the player rows use the same words as the launcher.
+- HDR interface brightness says what it sets: the white of this menu and of the performance overlay. The game's own
+  HUD belongs to the picture. HDR output names Windows next to Linux for what it needs.
 
 ### Game
 - New: Bonuses for other games' saves (Settings → Game). It tells the game you have Age of Calamity and Tears of the
@@ -145,6 +156,9 @@ Build the game again once after installing this version. Setup keeps your settin
   longer needs `engine.py fetch`.
 - `tools/release.py` refuses an engine bundle staged from uncommitted files or older than the repository's engine,
   `tools/engine.py` stops when a licence text of the bundle is missing, and the RecompLauncher check asks for level 3.
+- Libraries: ruzstd 0.9 and sha2 0.11 in the NUP reader, zip 9, sysinfo 0.40 and libloading 0.9 in the launcher,
+  and the workflows' actions at their current releases (Dependabot's proposals).
+- `tools/smoke_game.py` moves the sticks too (`--stick`), for a scripted check that walks.
 
 ### Still being worked on
 Thank you for these reports too:

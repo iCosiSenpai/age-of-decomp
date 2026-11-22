@@ -8,7 +8,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K | `auto` | yes |
+| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K | `auto` | yes |
 | `fullscreen` | Fullscreen — Fills the screen with a borderless window. F11 switches it while you play. | `0` off, `1` on | `0` |  |
 | `window_size` | Window size — The size of the window when not in fullscreen. | `1280x720` 1280 × 720, `1600x900` 1600 × 900, `1920x1080` 1920 × 1080, `2560x1440` 2560 × 1440 | `1280x720` |  |
 | `fps_limit` | Frame rate — 60 is the game's normal speed. 30 saves power. | `30` 30 FPS, `60` 60 FPS | `60` |  |
@@ -35,6 +35,10 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `color_contrast` | Contrast — Difference between light and dark. | 70 – 150 (step 1) | `100` |  |
 | `color_saturation` | Saturation — Colour strength. | 50 – 200 (step 1) | `100` |  |
 | `color_gamma` | Gamma — Mid-tone brightness. | 0.8 – 1.2 (step 0.01) | `1` |  |
+| `hdr` | HDR output — Gives an HDR screen an HDR picture, so the desktop's HDR does not dim or wash out the game. The game's picture stays the same, without extra range in the highlights. HDR has to be on for the screen in your system's settings. | `0` off, `1` on | `0` | yes |
+| `hdr_peak_nits` | HDR peak brightness — Your screen's peak brightness. | 400 – 10000 (step 50) | `1000` |  |
+| `hdr_game_nits` | HDR picture brightness — How bright white is in the game's picture. | 80 – 500 (step 5) | `203` |  |
+| `hdr_ui_nits` | HDR interface brightness — How bright white is in the settings menu you open with Esc and in the overlay. | 80 – 500 (step 5) | `203` |  |
 
 ## Game
 
@@ -78,7 +82,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `pipe_prebuild` | Prepare shaders at start — Builds the shaders the game used before while it starts, in the background: fewer hitches in play. | `0` off, `1` on | `1` | yes |
 | `xlate_prefetch` | Translate effect shaders early — Translates compute shaders as the game registers them, before an effect first needs them. | `0` off, `1` on | `1` | yes |
 | `replay_async` | Draw on a second thread — Lets the game's own thread run ahead while another one draws. Can raise the frame rate when the processor is the limit, and adds one frame of delay. Experimental. | `0` off, `1` on | `0` | yes |
-| `vk_recorder` | Graphics driver calls on their own thread — A thread of its own hands the drawing commands to the graphics driver: more speed where a scene has many objects. Automatic turns it on, except on Radeon cards with AMD's own driver, where it has ended the game with code 70 for some players. | `auto` Automatic, `0` Off, `1` On | `auto` | yes |
+| `vk_recorder` | Drawing commands on their own thread — The game hands its drawing commands to the graphics driver on a thread of their own: more speed where a scene has many objects. Automatic turns it on, except on Radeon cards with AMD's own driver, where it has ended the game with code 70 for some players. | `auto` Automatic, `0` Off, `1` On | `auto` | yes |
 | `timer_1ms` | Precise timer — Asks Windows for a 1 ms timer, so the game's short waits do not last a whole 15 ms tick. | `0` off, `1` on | `1` | yes |
 | `lazy_heap` | Memory on demand — Windows: takes game memory as it is first used. About 2 GB less is reserved, with more small hitches while loading. Automatic turns it on only when the PC could not give the game all its memory otherwise. | `auto` Automatic, `0` Off, `1` On | `auto` | yes |
 | `small_memory_pools` | Smaller video memory blocks — Takes video memory 128 MB at a time instead of 256: less is held unused. | `0` off, `1` on | `1` | yes |

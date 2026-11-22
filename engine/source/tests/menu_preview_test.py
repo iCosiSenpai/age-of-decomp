@@ -18,9 +18,9 @@ DEFAULT_CC = TOOLCHAIN / "llvm/bin/clang++.exe"
 DEFAULT_DEPS = TOOLCHAIN / "deps" if os.name == "nt" else Path("/usr")
 
 # Rows of the Controls page above the first binding row with the preview's default devices (the keyboard and one
-# Xbox pad): 2 devices, 5 player rows, layout, rumble strength and curve, trigger rumble, dead zone, mouse, and
-# the bindings' player row.
-CONTROLS_TO_BINDS = 14
+# Xbox pad): 2 devices, 5 player rows, layout, the buttons the game shows, rumble strength and curve, trigger
+# rumble, dead zone, mouse, and the bindings' player row.
+CONTROLS_TO_BINDS = 15
 ROW_HOVER = (700, 280)
 CONTINUE = (1660, 968)
 FULLSCREEN_SEGMENT = (1635, 223)

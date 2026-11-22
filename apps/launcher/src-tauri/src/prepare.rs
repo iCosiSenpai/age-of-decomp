@@ -437,14 +437,14 @@ mod early_settings_tests {
         let p = paths_in(&data);
         let ini = paths::game_ini(&game);
         std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
-        std::fs::write(&ini, "fps_limit=30\nvolume=9999\nhdr = 1\n").unwrap();
+        std::fs::write(&ini, "fps_limit=30\nvolume=9999\nlod_guard = 1\n").unwrap();
         stash_early_settings(&p, &game).unwrap();
         assert!(!ini.exists() && !game.join("work").exists(), "the game folder is empty again");
         let pending = crate::ini::Ini::load(&p.pending_ini()).unwrap().values();
         assert_eq!(pending.get("fps_limit").map(String::as_str), Some("30"));
         assert!(!pending.contains_key("volume"), "a value the launcher would refuse for its own setting is left out");
         // A key the runtime reads and the launcher has no row for is the player's own line: it goes along.
-        assert_eq!(pending.get("hdr").map(String::as_str), Some("1"));
+        assert_eq!(pending.get("lod_guard").map(String::as_str), Some("1"));
         // After the build both reach the game's settings file.
         std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
         std::fs::write(&ini, "[display]\noutput_res = auto\n").unwrap();
@@ -452,7 +452,7 @@ mod early_settings_tests {
         crate::settings::merge_pending(&cfg, &p).unwrap();
         let merged = crate::ini::Ini::load(&ini).unwrap().values();
         assert_eq!(merged.get("fps_limit").map(String::as_str), Some("30"));
-        assert_eq!(merged.get("hdr").map(String::as_str), Some("1"));
+        assert_eq!(merged.get("lod_guard").map(String::as_str), Some("1"));
         assert_eq!(merged.get("output_res").map(String::as_str), Some("auto"));
         assert!(!p.pending_ini().exists());
         let _ = std::fs::remove_dir_all(root);

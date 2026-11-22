@@ -14,7 +14,7 @@
     {
       "key": "output_res", "section": "display", "group": "display", "kind": "choice", "restart": true,
       "label": "Game resolution", "default": "auto",
-      "help": "The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads.",
+      "help": "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "1280x720", "label": "720p" },
@@ -202,6 +202,26 @@
       "help": "Mid-tone brightness."
     },
     {
+      "key": "hdr", "section": "display", "group": "picture", "kind": "toggle", "restart": true,
+      "label": "HDR output", "default": "0",
+      "help": "Gives an HDR screen an HDR picture, so the desktop's HDR does not dim or wash out the game. The game's picture stays the same, without extra range in the highlights. HDR has to be on for the screen in your system's settings."
+    },
+    {
+      "key": "hdr_peak_nits", "section": "display", "group": "picture", "kind": "slider",
+      "label": "HDR peak brightness", "default": "1000", "min": 400, "max": 10000, "step": 50, "format": "%.0f", "unit": "nits", "when": { "hdr": "1" },
+      "help": "Your screen's peak brightness."
+    },
+    {
+      "key": "hdr_game_nits", "section": "display", "group": "picture", "kind": "slider",
+      "label": "HDR picture brightness", "default": "203", "min": 80, "max": 500, "step": 5, "format": "%.0f", "unit": "nits", "when": { "hdr": "1" },
+      "help": "How bright white is in the game's picture."
+    },
+    {
+      "key": "hdr_ui_nits", "section": "display", "group": "picture", "kind": "slider",
+      "label": "HDR interface brightness", "default": "203", "min": 80, "max": 500, "step": 5, "format": "%.0f", "unit": "nits", "when": { "hdr": "1" },
+      "help": "How bright white is in the settings menu you open with Esc and in the overlay."
+    },
+    {
       "key": "lang", "section": "language", "group": "game", "kind": "choice", "restart": true,
       "label": "Game language", "default": "",
       "help": "The language of the game's text and voices menu. Automatic follows your system.",
@@ -373,8 +393,8 @@
     },
     {
       "key": "vk_recorder", "section": "performance", "group": "performance", "kind": "choice", "restart": true,
-      "label": "Graphics driver calls on their own thread", "default": "auto",
-      "help": "A thread of its own hands the drawing commands to the graphics driver: more speed where a scene has many objects. Automatic turns it on, except on Radeon cards with AMD's own driver, where it has ended the game with code 70 for some players.",
+      "label": "Drawing commands on their own thread", "default": "auto",
+      "help": "The game hands its drawing commands to the graphics driver on a thread of their own: more speed where a scene has many objects. Automatic turns it on, except on Radeon cards with AMD's own driver, where it has ended the game with code 70 for some players.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "0", "label": "Off" },

@@ -151,6 +151,10 @@ const RETIRED: &[(&str, &[&str], &str)] = &[
     // "Xbox prompts": this game's build has no overlay with Xbox letters, so the value only ever gave the
     // Nintendo button positions.
     ("pad_layout", &["xbox_prompts"], "nintendo"),
+    // The runtime's other two names for Chinese (it reads zh-CN as zh-Hans and zh-TW as zh-Hant, ov_system.c): a
+    // settings file written by hand or by another tool may carry them, and the catalogue has one name for each.
+    ("lang", &["zh-CN"], "zh-Hans"),
+    ("lang", &["zh-TW"], "zh-Hant"),
 ];
 
 /// Before the game starts: rewrite retired values (from an older launcher or RecompLauncher) to their replacement.
@@ -170,7 +174,7 @@ pub fn retire_values(path: &Path) -> Result<(), String> {
 
 /// Carries the values of `from` into `to` (the newer choice wins): a setting of the catalogue when its value is one
 /// the launcher would take, and any other key as it is, because the runtime reads keys the launcher has no row for
-/// (a line the player wrote by hand, like `hdr = 1`). Comments are not carried.
+/// (a line the player wrote by hand, like `lod_guard = 1`). Comments are not carried.
 pub(crate) fn carry(from: &Ini, to: &mut Ini) {
     for (k, v) in from.values() {
         match catalog().iter().find(|s| s.key == k) {
@@ -288,6 +292,20 @@ mod tests {
         retire_values(&path).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "[display]\ntemporal = dlss\n");
         assert!(validate("temporal", "dlaa").is_err() && validate("dlss_quality", "native").is_ok());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn the_runtimes_other_names_for_chinese_become_the_catalogues() {
+        let (root, cfg, paths) = setup("zh");
+        let path = ini_path(&cfg, &paths);
+        std::fs::write(&path, "[language]\nlang = zh-CN\n").unwrap();
+        assert_eq!(read(&cfg, &paths).get("lang").map(String::as_str), Some("zh-Hans"));
+        retire_values(&path).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "[language]\nlang = zh-Hans\n");
+        std::fs::write(&path, "lang = zh-TW\n").unwrap();
+        assert_eq!(read(&cfg, &paths).get("lang").map(String::as_str), Some("zh-Hant"));
+        assert!(validate("lang", "zh-CN").is_err() && validate("lang", "zh-Hant").is_ok());
         let _ = std::fs::remove_dir_all(root);
     }
 

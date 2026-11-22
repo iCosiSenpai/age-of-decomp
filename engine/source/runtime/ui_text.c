@@ -139,11 +139,11 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_GROUP] = "HDR",
     [UI_MENU_HDR] = "HDR output",
     [UI_MENU_HDR_DESC] = "Sends the picture to an HDR10 display. Currently it encodes the SDR picture (no extra highlight "
-                         "range) and needs an HDR-enabled display (Wayland on KDE with HDR on); otherwise the picture "
+                         "range) and needs an HDR-enabled display (HDR on in Windows, or Wayland on KDE with HDR on); otherwise the picture "
                          "stays SDR.",
     [UI_MENU_HDR_PEAK] = "HDR peak brightness", [UI_MENU_HDR_PEAK_DESC] = "The display's peak brightness in nits.",
     [UI_MENU_HDR_GAME] = "HDR picture brightness", [UI_MENU_HDR_GAME_DESC] = "Brightness of white in the game picture, in nits.",
-    [UI_MENU_HDR_UI] = "HDR interface brightness", [UI_MENU_HDR_UI_DESC] = "Brightness of white in the HUD and menus, in nits.",
+    [UI_MENU_HDR_UI] = "HDR interface brightness", [UI_MENU_HDR_UI_DESC] = "Brightness of white in this menu and the performance overlay, in nits.",
     [UI_MENU_FPS_LIMIT] = "Target frame rate",
 #if RT_TARGET_HWAOI
     [UI_MENU_FPS_LIMIT_DESC] = "60 FPS is the game's normal speed. 30 FPS saves power.",
@@ -194,6 +194,13 @@ static const char *const text_en[UI_TEXT_COUNT] = {
                                  "game's files, so a button you remap in Controls keeps the old letter on screen.",
     [UI_MENU_PAD_LAYOUT_AUTO] = "Automatic", [UI_MENU_PAD_LAYOUT_NINTENDO] = "Nintendo (A right)",
     [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox (A bottom)", [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Xbox prompts (A right)",
+    [UI_MENU_BUTTON_PROMPTS] = "Buttons shown in the game",
+    [UI_MENU_BUTTON_PROMPTS_DESC] = "The buttons the game shows in its HUD and hints. Automatic: those of the "
+        "controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. "
+        "Pick a maker when your controller is shown as another one, or Game's own to keep the buttons as the "
+        "game draws them.",
+    [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
+    [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Game's own",
     [UI_MENU_PAD_LAYOUT_IN_USE] = "in use: %s",
     [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "prompt files missing: run the setup again",
     [UI_MENU_PAD_LAYOUT_PROMPTS_RESTART] = "prompts change after restart",
@@ -382,8 +389,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     // Added with the Upscaling, connected devices and controller rows of the menu.
     [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "Which button is A. Nintendo: the right one, as on a Switch. Xbox: the bottom one, as labelled on "
         "an Xbox controller (cross on a PlayStation controller). Automatic picks Nintendo for controllers "
-        "with Nintendo labels and Xbox for the others. The letters the game shows are part of its files, "
-        "so a button you remap in Controls keeps the old letter on screen.",
+        "with Nintendo labels and Xbox for the others.",
 };
 
 static const char *const text_ru[UI_TEXT_COUNT] = {
@@ -483,10 +489,10 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_GROUP] = "HDR",
     [UI_MENU_HDR] = "Вывод HDR",
     [UI_MENU_HDR_DESC] = "Отправляет картинку на HDR10-дисплей. Пока кодируется SDR-картинка (без дополнительного "
-                         "диапазона светов); нужен дисплей с включённым HDR (Wayland в KDE), иначе картинка остаётся SDR.",
+                         "диапазона светов); нужен дисплей с включённым HDR (HDR включён в Windows или Wayland в KDE), иначе картинка остаётся SDR.",
     [UI_MENU_HDR_PEAK] = "Пиковая яркость HDR", [UI_MENU_HDR_PEAK_DESC] = "Пиковая яркость дисплея в нитах.",
     [UI_MENU_HDR_GAME] = "Яркость картинки HDR", [UI_MENU_HDR_GAME_DESC] = "Яркость белого в картинке игры, в нитах.",
-    [UI_MENU_HDR_UI] = "Яркость интерфейса HDR", [UI_MENU_HDR_UI_DESC] = "Яркость белого в HUD и меню, в нитах.",
+    [UI_MENU_HDR_UI] = "Яркость интерфейса HDR", [UI_MENU_HDR_UI_DESC] = "Яркость белого в этом меню и индикаторе производительности, в нитах.",
     [UI_MENU_FPS_LIMIT] = "Ограничение частоты кадров",
 #if RT_TARGET_HWAOI
     [UI_MENU_FPS_LIMIT_DESC] = "60 FPS — обычная скорость игры. 30 FPS экономит энергию.",
@@ -537,6 +543,13 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
                                  "прежняя буква.",
     [UI_MENU_PAD_LAYOUT_AUTO] = "Автоматически", [UI_MENU_PAD_LAYOUT_NINTENDO] = "Nintendo (A справа)",
     [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox (A снизу)", [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Подсказки Xbox (A справа)",
+    [UI_MENU_BUTTON_PROMPTS] = "Кнопки, которые показывает игра",
+    [UI_MENU_BUTTON_PROMPTS_DESC] = "Кнопки, которые игра показывает в HUD и подсказках. Автоматически: кнопки "
+        "контроллера, которым вы играете, с вашими назначениями, и клавиши, когда вы играете с клавиатурой и "
+        "мышью. Выберите производителя, если контроллер показан как другой, или «Как в игре», чтобы оставить "
+        "кнопки такими, какими их рисует игра.",
+    [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
+    [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Как в игре",
     [UI_MENU_PAD_LAYOUT_IN_USE] = "сейчас: %s",
     [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "нет файлов подсказок: запустите установку снова",
     [UI_MENU_PAD_LAYOUT_PROMPTS_RESTART] = "подсказки сменятся после перезапуска",
@@ -715,8 +728,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     // Added with the Upscaling, connected devices and controller rows of the menu.
     [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "Какая кнопка работает как A. Nintendo: правая, как на Switch. Xbox: нижняя, как подписано на "
         "контроллере Xbox (крест на контроллере PlayStation). Автоматически: Nintendo для контроллеров с "
-        "подписями Nintendo, Xbox для остальных. Буквы, которые показывает игра, записаны в её файлах, "
-        "поэтому у кнопки, переназначенной на вкладке управления, на экране остаётся прежняя буква.",
+        "подписями Nintendo, Xbox для остальных.",
     [UI_MENU_OUTPUT_RES_AUTO] = "Автоматически (%u × %u)",
     [UI_MENU_TEMPORAL] = "Апскейлинг",
     [UI_MENU_TEMPORAL_DESC] = "Собирает 3D-картинку из нескольких кадров: края чище, а при желании 3D-сцена рисуется в меньшем "
@@ -857,7 +869,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_GAME] = "HDR 画面亮度",
     [UI_MENU_HDR_GAME_DESC] = "游戏画面中白色的亮度，单位为尼特。",
     [UI_MENU_HDR_UI] = "HDR 界面亮度",
-    [UI_MENU_HDR_UI_DESC] = "HUD 和菜单中白色的亮度，单位为尼特。",
+    [UI_MENU_HDR_UI_DESC] = "此菜单和性能面板中白色的亮度，单位为尼特。",
     [UI_MENU_FPS_LIMIT] = "目标帧率",
 #if RT_TARGET_HWAOI
     [UI_MENU_FPS_LIMIT_DESC] = "90 和 120 FPS 会将游戏速度提高到 1.5 倍和 2 倍，因为游戏每帧推进固定步长。正常速度请选 60 FPS。要让画面更流畅，可以在 60 FPS 基础上使用插帧。",
@@ -903,6 +915,12 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_PAD_LAYOUT_AUTO] = "自动",
     [UI_MENU_PAD_LAYOUT_NINTENDO] = "任天堂（A 在右）",
     [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox（A 在下）",
+    [UI_MENU_BUTTON_PROMPTS] = "游戏中显示的按键",
+    [UI_MENU_BUTTON_PROMPTS_DESC] = "游戏在 HUD 和提示中显示的按键。自动：显示当前所用手柄的按键，并按你的按键绑定显示；使用键盘和鼠标时显示键位。手柄被识别成其他品牌时，可手动选择品牌；选择“游戏原样”则保持游戏原本绘制的按键。",
+    [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox",
+    [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
+    [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch",
+    [UI_MENU_BUTTON_PROMPTS_GAME] = "游戏原样",
     [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Xbox 提示（A 在右）",
     [UI_MENU_PAD_LAYOUT_IN_USE] = "当前使用 %s",
     [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "缺少按键提示文件，请重新运行安装程序",
@@ -1177,7 +1195,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_OV_SCALE_BILINEAR] = "双线性",
     [UI_MENU_OV_UNMEASURED] = "暂无测量数据",
     // Added with the Upscaling, connected devices and controller rows of the menu.
-    [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "任天堂布局的 A 键在右侧，Xbox 布局的 A 键在下方，对应 PlayStation 手柄的叉键。自动会按手柄类型选择。游戏显示的字母属于游戏文件，更改按键绑定后，原有的提示字母会保留。",
+    [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "任天堂布局的 A 键在右侧，Xbox 布局的 A 键在下方，对应 PlayStation 手柄的叉键。自动会按手柄类型选择。",
     [UI_MENU_OUTPUT_RES_AUTO] = "自动（%u × %u）",
     [UI_MENU_TEMPORAL] = "超分辨率",
     [UI_MENU_TEMPORAL_DESC] = "用多帧画面重建 3D 画面：边缘更干净；也可以用较低的 3D 分辨率渲染再放大，换取更高的速度。AMD FSR 适用于大多数显卡。NVIDIA DLSS 需要 RTX 显卡。",
@@ -1369,6 +1387,13 @@ static const char *const text_it[UI_TEXT_COUNT] = {
                                 "pulsante riassegnato in Comandi mantiene la vecchia lettera sullo schermo.",
     [UI_MENU_PAD_LAYOUT_AUTO] = "Automatico", [UI_MENU_PAD_LAYOUT_NINTENDO] = "Nintendo (A a destra)",
     [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox (A in basso)", [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Etichette Xbox (A a destra)",
+    [UI_MENU_BUTTON_PROMPTS] = "Pulsanti mostrati nel gioco",
+    [UI_MENU_BUTTON_PROMPTS_DESC] = "I pulsanti che il gioco mostra nell'HUD e nei suggerimenti. Automatico: quelli "
+        "del controller che stai usando, con le tue assegnazioni, e i tasti quando usi tastiera e mouse. "
+        "Scegli una marca quando il controller viene mostrato come un altro, oppure Originale per lasciare i "
+        "pulsanti come li disegna il gioco.",
+    [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
+    [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Originale",
     [UI_MENU_PAD_LAYOUT_IN_USE] = "in uso: %s",
     [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "file delle etichette mancanti: ripeti la configurazione",
     [UI_MENU_PAD_LAYOUT_PROMPTS_RESTART] = "le etichette cambiano dopo il riavvio",
@@ -1567,9 +1592,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     // Added with the Upscaling, connected devices and controller rows of the menu.
     [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "Quale pulsante è A. Nintendo: quello a destra, come su Switch. Xbox: quello in basso, come "
         "indicato su un controller Xbox (croce su PlayStation). Automatico sceglie Nintendo per i "
-        "controller con etichette Nintendo e Xbox per gli altri. Le lettere che il gioco mostra fanno "
-        "parte dei suoi file: un pulsante riassegnato in Comandi mantiene la vecchia lettera sullo "
-        "schermo.",
+        "controller con etichette Nintendo e Xbox per gli altri.",
     [UI_MENU_OUTPUT_RES_AUTO] = "Automatica (%u × %u)",
     [UI_MENU_SCENE_SHARP] = "Nitidezza propria del gioco (FSR 4)",
     [UI_MENU_SCENE_SHARP_DESC] = "Se la nitidezza propria del gioco resta attiva mentre lavora FSR 4. Automatico la spegne (ci "
@@ -1612,14 +1635,14 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_GROUP] = "HDR",
     [UI_MENU_HDR] = "Uscita HDR",
     [UI_MENU_HDR_DESC] = "Manda l'immagine a uno schermo HDR10. Per ora codifica l'immagine SDR (senza gamma extra per le "
-        "alte luci) e richiede uno schermo con HDR attivo (Wayland su KDE con HDR acceso); altrimenti "
+        "alte luci) e richiede uno schermo con HDR attivo (HDR attivo in Windows, oppure Wayland su KDE con HDR acceso); altrimenti "
         "l'immagine resta SDR.",
     [UI_MENU_HDR_PEAK] = "Luminosità di picco HDR",
     [UI_MENU_HDR_PEAK_DESC] = "La luminosità di picco dello schermo, in nit.",
     [UI_MENU_HDR_GAME] = "Luminosità dell'immagine HDR",
     [UI_MENU_HDR_GAME_DESC] = "Luminosità del bianco nell'immagine del gioco, in nit.",
     [UI_MENU_HDR_UI] = "Luminosità dell'interfaccia HDR",
-    [UI_MENU_HDR_UI_DESC] = "Luminosità del bianco in HUD e menu, in nit.",
+    [UI_MENU_HDR_UI_DESC] = "Luminosità del bianco in questo menu e nell'overlay prestazioni, in nit.",
     [UI_MENU_DEVICES] = "Dispositivi collegati",
     [UI_MENU_DEVICES_NONE] = "Nessun controller collegato. Collegane uno via cavo o Bluetooth: compare qui con le sue opzioni.",
     [UI_MENU_DEVICE_KEYBOARD_DESC] = "La tastiera e il mouse. La tabella qui sotto elenca i tasti di ogni pulsante; il mouse gira la "

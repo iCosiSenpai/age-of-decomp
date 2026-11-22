@@ -152,7 +152,7 @@ copy; other games' save data answered for the data-link bonuses (`linked_saves`)
 folder's only save taken when `account.uid` is missing or names an account without one (`runtime/save_identity.c`,
 `ov_system.c` `load_uid`); the frame rate overlay under the
 game's corner label; the Controls page's connected devices and the device in use (`runtime/input.c` `input_pads`,
-`runtime/ui/menu.cpp` `devices_rows`); the game's own button pictures drawn again for the device in use and its
+`runtime/ui/menu.cpp` `devices_rows`, and its row for `BUTTON_PROMPTS`); the game's own button pictures drawn again for the device in use and its
 bindings (`runtime/hud_prompts.c`: the game's one button-picture texture, known by its SHA-256, is redrawn when
 `vk_texture.c` uploads it and again when the device, a binding or `BUTTON_PROMPTS=auto|xbox|playstation|nintendo|game`
 changes; our own drawings and Roboto Medium only; `tests/hwaoi/test_hud_prompts.py` draws them without the game, and
@@ -309,8 +309,9 @@ for text. Everything reachable with a controller (D-pad/A/B/LB/RB/Start) and the
 - Never leave game-derived files outside gitignored folders. Close the game with its window, not by killing it, so
   logs flush.
 - A start of the built game for a check, without touching a save: `py -I tools/smoke_game.py <name> [--frames N]
-  [--press A@20 ...] [--shot] [KEY=VALUE ...]` (Windows: a window behind the others, a scratch profile, the game
-  closed by its window, the log lines that matter printed; its files go to `work/smoke/<name>`).
+  [--press A@20 ...] [--stick 0,32767@60:3000 ...] [--shot] [KEY=VALUE ...]` (Windows: a window behind the others, a
+  scratch profile, the game closed by its window, the log lines that matter printed; its files go to
+  `work/smoke/<name>`).
 
 ## Writing
 

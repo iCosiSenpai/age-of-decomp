@@ -1027,6 +1027,13 @@ static void tab_controls(float scale) {
         opt_choice("TOTK_PAD_LAYOUT", UI_MENU_PAD_LAYOUT, layout, prompts ? 4 : 3,
                    prompts ? UI_MENU_PAD_LAYOUT_DESC : UI_MENU_PAD_LAYOUT_DESC_PLAIN, pad_layout_note());
     }
+    {   // Whose buttons the game's own pictures show (hud_prompts.c). Also with the keyboard alone: its automatic
+        // choice shows the keys then, and a player may still want a maker's buttons or the game's own.
+        static const UiTextId prompts[] = {UI_MENU_PAD_LAYOUT_AUTO, UI_MENU_BUTTON_PROMPTS_XBOX,
+                                           UI_MENU_BUTTON_PROMPTS_PLAYSTATION, UI_MENU_BUTTON_PROMPTS_SWITCH,
+                                           UI_MENU_BUTTON_PROMPTS_GAME};
+        opt_choice("TOTK_BUTTON_PROMPTS", UI_MENU_BUTTON_PROMPTS, prompts, 5, UI_MENU_BUTTON_PROMPTS_DESC);
+    }
     if (any[FOR_MOTION]) {
         opt_describe_next(used[FOR_MOTION]);
         opt_toggle("TOTK_MOTION", UI_MENU_MOTION, UI_MENU_MOTION_DESC);

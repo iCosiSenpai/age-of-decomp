@@ -1,13 +1,16 @@
 """Start a built game in a background window, wait for a number of presented frames, close it by its window (Windows).
 
   py -I tools/smoke_game.py NAME [--frames N] [--timeout S] [--game DIR] [--profile DIR] [--shot]
-                                 [--press BUTTON[+BUTTON]@SECONDS ...] [KEY=VALUE ...]
+                                 [--press BUTTON[+BUTTON]@SECONDS ...] [--stick LX,LY[,RX,RY]@SECONDS[:MS] ...]
+                                 [KEY=VALUE ...]
 
 For a check of a developer build after an engine change. NAME names the run: its log is
 <game>/logs/game-smoke-NAME.log and its own files go to work/smoke/NAME (gitignored: a screenshot is a picture of the
 game). KEY=VALUE are runtime settings of this run only (HWAOI_KEY). --profile: the save folder to use; the default is
 a new scratch one, so no save of a player is touched (give a COPY of a save folder to start from a save). --press
-A@40 presses A 40 seconds after the start through the engine's expiring input feed (no OS key presses); --shot keeps
+A@40 presses A 40 seconds after the start through the engine's expiring input feed (no OS key presses); --stick
+0,32767@60:3000 holds the left stick up for three seconds from second 60 (axes -32767..32767, at most 10 s; a press
+at the same moment replaces it: one command is held at a time); --shot keeps
 the latest frame as a PNG. Prints the exit code and the log lines that matter. The game is never killed: it is closed
 by its window, so its log is complete. The environment is the launcher's (apps/launcher/src-tauri/src/game.rs).
 """
@@ -30,6 +33,7 @@ parser.add_argument("--timeout", type=int, default=240)
 parser.add_argument("--game", type=Path, default=ROOT / "work" / "game")
 parser.add_argument("--profile", type=Path)
 parser.add_argument("--press", action="append", default=[])
+parser.add_argument("--stick", action="append", default=[])
 parser.add_argument("--shot", action="store_true", help="keep the latest present as a PNG in the run folder")
 parser.add_argument("settings", nargs="*")
 a = parser.parse_args()
@@ -72,7 +76,20 @@ log_path = out / "logs" / f"game-smoke-{a.name}.log"
 log = open(log_path, "wb")
 p = subprocess.Popen([str(binary / "hwaoi.exe"), "--play-experimental"], cwd=binary, env=env, stdin=subprocess.DEVNULL,
                      stdout=log, stderr=subprocess.STDOUT, creationflags=0x08000000 | 0x00000200)
-presses = sorted((float(s.split("@")[1]), s.split("@")[0]) for s in a.press)
+# (seconds, button mask, four axes, milliseconds held)
+presses = []
+for s in a.press:
+    names, at = s.split("@")
+    mask = 0
+    for b in names.split("+"):
+        mask |= BUTTONS[b]
+    presses.append((float(at), mask, (0, 0, 0, 0), 150))
+for s in a.stick:
+    axes, at = s.split("@")
+    at, _, ms = at.partition(":")
+    axes = [int(v) for v in axes.split(",")]
+    presses.append((float(at), 0, tuple(axes + [0] * (4 - len(axes))), int(ms or 1000)))
+presses.sort()
 start = time.time()
 seq = 0
 frames = 0
@@ -80,11 +97,9 @@ while time.time() - start < a.timeout and p.poll() is None:
     time.sleep(1)
     while presses and time.time() - start >= presses[0][0]:
         seq += 1
-        mask = 0
-        for b in presses.pop(0)[1].split("+"):
-            mask |= BUTTONS[b]
+        _, mask, axes, ms = presses.pop(0)
         tmp = feed.with_name(f"feed.{os.getpid()}.tmp")
-        tmp.write_text(f"{seq} {mask:x} 0 0 0 0 150 0 0 0\n", encoding="ascii")
+        tmp.write_text(f"{seq} {mask:x} {axes[0]} {axes[1]} {axes[2]} {axes[3]} {ms} 0 0 0\n", encoding="ascii")
         os.replace(tmp, feed)
     text = log_path.read_bytes().decode("utf-8", "replace")
     found = re.findall(r"present=(\d+)", text)
