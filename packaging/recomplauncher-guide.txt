@@ -1,5 +1,5 @@
-44a3fa08875dabc12430e876b320c13b7f74d9bb
-# The RecompLauncher commit (github.com/elripalda/RecompLauncher, main with 0.90.0-beta.66) whose developer guide,
-# manifest schema and setup inputs page Age of Decomp was last checked against (2026-11-20). .github/workflows/
-# recomplauncher.yml opens an issue when any of them changes after it; put the newest commit id on the first line once
-# it is checked.
+48ead11eafcc5b1d8d4f3b1594b0735cb16669d2
+# The RecompLauncher commit (github.com/elripalda/RecompLauncher, main after 0.90.0-beta.67, 2026-11-21) whose
+# developer guide, manifest schema and setup inputs page Age of Decomp was last checked against (2026-11-22, with
+# tools/recomplauncher_check.py on the 0.1.3 release folder: level 3). .github/workflows/recomplauncher.yml opens an
+# issue when any of them changes after it; put the newest commit id on the first line once it is checked.
