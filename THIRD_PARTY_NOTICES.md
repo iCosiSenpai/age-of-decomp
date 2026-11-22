@@ -30,7 +30,7 @@ in `licenses/` of a release and in the engine bundle's `source/THIRD_PARTY_NOTIC
 | [NUP format](https://github.com/a55uka/nup) by a55uka | Container spec read by `crates/aod-nup` (own implementation) | MIT |
 | [AppImage type 2 runtime](https://github.com/AppImage/type2-runtime) | Start-up code of the Linux AppImage | MIT |
 | [Cinzel](https://github.com/NDISCOVER/Cinzel), [Inter](https://github.com/rsms/inter) (unmodified variable fonts from [google/fonts](https://github.com/google/fonts)) | Launcher fonts; embedded in the in-game menu too | SIL OFL 1.1 |
-| [Roboto](https://fonts.google.com/specimen/Roboto) Medium | Font file in the engine's source (the in-game menu's font before the redesign) | Apache-2.0 |
+| [Roboto](https://fonts.google.com/specimen/Roboto) Medium | Font file in the engine's source, built into the game for the letters of the button pictures the engine draws (it was the in-game menu's font before the redesign) | Apache-2.0 |
 | Launcher navigation, i18n pattern and engine-pin workflow | Adapted from the maintainer's own [Deluxe8](https://github.com/iCosiSenpai/Deluxe8) (`b6f2594`) | GPL-3.0-or-later |
 
 How each reuse was checked (files, commits, method): `docs/CODE_PROVENANCE.md`.

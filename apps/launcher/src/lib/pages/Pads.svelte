@@ -9,7 +9,7 @@
   import Icon from '../components/Icon.svelte';
   import SettingRow from '../components/SettingRow.svelte';
   import { buttonImage, padFamily } from '../controller-glyphs';
-  import { actionLabel, bindings, keyLabel, owners, padButtonName, padKind, padLayout, padTitle, padValue, type Action, type PadButton } from '../controls';
+  import { actionLabel, bindings, gamePictures, keyLabel, owners, padButtonName, padKind, padLayout, padTitle, padValue, type Action, type PadButton } from '../controls';
   import type { Pad, PadState } from '../types';
 
   // The device the panel shows: the keyboard and mouse, or a pad by its id. It opens on the device in use; when the
@@ -49,9 +49,10 @@
   onDestroy(() => timer && clearInterval(timer));
 
   // The catalogue's Controls settings, each where it applies: a controller's own (only the ones it has the hardware
-  // for), the keyboard and mouse's, and the rest (who plays with what) for every device.
-  const PAD_KEYS = ['pad_layout', 'stick_deadzone', 'motion', 'rumble_strength', 'rumble_curve', 'rumble_triggers'];
-  const KEYBOARD_KEYS = ['mouse_sens'];
+  // for), the keyboard and mouse's, and the rest (who plays with what) for every device. A setting that applies to
+  // both a controller and the keyboard is in both lists.
+  const PAD_KEYS = ['pad_layout', 'button_prompts', 'stick_deadzone', 'motion', 'rumble_strength', 'rumble_curve', 'rumble_triggers'];
+  const KEYBOARD_KEYS = ['button_prompts', 'mouse_sens'];
   const controls = catalog.settings.filter((s) => s.group === 'controls');
   function has(p: Pad, key: string): boolean {
     if (key === 'motion') return p.has_gyro && p.has_accel;
@@ -59,12 +60,20 @@
     if (key === 'rumble_triggers') return p.has_trigger_rumble;
     return true;
   }
+  function ofDevice(key: string): boolean {
+    return PAD_KEYS.includes(key) || KEYBOARD_KEYS.includes(key);
+  }
+  // Whether a device's setting is for the device shown.
+  function applies(key: string): boolean {
+    return pad ? PAD_KEYS.includes(key) && has(pad, key) : KEYBOARD_KEYS.includes(key);
+  }
   let shown = $derived(controls.filter((s) => !s.advanced || app.showAdvanced));
-  let playerRows = $derived(shown.filter((s) => !PAD_KEYS.includes(s.key) && !KEYBOARD_KEYS.includes(s.key)));
-  let optionRows = $derived(shown.filter((s) => (pad ? PAD_KEYS.includes(s.key) && has(pad, s.key) : KEYBOARD_KEYS.includes(s.key))));
+  let playerRows = $derived(shown.filter((s) => !ofDevice(s.key)));
+  let optionRows = $derived(shown.filter((s) => applies(s.key)));
   // The advanced settings "Show n advanced options" would add for the device shown.
-  let hidden = $derived(app.showAdvanced ? 0 : controls.filter((s) => s.advanced &&
-    (PAD_KEYS.includes(s.key) ? !!pad && has(pad, s.key) : KEYBOARD_KEYS.includes(s.key) ? !pad : true)).length);
+  let hidden = $derived(app.showAdvanced ? 0 : controls.filter((s) => s.advanced && (!ofDevice(s.key) || applies(s.key))).length);
+  // Whose buttons the game's own pictures show (button_prompts).
+  let pictures = $derived(gamePictures(app.settings));
   // A back button has no game button until the player gives it one in the game's menu.
   let paddleBound = $derived([...binds.pad.values()].some((list) => list.some((b) => b.includes('paddle'))));
 
@@ -208,10 +217,18 @@
       <div class="card">
         <h3>{tr('Buttons')}</h3>
         <p class="help">
-          {#if pad}
+          {#if pad && pictures === 'game'}
             {tr('The game shows the buttons of a Switch controller. This is where each one is on this controller.')}
-          {:else}
+          {:else if pad && pictures === 'device'}
+            {tr('The game is made for a Switch controller. This is where each of its buttons is on this controller, and the game shows them this way.')}
+          {:else if pad}
+            {tr('The game is made for a Switch controller. This is where each of its buttons is on this controller.')}
+          {:else if pictures === 'game'}
             {tr('The game shows the buttons of a Switch controller. These are the keys for each one.')}
+          {:else if pictures === 'device'}
+            {tr('The game is made for a Switch controller. These are the keys for each of its buttons, and the game shows them this way.')}
+          {:else}
+            {tr('The game is made for a Switch controller. These are the keys for each of its buttons.')}
           {/if}
           {(pad ? binds.customPad : binds.customKeys) ? tr('Changed in the game’s menu.') : tr('These are the defaults.')}
           {tr('To change them, open the menu in the game: Controls.')}

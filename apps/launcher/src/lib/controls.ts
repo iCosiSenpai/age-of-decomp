@@ -1,7 +1,8 @@
 // What the game's input layer does with the connected devices and the saved settings, mirrored from the engine so the
 // Controls page shows what the game will do, not a guess: runtime/input.c (assign: who plays with what; the layout of
-// a pad from the label on its right button) and runtime/input_map.c (the default keys and buttons, and the bind_
-// lines the game menu's remapping writes). Change both sides together.
+// a pad from the label on its right button), runtime/input_map.c (the default keys and buttons, and the bind_
+// lines the game menu's remapping writes) and runtime/hud_prompts.c (whose buttons the game's own pictures show).
+// Change both sides together.
 
 import { tr } from './i18n.svelte';
 import type { Pad, SettingValues } from './types';
@@ -75,6 +76,15 @@ export function owners(pads: Pad[], settings: SettingValues): Owners {
 /** Which face button is the game's A: `nintendo` the right one (B bottom, Y left, X top), `xbox` the bottom one
  *  (B right, X left, Y top). */
 export type Layout = 'nintendo' | 'xbox';
+
+/** runtime/hud_prompts.c plan_make (button_prompts): whose buttons the game's own pictures show. `device`: the
+ *  device in use, its bindings and the keys; `maker`: one maker's buttons whatever the controller is, and the game's own
+ *  without a controller; `game`: always the game's own Switch buttons. Any other value is Automatic, as in the game. */
+export function gamePictures(settings: SettingValues): 'device' | 'maker' | 'game' {
+  const setting = (settings.button_prompts || 'auto').toLowerCase();
+  if (setting === 'game') return 'game';
+  return setting === 'xbox' || setting === 'playstation' || setting === 'nintendo' ? 'maker' : 'device';
+}
 
 /** runtime/input_map.c input_pad_layout_pick: Automatic is `nintendo` on a pad whose right button is marked A. */
 export function padLayout(pad: Pad, settings: SettingValues): Layout {

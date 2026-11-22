@@ -36,7 +36,7 @@ static const char *const known[] = {
     "BIND_LSTICK_RIGHT", "BIND_LSTICK_UP", "BIND_MENU", "BIND_MINUS",
     "BIND_PLUS", "BIND_R", "BIND_RCLICK", "BIND_RIGHT", "BIND_RSTICK_DOWN", "BIND_RSTICK_LEFT", "BIND_RSTICK_RIGHT", "BIND_RSTICK_UP",
     "BIND_SKIP", "BIND_STATS", "BIND_UP", "BIND_X", "BIND_Y",
-    "BIND_ZL", "BIND_ZR", "BINDS_PLAYER", "BLOCK_VIEWS_3D", "CLOTH_REALTIME", "COLOR_BRIGHTNESS", "COLOR_CONTRAST", "COLOR_GAMMA", "COLOR_PRESET", "COLOR_SATURATION", "CORE_DIAG", "CRIT", "CRIT_OUT", "DESC_TEMPLATE", "DEVICE_PROFILE", "DUMP", "DUMP_BUF", "DUMP_DIR", "DUMP_LOG",
+    "BIND_ZL", "BIND_ZR", "BINDS_PLAYER", "BLOCK_VIEWS_3D", "BUTTON_PROMPTS", "CLOTH_REALTIME", "COLOR_BRIGHTNESS", "COLOR_CONTRAST", "COLOR_GAMMA", "COLOR_PRESET", "COLOR_SATURATION", "CORE_DIAG", "CRIT", "CRIT_OUT", "DESC_TEMPLATE", "DEVICE_PROFILE", "DUMP", "DUMP_BUF", "DUMP_DIR", "DUMP_LOG",
     "EXEFS", "EXPERIMENTAL_GEOMETRY", "FEEDBACK", "FIX_C0", "FIX_INDIRECT_RESET", "FIX_VS_FAULT", "FIX_ZERO", "FLIGHT", "FLIGHT_AT", "FLIGHT_DIR", "FLIGHT_FRAMES", "FLIGHT_SPIKE_MS",
     "HDR", "HDR_GAME_NITS", "HDR_PEAK_NITS", "HDR_UI_NITS",
     "FLIGHT_THUMBS", "FOV", "FOV_PATCH", "FPS60", "FPS_LIMIT", "FREEZE_IDLE", "FREE_CORES", "FULLSCREEN", "GPL", "GPL_DRAW_BUILD", "GPU",
@@ -81,7 +81,7 @@ static const struct { const char *key, *section; } sections[] = {
     {"VOLUME", "audio"}, {"MUTE_UNFOCUSED", "audio"}, {"AUDIO_LATENCY", "audio"},
     {"MOTION", "input"}, {"RUMBLE_STRENGTH", "input"}, {"RUMBLE_CURVE", "input"}, {"RUMBLE_TRIGGERS", "input"},
     {"P2_BIND_A", "input"}, {"P2_BIND_B", "input"}, {"P2_BIND_X", "input"}, {"P2_BIND_Y", "input"}, {"P2_BIND_LCLICK", "input"}, {"P2_BIND_RCLICK", "input"}, {"P2_BIND_L", "input"}, {"P2_BIND_R", "input"}, {"P2_BIND_ZL", "input"}, {"P2_BIND_ZR", "input"}, {"P2_BIND_PLUS", "input"}, {"P2_BIND_MINUS", "input"}, {"P2_BIND_LEFT", "input"}, {"P2_BIND_UP", "input"}, {"P2_BIND_RIGHT", "input"}, {"P2_BIND_DOWN", "input"}, {"P2_BIND_LSTICK_LEFT", "input"}, {"P2_BIND_LSTICK_UP", "input"}, {"P2_BIND_LSTICK_RIGHT", "input"}, {"P2_BIND_LSTICK_DOWN", "input"}, {"P2_BIND_RSTICK_LEFT", "input"}, {"P2_BIND_RSTICK_UP", "input"}, {"P2_BIND_RSTICK_RIGHT", "input"}, {"P2_BIND_RSTICK_DOWN", "input"}, {"P2_BIND_MENU", "input"},
-    {"BINDS_PLAYER", "input"}, {"PAD_LAYOUT", "input"}, {"PLAYER1_DEVICE", "input"}, {"PLAYER1_TYPE", "input"}, {"PLAYER2_DEVICE", "input"},
+    {"BINDS_PLAYER", "input"}, {"PAD_LAYOUT", "input"}, {"BUTTON_PROMPTS", "input"}, {"PLAYER1_DEVICE", "input"}, {"PLAYER1_TYPE", "input"}, {"PLAYER2_DEVICE", "input"},
     {"PLAYER2_TYPE", "input"}, {"STICK_DEADZONE", "input"}, {"MOUSE_SENS", "input"}, {"INPUT_RECORD", "input"},
     {"BIND_A", "input"}, {"BIND_B", "input"}, {"BIND_X", "input"}, {"BIND_Y", "input"}, {"BIND_LCLICK", "input"},
     {"BIND_RCLICK", "input"}, {"BIND_L", "input"}, {"BIND_R", "input"}, {"BIND_ZL", "input"}, {"BIND_ZR", "input"},
@@ -163,6 +163,8 @@ static const CfgMeta metas[] = {
     {"AUDIO_LATENCY", "low", "low|normal|high", RESTART},
     {"MOTION", "1", "0|1", LIVE}, {"RUMBLE_STRENGTH", "130", "0..300", LIVE}, {"RUMBLE_CURVE", "0.6", "0.2..1.5", LIVE},
     {"RUMBLE_TRIGGERS", "0", "0|1", LIVE}, {"PAD_LAYOUT", "auto", "auto|nintendo|xbox|xbox_prompts", LIVE},
+    // The game's own button pictures (hud_prompts.c): the device in use, one maker's gamepad, or as the game draws them
+    {"BUTTON_PROMPTS", "auto", "auto|xbox|playstation|nintendo|game", LIVE},
     // Players (input.c assign): auto | keyboard | none | pad:<SDL GUID>:<n>; controller type pro (Pro Controller) | dual (Joy-Con pair)
     {"PLAYER1_DEVICE", "auto", NULL, LIVE}, {"PLAYER1_TYPE", "pro", "pro|dual", LIVE},
     {"PLAYER2_DEVICE", "auto", NULL, LIVE}, {"PLAYER2_TYPE", "pro", "pro|dual", LIVE},

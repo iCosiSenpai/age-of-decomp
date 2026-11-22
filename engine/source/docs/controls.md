@@ -15,6 +15,8 @@ Input comes from the first SDL3 gamepad, the keyboard and the mouse, merged into
 
 The log names the layout in effect (`input: gamepad layout ...`); the menu shows it under *Automatic*. With `nintendo`, `xbox` and `auto` the game's button prompts stay Switch letters; `xbox_prompts` changes them.
 
+In Age of Decomp (Hyrule Warriors: Age of Imprisonment) the game's button pictures follow the device in use instead: `TOTK_BUTTON_PROMPTS` (`button_prompts` = `auto`, `xbox`, `playstation`, `nintendo` or `game`, live). `runtime/hud_prompts.c` draws the buttons the player presses into the game's button-picture texture as it is uploaded (`runtime/vk_texture.c` `upload`), for the gamepad used last with its bindings or for the keyboard and mouse; the log says `prompts: the game's button pictures are for ... now`. The repository's `docs/CONTROLLERS.md` has the rules.
+
 | Switch | Gamepad (by position, Nintendo layout) | Keyboard and mouse | Action in the world |
 |---|---|---|---|
 | Left stick | left stick | W A S D | move |

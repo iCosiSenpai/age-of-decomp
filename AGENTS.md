@@ -150,8 +150,13 @@ copy; other games' save data answered for the data-link bonuses (`linked_saves`)
 folder's only save taken when `account.uid` is missing or names an account without one (`runtime/save_identity.c`,
 `ov_system.c` `load_uid`); the frame rate overlay under the
 game's corner label; the Controls page's connected devices and the device in use (`runtime/input.c` `input_pads`,
-`runtime/ui/menu.cpp` `devices_rows`); `TOTK_SWAPCHAIN_TEST=1` resizes the window while its swapchain is made, to
-check that case in the log. Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder
+`runtime/ui/menu.cpp` `devices_rows`); the game's own button pictures drawn again for the device in use and its
+bindings (`runtime/hud_prompts.c`: the game's one button-picture texture, known by its SHA-256, is redrawn when
+`vk_texture.c` uploads it and again when the device, a binding or `BUTTON_PROMPTS=auto|xbox|playstation|nintendo|game`
+changes; our own drawings and Roboto Medium only; `tests/hwaoi/test_hud_prompts.py` draws them without the game, and
+`TOTK_TEST_PAD=0,0,0,0` gives a real start a gamepad; the rules are in `docs/CONTROLLERS.md`); `TOTK_DUMP_TEX` writes
+a block-compressed texture's own bytes as `..._blocks.bin`; `TOTK_SWAPCHAIN_TEST=1` resizes the window while its
+swapchain is made, to check that case in the log. Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder
 default) and #22 to #26 (@ripps818: 1440p/4K layout, SMAA, HDR10, FSR 3.1/4, Linux client).
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
@@ -200,7 +205,8 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
   the bundle's `source_revision`: it plays, a rebuild is offered) and `nup_present`. Home shows each with its action;
   the state is read again when the window gets the focus.
 - Input rules the launcher shows are mirrored in `src/lib/controls.ts` from `runtime/input.c` (assign, pad_value,
-  the layout from the label on the right button) and `runtime/input_map.c` (default keys and buttons, bind_ lines):
+  the layout from the label on the right button), `runtime/input_map.c` (default keys and buttons, bind_ lines) and
+  `runtime/hud_prompts.c` (`gamePictures`: whose buttons the game's own pictures show for a `button_prompts` value):
   change both sides together. Pad values count pads of one GUID from 0.
 
 ## RecompLauncher contract

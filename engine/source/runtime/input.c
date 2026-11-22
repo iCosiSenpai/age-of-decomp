@@ -880,6 +880,14 @@ int input_pad_read(uint64_t *buttons, int32_t *lx, int32_t *ly) {
 }
 
 // ---- the connected devices, for the menu
+static int pad_family(const Pad *p) {
+    return p->type == SDL_GAMEPAD_TYPE_XBOX360 || p->type == SDL_GAMEPAD_TYPE_XBOXONE ? PAD_FAMILY_XBOX
+         : p->type == SDL_GAMEPAD_TYPE_PS3 || p->type == SDL_GAMEPAD_TYPE_PS4 || p->type == SDL_GAMEPAD_TYPE_PS5
+               ? PAD_FAMILY_PLAYSTATION
+         : p->type >= SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO || p->switch2 || p->east_a ? PAD_FAMILY_NINTENDO
+                                                                                      : PAD_FAMILY_GENERIC;
+}
+
 static void pad_info(int i, InputPadInfo *o) {
     const Pad *p = &pads[i];
     memset(o, 0, sizeof *o);
@@ -889,11 +897,7 @@ static void pad_info(int i, InputPadInfo *o) {
     if (same > 1) snprintf(o->name, sizeof o->name, "%s #%d", p->name, k + 1);
     else snprintf(o->name, sizeof o->name, "%s", p->name);
     o->type = p->type, o->switch2 = p->switch2;
-    o->family = p->type == SDL_GAMEPAD_TYPE_XBOX360 || p->type == SDL_GAMEPAD_TYPE_XBOXONE ? PAD_FAMILY_XBOX
-              : p->type == SDL_GAMEPAD_TYPE_PS3 || p->type == SDL_GAMEPAD_TYPE_PS4 || p->type == SDL_GAMEPAD_TYPE_PS5
-                    ? PAD_FAMILY_PLAYSTATION
-              : p->type >= SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO || p->switch2 || p->east_a ? PAD_FAMILY_NINTENDO
-                                                                                           : PAD_FAMILY_GENERIC;
+    o->family = pad_family(p);
     o->player = pad_owner[i];
     SDL_JoystickConnectionState c = SDL_GetGamepadConnectionState(p->g);
     o->wired = c == SDL_JOYSTICK_CONNECTION_WIRED ? 1 : c == SDL_JOYSTICK_CONNECTION_WIRELESS ? 0 : -1;
@@ -953,6 +957,38 @@ int input_pad_identify(int index) {
 }
 
 int input_keyboard_active(void) { return (int)plat_cas32(&kb_active, 0, 0); }
+
+void input_prompt_state(InputPromptState *o) {
+    memset(o, 0, sizeof *o);
+    o->keyboard = 1;
+    o->layout = -1;
+    plat_mutex_lock(&lock);
+    if (state > 0) {   // never the call that starts the input: this runs on the graphics threads
+        binds_refresh();
+        int pad = -1;
+        if (state == 1) {
+            pads_tick();
+            assign();
+            shown_update();
+            pad = shown_pad;
+        }
+        if (pad >= 0 && pad < npads) {
+            o->keyboard = kb_active != 0;
+            o->family = pad_family(&pads[pad]);
+            o->layout = pad_layout_get(&pads[pad]);
+            for (int k = 0; k < 4; k++) o->labels[k] = pads[pad].labels[k];
+        }
+        const InputMap *pm = input_map_player(pad >= 0 && pad < npads && pad_owner[pad] > 0 ? pad_owner[pad] : 0);
+        const InputMap *km = input_map_player(kb_owner > 0 ? kb_owner : 0);
+        for (int a = 0; a < 24; a++) {
+            uint8_t pads_of[INPUT_PAD_BINDING_MAX], keys_of[INPUT_BINDING_MAX];
+            if (a < 16 && o->layout >= 0 && input_map_pads_of(pm, a, o->layout, pads_of, INPUT_PAD_BINDING_MAX))
+                o->pad[a] = pads_of[0];
+            if (input_map_keys_of(km, a, keys_of, INPUT_BINDING_MAX)) o->key[a] = keys_of[0];
+        }
+    }
+    plat_mutex_unlock(&lock);
+}
 
 // Any thread (the window's): not under lock, a torn read only moves the hint by one event.
 void input_note_keyboard(void) {

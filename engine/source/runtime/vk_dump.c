@@ -19,7 +19,8 @@
 // PNGs are opaque (alpha dropped). Integer formats are scaled by the image maximum, depth by its min..max range, SNORM
 // as x/2+1/2, UNORM and sRGB bytes written as stored. Caps: MAX_PASSES passes copied, PNG_CAP bytes of PNGs.
 // TOTK_DUMP_TEX=<id>|<w>x<h>[,...]: those texture slots, or 2D textures of that size, are copied where first sampled,
-// whatever their format.
+// whatever their format. A block-compressed one is written as ..._blocks.png (one texel per block, scaled) and as
+// ..._blocks.bin, the blocks' own bytes in row order.
 // TOTK_DUMP_UBO=1: each listed pipeline also prints the first 16 vec4 of its user uniform blocks (c3 and up), read from
 // guest memory when the entry is listed. A block the submission rewrites with UpdateUniformBuffer shows its value from
 // before the submission (vk_exec_draw.c upd_note).
@@ -226,6 +227,12 @@ static uint8_t u8(float x) { return x > 0 ? x < 1 ? (uint8_t)(x * 255.f + .5f) :
 static void write_images(const Job *j) {
     uint32_t pw = j->w * j->d, ph = j->h;
     uint64_t n = (uint64_t)pw * ph;
+    if (strstr(j->name, "_blocks")) {   // the PNG scales the blocks' words to 8 bits: their bytes, for a tool to decode
+        char path[600];
+        snprintf(path, sizeof path, "%s/%s.bin", dir, j->name);
+        FILE *f = fopen(path, "wb");
+        if (f) fwrite(j->map, j->f->bytes, n, f), fclose(f);
+    }
     float *px = malloc(n * 16);
     uint8_t *out = malloc(n * 4), *nanm = calloc(n, 1);
     if (!px || !out || !nanm) rt_fatal("vk_dump: out of memory for %s", j->name);

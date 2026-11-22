@@ -62,6 +62,18 @@ int input_pad_identify(int index);
 // input_note_keyboard: the window saw a key or the mouse (the menu's own events, which never pass the game's poll).
 int input_keyboard_active(void);
 void input_note_keyboard(void);
+// What the game's own button pictures should show (hud_prompts.c): the device used last, as the menu's hints follow
+// it, and for each Switch button (input_map.h B_A..B_DOWN, the bit numbers) the first input bound to it; the keys also
+// for the stick directions (B_SL_LEFT..B_SR_DOWN). Any thread; before the input has started it answers as with the
+// keyboard alone.
+typedef struct {
+    int keyboard;             // the keyboard or the mouse was used after every gamepad, or no gamepad is connected
+    int family;               // PAD_FAMILY_* of the gamepad used last, else player 1's
+    int layout;               // its PAD_LAYOUT_* in effect, -1 without a gamepad
+    int labels[4];            // its south, east, west, north labels (PAD_LABEL_*), PAD_LABEL_NONE when not known
+    uint8_t pad[16], key[24]; // input_map.h PAD_* and KEY_* ids; 0 (PAD_NONE, KEY_NONE): nothing bound
+} InputPromptState;
+void input_prompt_state(InputPromptState *out);
 // The menu's remapping rows (Controls tab). input_map_snapshot copies the tables in effect (after any changed TOTK_BIND_* line).
 // input_capture polls the keys, the mouse buttons and the gamepad for a press: reset 1 takes what is held now as the
 // start (a held key counts once released and pressed again) and returns NONE; then it returns KEY or PAD with *id the

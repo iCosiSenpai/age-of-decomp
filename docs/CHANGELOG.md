@@ -46,8 +46,16 @@ Build the game again once after installing this version. Setup keeps your settin
   controllers have, and its hints follow the device in use too.
 - A controller chosen for a player in the launcher is the one the game uses. The launcher counted controllers of the
   same model from 1 and the game from 0, so with two of them the choice could land on the other one or on none.
-- The Xbox prompts choice of Button layout is gone: this game has no button pictures with Xbox letters, so it only did
-  what "A on the right" does. A saved Xbox prompts setting becomes "A on the right".
+- New: the buttons the game shows are the ones you press. The pictures in the game's hints, tutorials and HUD follow
+  the controller you are using: A, B, X and Y where your controller has them, LB and RT on an Xbox controller, cross,
+  circle, square and triangle with L1 and R2 on a PlayStation controller, and the keys and the mouse when you play
+  with the keyboard. A button you move in the game menu's Controls page shows where it is now, at once. Buttons shown
+  in the game (Controls) can also show one maker's buttons whatever the controller says it is, or keep the game's own
+  Switch pictures. Where the game draws a whole controller, it stays a Switch controller. Thanks to a player on
+  RecompLauncher, who asked for PlayStation buttons and reported on 2026-11-21 that a button moved to Square kept its
+  old picture.
+- The Xbox prompts choice of Button layout is gone: in this game it only did what "A on the right" does. A saved Xbox
+  prompts setting becomes "A on the right".
 - The launcher confirms with the big A button of a GameCube controller.
 
 ### Launcher

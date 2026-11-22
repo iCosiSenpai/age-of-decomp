@@ -1087,6 +1087,47 @@
       }
     },
     {
+      "id": "button_prompts",
+      "label": "Buttons shown in the game",
+      "help": "The buttons the game shows in its HUD and hints. Automatic: those of the controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. Pick a maker when your controller is shown as another one, or Game's own to leave the game's pictures as they are.",
+      "group": "Controls",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "button_prompts": "auto"
+          }
+        },
+        {
+          "label": "Xbox",
+          "set": {
+            "button_prompts": "xbox"
+          }
+        },
+        {
+          "label": "PlayStation",
+          "set": {
+            "button_prompts": "playstation"
+          }
+        },
+        {
+          "label": "Switch",
+          "set": {
+            "button_prompts": "nintendo"
+          }
+        },
+        {
+          "label": "Game's own",
+          "set": {
+            "button_prompts": "game"
+          }
+        }
+      ],
+      "defaults": {
+        "button_prompts": "auto"
+      }
+    },
+    {
       "id": "stick_deadzone",
       "label": "Stick dead zone",
       "help": "Raise it if the camera or the character moves on its own.",
