@@ -86,7 +86,7 @@ pub fn set_choice(paths: &Paths, enabled: bool) -> Result<(), String> {
 }
 
 fn process_start(pid: u32) -> Option<u64> {
-    let mut system = sysinfo::System::new();
+    let mut system = sysinfo::System::new().ok()?;
     let pid = sysinfo::Pid::from_u32(pid);
     system.refresh_processes_specifics(sysinfo::ProcessesToUpdate::Some(&[pid]), true,
         sysinfo::ProcessRefreshKind::nothing());

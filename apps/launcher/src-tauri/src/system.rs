@@ -93,10 +93,16 @@ fn vulkan() -> (Option<String>, Vec<Gpu>) {
 }
 
 pub fn system_info() -> SystemInfo {
-    let mut sys = sysinfo::System::new();
-    sys.refresh_memory();
-    sys.refresh_cpu_all();
-    let cpu = sys.cpus().first().map(|c| c.brand().trim().to_string()).unwrap_or_default();
+    // A system the library cannot read (it says so since 0.40) shows no processor name and no memory size: the page
+    // then has nothing to say about them, and nothing else depends on the two.
+    let (cpu, ram) = match sysinfo::System::new() {
+        Ok(mut sys) => {
+            sys.refresh_memory();
+            sys.refresh_cpu_all();
+            (sys.cpus().first().map(|c| c.brand().trim().to_string()).unwrap_or_default(), sys.total_memory())
+        }
+        Err(_) => (String::new(), 0),
+    };
     let (vulkan, gpus) = vulkan();
     SystemInfo {
         os: format!(
@@ -109,14 +115,15 @@ pub fn system_info() -> SystemInfo {
         cpu,
         threads: std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
         avx2: avx2(),
-        ram_gb: sys.total_memory() as f64 / (1u64 << 30) as f64,
+        ram_gb: ram as f64 / (1u64 << 30) as f64,
         gpus,
         vulkan,
     }
 }
 
 pub fn disk_info(path: &Path) -> DiskInfo {
-    let disks = sysinfo::Disks::new_with_refreshed_list();
+    // No list (the library says when it cannot read the disks, since 0.40) is like a folder on no known disk: 0 GB.
+    let disks = sysinfo::Disks::new_with_refreshed_list().ok();
     let mut probe = path.to_path_buf();
     while !probe.exists() {
         match probe.parent() {
@@ -126,8 +133,8 @@ pub fn disk_info(path: &Path) -> DiskInfo {
     }
     let probe = probe.canonicalize().unwrap_or(probe);
     let best = disks
-        .list()
         .iter()
+        .flat_map(|list| list.iter())
         .filter(|d| on_disk(&probe, d.mount_point()))
         .max_by_key(|d| d.mount_point().as_os_str().len());
     let gb = |b: u64| b as f64 / (1u64 << 30) as f64;

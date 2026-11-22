@@ -150,8 +150,9 @@ fn extract(zip_path: &Path, dest: &Path, tag: &str) -> Result<(), String> {
         let rel = parts.as_path();
         if rel.as_os_str().is_empty() { continue; }
         let top = rel.components().next().and_then(|c| c.as_os_str().to_str()).ok_or("Invalid update path")?;
-        if !OWNED.contains(&top) || file.name().contains([':', '\\'])
-            || file.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000) {
+        // A name the archive library cannot read as text is refused like one with a drive or a backslash in it.
+        let plain_name = file.name().is_ok_and(|n| !n.contains([':', '\\']));
+        if !OWNED.contains(&top) || !plain_name || file.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000) {
             return Err("Unexpected file in update archive".into());
         }
         total = total.checked_add(file.size()).ok_or("Update archive too large")?;
