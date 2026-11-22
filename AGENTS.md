@@ -252,8 +252,13 @@ Validate before every release with RecompLauncher's own Developer-tab checks, no
 `tools/recomplauncher_check.rs`, target `.cache/rlt`; Windows needs VS C++ tools). Expected: level 3, 0 errors; the
 only warnings are "no copy set up yet" and "saves isn't there yet" on an unbuilt folder and, with beta 68's code,
 `Ignored: "prepare.version"`. RecompLauncher writes
-`hwaoi.ini` as soon as a setting changes, even before setup: `prepare.rs stash_early_settings` moves such a lone file
-into the pending settings so the engine still gets an empty folder, and `settings::merge_pending` restores it.
+`hwaoi.ini` as soon as a setting changes, even before setup, and puts a backup or the cloud's saves into
+`{install}/game/work/saves` before the first build too (a reinstall, another PC): the engine only builds into an
+empty folder, so `prepare.rs set_aside_early_files` moves the settings into the pending settings
+(`settings::merge_pending` restores them) and the saves and logs into `{install}/game.kept`, and
+`put_back_kept_files` moves them back when the build is over, however it ends, and again before a Play. Any other
+file in an unbuilt game folder stops the setup with its name (exit 4). An update in place keeps the built folder
+(RecompLauncher's unpack leaves what is not a release's file), which the engine then builds again where it is.
 The developer hub's "Launcher features" shows 4 of 6 for this manifest, on purpose. "Checks the player's copy" counts
 only `game.dumps` (known dumps by size + CRC32) or `game.check.ids` (`profile_covers` in RecompLauncher's `lib.rs`,
 still so in beta 68: an input's `check` is not counted): it needs the deprecated `game` section and a list of good

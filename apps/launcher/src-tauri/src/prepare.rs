@@ -153,55 +153,179 @@ fn overall(stage: u32, sub: f64) -> f64 {
     (before + WEIGHTS[i] * sub).clamp(0.0, 0.999)
 }
 
-/// Settings written before the first build — RecompLauncher edits `hwaoi.ini` as soon as the player changes a setting
-/// on the game's page, which creates the file in a game folder that does not exist yet. The engine only builds into an
-/// empty folder, so when that file is the only thing there it moves into the pending settings (merged back by
-/// `settings::merge_pending` after the build) and its now-empty folders go. Anything else in the folder is left alone,
-/// and the engine refuses it as before.
-pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(), String> {
-    if output.join("hwaoi-compiler.json").is_file() {
-        return Ok(()); // an engine build folder: updates are the engine's business
+/// The folder next to a game folder where its saves and logs wait while the engine builds: `<game folder>.kept`, on
+/// the same disk, so they are moved there and never copied.
+pub fn kept_dir(output: &Path) -> PathBuf {
+    let mut name = output.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+    name.push(".kept");
+    output.with_file_name(name)
+}
+
+/// What may be in a game folder before its first build and is the player's, not a build's: settings (RecompLauncher
+/// writes `hwaoi.ini` as soon as a setting changes on the game's page), saves (RecompLauncher puts a backup or the
+/// cloud's saves into the folder its manifest names, also before the setup has run) and logs (a Play that stopped
+/// before there was a game). The engine only builds into an empty folder and never overwrites what it finds, so these
+/// are put aside before it runs: the settings go into the pending settings (merged back by `settings::merge_pending`
+/// after the build), the saves and logs into `kept_dir` (put back by `put_back_kept_files`), and the folders they
+/// leave empty go. Anything else in the folder, and any link, stops the setup here with its name and nothing moved.
+pub fn set_aside_early_files(paths: &Paths, output: &Path) -> Result<(), String> {
+    if output.join("hwaoi-compiler.json").is_file() || !output.is_dir() || output.parent().is_none() {
+        return Ok(()); // an engine build folder (updates are the engine's business), or nothing there yet
     }
+    let io = |e: std::io::Error| e.to_string();
     let ini = paths::game_ini(output);
-    // Links (symlinks, junctions) are never followed: the file read and then deleted must really be inside the folder.
-    let Ok(inside) = ini.strip_prefix(output) else { return Ok(()) };
-    let mut at = output.to_path_buf();
-    for part in inside.components() {
-        at.push(part);
-        if std::fs::symlink_metadata(&at).is_ok_and(|m| m.file_type().is_symlink()) {
-            return Ok(());
-        }
-    }
-    let Some(early) = crate::settings::existing_ini(&ini)? else { return Ok(()) };
+    let saves = output.join("work").join("saves");
+    let logs = paths::game_logs_dir(output);
+    let (mut early_ini, mut has_saves, mut has_logs) = (false, false, false);
     let mut others = Vec::new();
     let mut stack = vec![output.to_path_buf()];
     while let Some(d) = stack.pop() {
-        for e in std::fs::read_dir(&d).map_err(|e| e.to_string())? {
-            let e = e.map_err(|e| e.to_string())?;
-            let kind = e.file_type().map_err(|e| e.to_string())?;
+        for e in fs::read_dir(&d).map_err(io)? {
+            let e = e.map_err(io)?;
+            let kind = e.file_type().map_err(io)?;
             let p = e.path();
-            if kind.is_dir() && !kind.is_symlink() {
-                stack.push(p);
-            } else if p != ini || kind.is_symlink() {
-                others.push(p); // a link counts as something else in the folder and is left alone
+            if kind.is_symlink() {
+                others.push(p); // a link is the player's own arrangement: never followed, never moved
+            } else if kind.is_dir() {
+                if p == saves {
+                    has_saves = true; // the whole folder is the player's: it moves as it is
+                } else if p == logs {
+                    has_logs = true;
+                } else {
+                    stack.push(p);
+                }
+            } else if p == ini {
+                early_ini = true;
+            } else if !(d == output && e.file_name() == ".hwaoi-compiler.lock") {
+                others.push(p); // the lock is the engine's own, which it allows in an empty folder
             }
         }
     }
     if !others.is_empty() {
-        return Ok(());
+        others.sort();
+        let names: Vec<String> =
+            others.iter().take(3).map(|p| p.strip_prefix(output).unwrap_or(p).display().to_string()).collect();
+        return Err(format!(
+            "The game folder {} has files that are not from a build ({}{}). Move them somewhere else, then run the \
+             setup again: the game is only built into an empty folder.",
+            output.display(),
+            names.join(", "),
+            if others.len() > 3 { ", ..." } else { "" }
+        ));
     }
-    let mut pending = crate::settings::load_ini(&paths.pending_ini())?;
-    crate::settings::carry(&early, &mut pending); // the newer choice wins; a key without a row here goes along
-    pending.save(&paths.pending_ini()).map_err(|e| e.to_string())?;
-    std::fs::remove_file(&ini).map_err(|e| e.to_string())?;
-    let mut dir = ini.parent().map(std::path::Path::to_path_buf);
-    while let Some(d) = dir {
-        if d == output || std::fs::remove_dir(&d).is_err() {
-            break; // stops at the game folder itself, or at the first folder that is not empty
+    // Both settings files are read before anything moves: an unreadable one stops here with everything in its place.
+    let early = if early_ini { crate::settings::existing_ini(&ini)? } else { None };
+    let mut pending = match early {
+        Some(_) => Some(crate::settings::load_ini(&paths.pending_ini())?),
+        None => None,
+    };
+    if has_saves || has_logs {
+        let kept = kept_dir(output);
+        fs::create_dir_all(&kept).map_err(io)?;
+        for (from, name) in [(&saves, "saves"), (&logs, "logs")] {
+            if !from.is_dir() {
+                continue;
+            }
+            let to = kept.join(name);
+            if to.exists() {
+                // What a setup that never ended put aside: it stays under a name of its own, never overwritten.
+                let older = kept.join(format!("{name}-{}-{}", paths::stamp(), std::process::id()));
+                fs::rename(&to, older).map_err(io)?;
+            }
+            fs::rename(from, &to).map_err(io)?;
         }
-        dir = d.parent().map(std::path::Path::to_path_buf);
+        eprintln!(
+            "Age of Decomp: the game folder had saves or logs before its first build; they wait in {} and go back \
+             when the build is over",
+            kept.display()
+        );
     }
+    if let (Some(early), Some(pending)) = (early, pending.as_mut()) {
+        crate::settings::carry(&early, pending); // the newer choice wins; a key without a row here goes along
+        pending.save(&paths.pending_ini()).map_err(|e| e.to_string())?;
+        fs::remove_file(&ini).map_err(io)?;
+    }
+    prune_empty_dirs(output, output);
     Ok(())
+}
+
+/// Removes the folders below `root` that hold nothing; `root` itself stays.
+fn prune_empty_dirs(dir: &Path, root: &Path) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for e in entries.flatten() {
+            if e.file_type().is_ok_and(|t| t.is_dir() && !t.is_symlink()) {
+                prune_empty_dirs(&e.path(), root);
+            }
+        }
+    }
+    if dir != root {
+        let _ = fs::remove_dir(dir); // fails on a folder that is not empty: then it stays
+    }
+}
+
+/// Whether a folder holds a file anywhere below it (a missing folder holds none).
+fn holds_files(dir: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else { return false };
+    entries.flatten().any(|e| match e.file_type() {
+        Ok(t) if t.is_dir() && !t.is_symlink() => holds_files(&e.path()),
+        _ => true,
+    })
+}
+
+/// Puts back what `set_aside_early_files` put aside: after the engine has run, however that ended, and before the
+/// game starts (a setup that was killed leaves them waiting). Saves go back only into a folder that holds none: one
+/// that has saves of its own keeps them, and the ones put aside stay where they wait. Logs go back file by file.
+/// Returns what to tell the player.
+pub fn put_back_kept_files(output: &Path) -> Vec<String> {
+    let kept = kept_dir(output);
+    if !kept.is_dir() {
+        return Vec::new();
+    }
+    let mut told = Vec::new();
+    let (from, to) = (kept.join("saves"), output.join("work").join("saves"));
+    if from.is_dir() {
+        if holds_files(&to) {
+            told.push(format!(
+                "the saves that were in the game folder before its first build stay in {}: the folder has saves of \
+                 its own now",
+                from.display()
+            ));
+        } else {
+            let _ = fs::remove_dir_all(&to); // empty folders only: `holds_files` said so
+            let moved = to.parent().map_or(Ok(()), fs::create_dir_all).and_then(|_| fs::rename(&from, &to));
+            told.push(match moved {
+                Ok(()) => format!("the saves that were in the game folder before its first build are back in {}", to.display()),
+                Err(e) => format!("the saves put aside for the build could not go back ({e}): they are in {}", from.display()),
+            });
+        }
+    }
+    let (from, to) = (kept.join("logs"), paths::game_logs_dir(output));
+    if from.is_dir() {
+        if !to.exists() && fs::rename(&from, &to).is_ok() {
+            // back as it was
+        } else if fs::create_dir_all(&to).is_ok() {
+            for e in fs::read_dir(&from).into_iter().flatten().flatten() {
+                let target = to.join(e.file_name());
+                if !target.exists() {
+                    let _ = fs::rename(e.path(), target); // a name that is there already stays behind
+                }
+            }
+            let _ = fs::remove_dir(&from);
+        }
+    }
+    let _ = fs::remove_dir(&kept); // only when nothing waits in it any more
+    told
+}
+
+/// Puts the saves and logs back when `run` is over, on every way out of it.
+struct PutBack<'a>(&'a Path);
+
+impl Drop for PutBack<'_> {
+    fn drop(&mut self) {
+        for line in put_back_kept_files(self.0) {
+            eprintln!("Age of Decomp: {line}");
+        }
+    }
 }
 
 /// Runs the build and calls `sink` with progress, log lines and the final result. Blocking.
@@ -224,7 +348,8 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
         _ => {}
     }
-    stash_early_settings(paths, &job.output)?;
+    set_aside_early_files(paths, &job.output)?;
+    let _put_back = PutBack(&job.output);
     std::fs::create_dir_all(paths.logs()).map_err(|e| e.to_string())?;
     let log_path = paths.logs().join(format!("prepare-{}.log", paths::stamp()));
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).map_err(|e| e.to_string())?));
@@ -438,7 +563,7 @@ mod early_settings_tests {
         let ini = paths::game_ini(&game);
         std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
         std::fs::write(&ini, "fps_limit=30\nvolume=9999\nlod_guard = 1\n").unwrap();
-        stash_early_settings(&p, &game).unwrap();
+        set_aside_early_files(&p, &game).unwrap();
         assert!(!ini.exists() && !game.join("work").exists(), "the game folder is empty again");
         let pending = crate::ini::Ini::load(&p.pending_ini()).unwrap().values();
         assert_eq!(pending.get("fps_limit").map(String::as_str), Some("30"));
@@ -467,8 +592,106 @@ mod early_settings_tests {
         std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
         std::fs::write(&ini, "fps_limit=30\n").unwrap();
         std::fs::write(game.join("notes.txt"), "player file").unwrap();
-        stash_early_settings(&p, &game).unwrap();
-        assert!(ini.exists() && game.join("notes.txt").exists());
+        std::fs::create_dir_all(paths::saves_dir(&game)).unwrap();
+        std::fs::write(paths::saves_dir(&game).join("account.uid"), "0123456789abcdef").unwrap();
+        // A file that is nobody's we know stops the setup with its name, and nothing has moved.
+        let refused = set_aside_early_files(&p, &game).unwrap_err();
+        assert!(refused.contains("notes.txt") && refused.contains("not from a build"), "{refused}");
+        assert!(ini.exists() && game.join("notes.txt").exists() && paths::saves_dir(&game).join("account.uid").exists());
+        assert!(!kept_dir(&game).exists() && !p.pending_ini().exists());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A game folder as RecompLauncher can leave it before the first build: the cloud's saves, a log and a setting.
+    fn early_folder(game: &std::path::Path) -> (PathBuf, PathBuf, PathBuf) {
+        let ini = paths::game_ini(game);
+        let save = paths::saves_dir(game).join("save").join("ed7e40e4").join("DATA.BIN");
+        let log = paths::game_logs_dir(game).join("launch-1.log");
+        for (file, text) in [(&ini, "fps_limit=30\n"), (&save, "a save"), (&log, "not built yet")] {
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, text).unwrap();
+        }
+        std::fs::write(paths::saves_dir(game).join("account.uid"), "0123456789abcdef").unwrap();
+        std::fs::create_dir_all(paths::saves_dir(game).join("cache")).unwrap();
+        (ini, save, log)
+    }
+
+    #[test]
+    fn saves_and_logs_wait_beside_the_folder_and_come_back() {
+        let root = temp("early-saves");
+        let (data, game) = (root.join("data"), root.join("game"));
+        let p = paths_in(&data);
+        let (ini, save, log) = early_folder(&game);
+        set_aside_early_files(&p, &game).unwrap();
+        assert!(game.is_dir() && std::fs::read_dir(&game).unwrap().next().is_none(), "the engine gets an empty folder");
+        let kept = kept_dir(&game);
+        assert_eq!(kept, root.join("game.kept"));
+        assert_eq!(std::fs::read_to_string(kept.join("saves/hwaoi196608/save/ed7e40e4/DATA.BIN")).unwrap(), "a save");
+        assert!(kept.join("saves/hwaoi196608/cache").is_dir() && kept.join("logs/launch-1.log").is_file());
+        assert!(p.pending_ini().is_file() && !ini.exists());
+        // The engine builds: its marker and its own folders are there when the saves come back.
+        std::fs::create_dir_all(game.join("work/build")).unwrap();
+        std::fs::write(game.join("hwaoi-compiler.json"), "{}").unwrap();
+        let told = put_back_kept_files(&game);
+        assert!(told.len() == 1 && told[0].contains("are back in"), "{told:?}");
+        assert_eq!(std::fs::read_to_string(&save).unwrap(), "a save");
+        assert!(paths::saves_dir(&game).join("account.uid").is_file() && paths::saves_dir(&game).join("cache").is_dir());
+        assert_eq!(std::fs::read_to_string(&log).unwrap(), "not built yet");
+        assert!(!kept.exists(), "nothing waits any more");
+        assert!(put_back_kept_files(&game).is_empty());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn a_setup_that_was_killed_loses_no_save() {
+        let root = temp("early-killed");
+        let (data, game) = (root.join("data"), root.join("game"));
+        let p = paths_in(&data);
+        let (_, save, _) = early_folder(&game);
+        set_aside_early_files(&p, &game).unwrap(); // ... and the setup is killed here: nothing is put back
+        // The next setup finds the folder empty and builds; RecompLauncher has put the saves there again meanwhile.
+        std::fs::create_dir_all(save.parent().unwrap()).unwrap();
+        std::fs::write(&save, "a newer save").unwrap();
+        set_aside_early_files(&p, &game).unwrap();
+        let kept = kept_dir(&game);
+        let older: Vec<_> = std::fs::read_dir(&kept).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with("saves-")).collect();
+        assert_eq!(older.len(), 1, "the first set stays under a name of its own");
+        assert_eq!(std::fs::read_to_string(kept.join(&older[0]).join("hwaoi196608/save/ed7e40e4/DATA.BIN")).unwrap(), "a save");
+        put_back_kept_files(&game);
+        assert_eq!(std::fs::read_to_string(&save).unwrap(), "a newer save");
+        assert!(kept.join(&older[0]).is_dir(), "and is never deleted");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn saves_put_aside_never_replace_saves_that_are_there() {
+        let root = temp("early-other-save");
+        let (data, game) = (root.join("data"), root.join("game"));
+        let p = paths_in(&data);
+        let (_, save, log) = early_folder(&game);
+        set_aside_early_files(&p, &game).unwrap();
+        std::fs::create_dir_all(save.parent().unwrap()).unwrap();
+        std::fs::write(&save, "played since").unwrap();
+        std::fs::create_dir_all(log.parent().unwrap()).unwrap();
+        std::fs::write(log.with_file_name("game-2.log"), "a start").unwrap();
+        let told = put_back_kept_files(&game);
+        assert!(told.len() == 1 && told[0].contains("stay in"), "{told:?}");
+        assert_eq!(std::fs::read_to_string(&save).unwrap(), "played since");
+        assert_eq!(std::fs::read_to_string(kept_dir(&game).join("saves/hwaoi196608/save/ed7e40e4/DATA.BIN")).unwrap(), "a save");
+        assert!(log.is_file() && log.with_file_name("game-2.log").is_file(), "the logs are together again");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn a_folder_the_engine_built_is_left_to_the_engine() {
+        let root = temp("early-built");
+        let (data, game) = (root.join("data"), root.join("game"));
+        let p = paths_in(&data);
+        let (ini, save, log) = early_folder(&game);
+        std::fs::write(game.join("hwaoi-compiler.json"), "{}").unwrap();
+        set_aside_early_files(&p, &game).unwrap();
+        assert!(ini.is_file() && save.is_file() && log.is_file() && !kept_dir(&game).exists());
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -505,14 +728,14 @@ mod early_settings_tests {
             return; // no directory links on this system
         }
         assert!(ini.is_file(), "the link resolves");
-        stash_early_settings(&p, &game).unwrap();
+        assert!(set_aside_early_files(&p, &game).is_err());
         assert!(outside.join(inside).is_file() && !p.pending_ini().exists());
         // A link anywhere else in the folder is something the player put there: also left alone.
         unlink_dir(&game.join("work"));
         std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
         std::fs::write(&ini, "fps_limit=30\n").unwrap();
         assert!(dir_link(&outside, &game.join("extra")));
-        stash_early_settings(&p, &game).unwrap();
+        assert!(set_aside_early_files(&p, &game).is_err());
         assert!(ini.is_file() && outside.join(inside).is_file() && !p.pending_ini().exists());
         unlink_dir(&game.join("extra"));
         let _ = std::fs::remove_dir_all(root);
@@ -528,12 +751,12 @@ mod early_settings_tests {
         std::fs::create_dir_all(&data).unwrap();
         std::fs::write(&ini, b"\xff").unwrap();
         std::fs::write(p.pending_ini(), "volume=100\n").unwrap();
-        assert!(stash_early_settings(&p, &game).is_err());
+        assert!(set_aside_early_files(&p, &game).is_err());
         assert_eq!(std::fs::read(&ini).unwrap(), b"\xff");
         assert_eq!(std::fs::read_to_string(p.pending_ini()).unwrap(), "volume=100\n");
         std::fs::write(&ini, "volume=150\n").unwrap();
         std::fs::write(p.pending_ini(), b"\xff").unwrap();
-        assert!(stash_early_settings(&p, &game).is_err());
+        assert!(set_aside_early_files(&p, &game).is_err());
         assert_eq!(std::fs::read_to_string(&ini).unwrap(), "volume=150\n");
         assert_eq!(std::fs::read(p.pending_ini()).unwrap(), b"\xff");
         let _ = std::fs::remove_dir_all(root);

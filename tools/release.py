@@ -134,7 +134,7 @@ def manifest() -> dict:
         },
         # `new`: the engine's own first hwaoi.ini (compiler/backend.py), used if RecompLauncher has to create the file
         # (a setting changed before setup): aod-cli prepare moves such an early file aside and merges it back after
-        # the build (prepare.rs stash_early_settings), because the engine only builds into an empty folder.
+        # the build (prepare.rs set_aside_early_files), because the engine only builds into an empty folder.
         "config": [{"id": "main", "format": "ini", "file": [{"path": INI}],
                     "new": {"output_res": "auto", "render_scale": "100", "fps_limit": "60"}}],
         "settings": settings,

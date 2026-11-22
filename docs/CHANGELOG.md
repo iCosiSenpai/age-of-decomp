@@ -10,6 +10,10 @@ Build the game again once after installing this version. Setup keeps your settin
 ### RecompLauncher
 - Checked with RecompLauncher 0.90 beta 68 as well as beta 67. From beta 68 on, RecompLauncher runs the setup again by
   itself after every Age of Decomp update: when the game needs no new build, that takes about ten seconds.
+- Setup no longer stops with code 4, "Output folder is not empty", when the game's folder holds saves before its first
+  build, as RecompLauncher's cloud saves or a restored backup can put them there. Setup puts saves and logs aside for
+  the build and back when it is over; a file it does not know stops it with that file's name. An update in place was
+  never affected: the built game stays in its folder and is built again there.
 
 ### Picture
 - Above 1080p the game's menus, map and movies fill the picture instead of sitting small in the middle. Thanks to a

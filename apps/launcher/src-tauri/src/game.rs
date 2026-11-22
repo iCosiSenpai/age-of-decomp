@@ -109,6 +109,10 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
     if !translator.is_file() {
         return Err(LaunchError::NotBuilt("The shader translator is missing: open Setup and continue the build".into()));
     }
+    // Saves and logs put aside for a first build that was killed before it could put them back (prepare.rs).
+    for line in crate::prepare::put_back_kept_files(&output) {
+        eprintln!("Age of Decomp: {line}");
+    }
     let logs = paths::game_logs_dir(&output);
     std::fs::create_dir_all(&logs).map_err(|e| LaunchError::Other(e.to_string()))?;
     let saves = paths::saves_dir(&output);
