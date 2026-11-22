@@ -34,7 +34,7 @@
 
 > [!IMPORTANT]
 > **Bring your own game.** Age of Decomp contains nothing from Nintendo or Koei Tecmo and never downloads game files,
-> keys or firmware. You need your own dump of the game as a **`.nup` file with the base game and update 3.0.0
+> keys or firmware. You need your own dump of the game as a **`.nup` file with the base game and update 1.0.3
 > (NCM 196608)**. The game is built **on your PC**; the result is for your own use and must not be shared.
 
 > [!TIP]

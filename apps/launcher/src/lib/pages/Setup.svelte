@@ -107,7 +107,7 @@
       case 'title':
         return tr('Game');
       case 'version':
-        return tr('Update 3.0.0');
+        return tr('Update 1.0.3');
       case 'base':
         return tr('Base game');
       case 'exefs':
@@ -154,7 +154,7 @@
       <h2>{tr('Welcome')}</h2>
       <p class="lead">{tr('Age of Decomp turns your own copy of Hyrule Warriors: Age of Imprisonment into a native PC game. Nothing from the game is included: it is built here, from your file, and stays on this PC.')}</p>
       <ul class="facts">
-        <li><Icon name="file" size={18} /> {tr('You need your game as a .nup file with update 3.0.0 (NCM 196608), dumped from your own console.')}</li>
+        <li><Icon name="file" size={18} /> {tr('You need your game as a .nup file with update 1.0.3 (NCM 196608), dumped from your own console.')}</li>
         <li><Icon name="disk" size={18} /> {tr('About {gb} GB free on the drive you choose; about 10 minutes on a fast PC.', { gb: NEED_GB })}</li>
         <li><Icon name="bolt" size={18} /> {tr('Your game file is only read, never changed. Keep it where it is: the game reads from it.')}</li>
       </ul>
@@ -174,7 +174,7 @@
       </div>
     {:else if step === 1}
       <h2>{tr('Your game file')}</h2>
-      <p class="lead">{tr('Choose the .nup file of your dump. One file with the base game and update 3.0.0 is best; a separate update file works too.')}</p>
+      <p class="lead">{tr('Choose the .nup file of your dump. One file with the base game and update 1.0.3 is best; a separate update file works too.')}</p>
       <div class="filebox" class:set={!!nup}>
         <Icon name="file" size={22} />
         <span class="path mono">{nup ?? tr('No file chosen')}</span>
@@ -227,7 +227,7 @@
         {#if report.ok}
           <div class="result ok"><Icon name="check" size={20} /> {tr('Everything matches. Build ID {id}.', { id: (report.build_id ?? '').slice(0, 16) })}</div>
         {:else}
-          <div class="result bad"><Icon name="warn" size={20} /> {tr('This file cannot be used as it is. The game needs the base game and update 3.0.0 (NCM 196608).')}</div>
+          <div class="result bad"><Icon name="warn" size={20} /> {tr('This file cannot be used as it is. The game needs the base game and update 1.0.3 (NCM 196608).')}</div>
         {/if}
       {/if}
       <div class="actions">

@@ -7,13 +7,12 @@ so RecompLauncher's team must enable its beta before catalog installation is ava
 
 1. In RecompLauncher choose **Add a Recomp** and paste `https://github.com/iCosiSenpai/age-of-decomp`.
 2. Once the team enables the preview/beta release, install its Windows x64 ZIP. Until then, use the local-folder method below.
-3. Supply your own NUP containing the base game and update 3.0.0 (NCM 196608).
+3. Supply your own NUP containing the base game and update 1.0.3 (NCM 196608).
 4. Complete Easy Setup, then press Play. The game continues reading resources from that NUP.
 
 Alternatively extract the ZIP and import the folder through **Settings → Developers → Add a build**.
 The `recomplauncher.json` embedded in the release belongs beside `AgeOfDecomp.exe` and `aod-cli.exe`.
-The profile exposes 46 settings, preparation, direct Play, save paths and log folders. Setup version 4 asks
-existing installations to rebuild for the new engine runtime.
+The profile exposes the settings of `docs/SETTINGS.md`, the setup step, direct Play, save paths and log folders.
 
 ## Catalog submission
 
@@ -35,14 +34,29 @@ saves exist yet. It must otherwise report level 3 and zero errors.
 
 The expected commands are `aod-cli.exe cli prepare --game <nup> --out <install>/game` and
 `AgeOfDecomp.exe --play --game-dir <install>/game --game=<nup>`. The profile asks for the player's NUP as the named
-input `nup` (`{input:nup}`), not as a `game` section: RecompLauncher's Easy Setup (0.90 beta 65 and 66) refuses a
-profile that has both a `game` section and named inputs when the copy is chosen in its own window ("That copy didn't
-work: Choose your copy of the game first"). Named inputs get no content check from RecompLauncher, so the setup step
-checks the build first and stops with exit 3 and the reason, which RecompLauncher shows as the setup's error. The game
+input `nup` (`{input:nup}`): named inputs are RecompLauncher's one way to ask for a file from 0.90 beta 68 on, and its
+top-level `game` section is deprecated there (beta 65 and 66 refused a `game` section next to named inputs: "That
+copy didn't work: Choose your copy of the game first"). The setup step checks the file itself first (modules and
+resource inventory) and stops with exit 3 and the reason, which RecompLauncher shows as the setup's error. The game
 reads the player's NUP while it plays, so `start` passes it too. `--game` may point to the copy's new place; it must be
-the copy of the build (same header, TOC and size), and the game then reads it there.
-Exit 64 means the build is absent/incomplete; exit 65 means the player's NUP is missing or is another file. Updates
-preserve player settings and saves. Rebuild through Setup when the profile's preparation version changes.
+the copy of the build (same header, TOC and size), and the game then reads it there. Exit 64 means the build is
+absent/incomplete; exit 65 means the player's NUP is missing or is another file. Updates preserve player settings and
+saves.
+
+RecompLauncher 0.90 beta 68 changed the format. The profile stays in the form that beta 67 and beta 68 both read until
+beta 68 is what players have:
+
+- `prepare.timeout` and `prepare.version` stay. Beta 67 and older stop a step without `timeout` after five minutes
+  and use `version` to ask for a new build. Beta 68 reads past both: its step has no time limit and runs again by
+  itself after every new release. Its schema refuses the two keys, so the daily check in
+  `.github/workflows/recomplauncher.yml` validates the file without them.
+- The input has no `check` yet. Beta 68 can check the picked file by its build ID (`check.nup_build_id`), but beta 67
+  and older drop the whole profile for an input field they do not know.
+
+A run of the setup step on a finished build of the same engine reuses every stage and ends in about ten seconds, so
+beta 68's run after every release costs little; after an engine change it builds again what changed. The number in the
+done marker (`aod-ready-v<n>.json`, from `packaging/prepare-version.txt`) changes when a build of an older release
+cannot be played, which sends a player through Setup again in any launcher.
 
 The in-game menu's Restart (a setting read only at start was changed) ends the game with exit 75; `--play`, `aod-cli
 play` and the launcher window start it again in the same process, so RecompLauncher sees one session.

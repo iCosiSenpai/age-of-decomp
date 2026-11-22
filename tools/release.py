@@ -81,14 +81,16 @@ def manifest() -> dict:
         # game). Only the systems a release ships a build for: add "linux" (glibc of the build system, Vulkan 1.3)
         # with the first published Linux build.
         "system": {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}}},
-        # The player's copy is a named input, not a `game` section. RecompLauncher's Easy Setup (0.90 beta 65 and 66,
-        # ui/setup-steps.js stepsRun) runs a profile with named inputs through setup_inputs_run, which refuses a
-        # `game` profile whose copy was only picked in that window ("That copy didn't work: Choose your copy of the
-        # game first", player report RL-1). Named inputs carry no content check, so `aod-cli prepare` checks the
-        # build ID itself first (exit 3 with the reason, shown by RecompLauncher as the setup's error).
+        # The player's copy is a named input: RecompLauncher's one way to ask for a file from 0.90 beta 68 on (its
+        # top-level `game` section is deprecated there, and beta 65 and 66 refused it next to named inputs, player
+        # report RL-1). The input has no `check` yet: beta 68 can look at the picked file itself (`check` with
+        # `nup_build_id`), but beta 67 and older refuse a whole profile whose input has a field they do not know
+        # (run: tools/recomplauncher_check.py at 48ead11). Add `"check": {"nup_build_id": BUILD_ID}` when beta 68 is
+        # what players have. `aod-cli prepare` checks the file itself first (modules and resource inventory, exit 3
+        # with the reason, shown by RecompLauncher as the setup's error).
         "inputs": [
             # Short: Easy Setup shows the label as the box's title and again under it until a file is chosen.
-            {"id": "nup", "label": "Your Age of Imprisonment .nup with update 3.0.0", "role": "game",
+            {"id": "nup", "label": "Your Age of Imprisonment .nup with update 1.0.3", "role": "game",
              "formats": [{"type": "file", "extensions": ["nup"]}]},
             {"id": "dlc", "label": "Your DLC dump (.nup), if you have it", "role": "dlc", "optional": True,
              "formats": [{"type": "file", "extensions": ["nup"]}]},
@@ -101,6 +103,12 @@ def manifest() -> dict:
             "program": ["aod-cli.exe", "AgeOfDecomp-x86_64.AppImage"],
             "args": ["cli", "prepare", "--game", "{input:nup}", "--out", GAME_DIR, "--dlc={input:dlc}"],
             "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
+            # `timeout` and `version` are for RecompLauncher 0.90 beta 67 and older: without `timeout` they stop the
+            # step after five minutes, and `version` is how they know a build of an older release must be made again.
+            # Beta 68 took both out of its format and reads past them: its step has no time limit and runs again by
+            # itself after every new release (a run on a finished build of the same engine reuses every stage: about
+            # ten seconds). Its schema refuses both keys, so .github/workflows/recomplauncher.yml checks the file
+            # without them. Take them out when beta 68 is what players have.
             "timeout": 14400,
             "version": PREPARE_VERSION,
             "done": [GAME_DIR + f"/aod-ready-v{PREPARE_VERSION}.json"],
@@ -297,7 +305,7 @@ def cmd_windows(a) -> None:
     (out / "README.txt").write_text(
         f"Age of Decomp {ver} (Windows x64)\n\n"
         "A native PC build of your own Hyrule Warriors: Age of Imprisonment (Nintendo Switch 2). This package contains\n"
-        "no game code or data: the game is built on this PC from your own .nup dump (base game + update 3.0.0).\n\n"
+        "no game code or data: the game is built on this PC from your own .nup dump (the game with update 1.0.3).\n\n"
         "1. Run AgeOfDecomp.exe and follow Setup: pick your .nup, check it, choose a folder (25 GB free), Build.\n"
         "2. Press Play. Settings: in the launcher, or in game with Esc. F10 performance overlay, F11 fullscreen.\n\n"
         "RecompLauncher: this folder carries recomplauncher.json (one-click setup, settings, Big Picture).\n"
@@ -365,7 +373,7 @@ def cmd_linux(a) -> None:
     (out / "README.txt").write_text(
         f"Age of Decomp {ver} (Linux x86-64 AppImage)\n\n"
         "A native PC build of your own Hyrule Warriors: Age of Imprisonment (Nintendo Switch 2). This package contains\n"
-        "no game code or data: the game is built on this PC from your own .nup dump (base game + update 3.0.0).\n\n"
+        "no game code or data: the game is built on this PC from your own .nup dump (the game with update 1.0.3).\n\n"
         "Needs Linux 6.7 or later (older kernels work, slower), a Vulkan 1.3 driver with VK_EXT_external_memory_host,\n"
         "WebKitGTK 4.1 for the launcher window, and to build the game: clang, lld, Ninja and the SDL3, Opus, libvpx,\n"
         "zstd, Vulkan and zlib development packages. Debian/Ubuntu:\n"

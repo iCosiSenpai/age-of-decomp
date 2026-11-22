@@ -7,6 +7,10 @@ report names who reported it: thank you all for testing and writing in.
 
 Build the game again once after installing this version. Setup keeps your settings and saves.
 
+### RecompLauncher
+- Checked with RecompLauncher 0.90 beta 68 as well as beta 67. From beta 68 on, RecompLauncher runs the setup again by
+  itself after every Age of Decomp update: when the game needs no new build, that takes about ten seconds.
+
 ### Picture
 - Above 1080p the game's menus, map and movies fill the picture instead of sitting small in the middle. Thanks to a
   player on RecompLauncher who reported it on 2026-11-19, and to @ripps818, whose work it is
@@ -75,6 +79,11 @@ Build the game again once after installing this version. Setup keeps your settin
 - Display, Picture and Performance settings are named and explained in plainer words, and each Performance setting
   says what it really does.
 - F5 starts the game from the keyboard, as the hint bar says.
+- The game's update is called 1.0.3 everywhere, the name the console shows. It was called 3.0.0, after the number
+  the dump carries inside (196608). It is the same update.
+- Setup's check of a .nup that holds the game as its 1.0.3 update alone, with no separate base game inside, says so
+  under "Base game". It read "base game missing" next to a green tick. Such a file builds and plays like one with
+  both parts.
 - A setting that could not be saved no longer stays on screen as if it had been: the page shows the value the game
   will read, and Restore defaults says when it did not work.
 - Setup looks for your .nup once when you open the step (with none on the PC it searched again and again), its

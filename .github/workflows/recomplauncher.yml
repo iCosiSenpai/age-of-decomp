@@ -1,8 +1,9 @@
 name: recomplauncher
 
 # RecompLauncher compatibility (AGENTS.md hard rule 9), every day and on changes to the manifest's sources:
-# - schema: packaging/recomplauncher.json against RecompLauncher's current schema (docs/recomplauncher.schema.json);
-#   the generated-file check stays in ci.yml (job generated).
+# - schema: packaging/recomplauncher.json against RecompLauncher's current schema (docs/recomplauncher.schema.json),
+#   but for the two keys of the setup step that only its older releases read; the generated-file check stays in
+#   ci.yml (job generated).
 # - guide: one open issue (label recomplauncher-guide) when RecompLauncher's developer guide, schema or setup inputs
 #   page changed after the commit named in packaging/recomplauncher-guide.txt (.github/scripts/recomplauncher-guide.js).
 # The full check with RecompLauncher's own code stays local: `py tools/recomplauncher_check.py` (needs a Windows
@@ -29,10 +30,14 @@ jobs:
         with:
           persist-credentials: false
       - name: The manifest follows RecompLauncher's schema
+        # Without prepare.timeout and prepare.version: RecompLauncher 0.90 beta 68 took both out of its schema and
+        # reads past them, while beta 67 and older need them (tools/release.py says why). Check the file as it is
+        # again once the two keys are gone from it.
         run: |
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/recomplauncher.schema.json" \
             https://raw.githubusercontent.com/elripalda/RecompLauncher/main/docs/recomplauncher.schema.json
-          pipx run check-jsonschema --schemafile "$RUNNER_TEMP/recomplauncher.schema.json" packaging/recomplauncher.json
+          jq 'del(.prepare.timeout, .prepare.version)' packaging/recomplauncher.json > "$RUNNER_TEMP/manifest.json"
+          pipx run check-jsonschema --schemafile "$RUNNER_TEMP/recomplauncher.schema.json" "$RUNNER_TEMP/manifest.json"
 
   guide:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

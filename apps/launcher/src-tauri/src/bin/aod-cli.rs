@@ -136,7 +136,7 @@ fn prepare_cmd(args: &[String]) -> i32 {
             for s in r.steps.iter().filter(|s| !s.ok) {
                 eprintln!("check {}: {}", s.id, s.detail);
             }
-            eprintln!("This is not the supported build: the base game and update 3.0.0 (NCM 196608) are needed.");
+            eprintln!("This is not the supported build: the base game and update 1.0.3 (NCM 196608) are needed.");
             return 3;
         }
         Err(e) => {

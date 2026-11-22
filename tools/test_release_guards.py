@@ -72,9 +72,9 @@ class StageGuardTests(unittest.TestCase):
 
 class ReleaseGuardTests(unittest.TestCase):
     def test_manifest_asks_for_the_copy_as_a_named_input(self):
-        # RecompLauncher's Easy Setup (0.90 beta 65/66) refuses a `game` profile that also has named inputs when the
-        # copy is picked in its window ("Choose your copy of the game first", player report RL-1), so the copy is the
-        # first required input of our own, which RecompLauncher keeps as the game's copy, and both steps use it.
+        # Named inputs are RecompLauncher's one way to ask for a file (0.90 beta 68; its Easy Setup of beta 65/66
+        # refused a `game` profile next to named inputs, player report RL-1), so the copy is the first required
+        # input of our own, which RecompLauncher keeps as the game's copy, and both steps use it.
         m = release.manifest()
         self.assertNotIn("game", m)
         first = m["inputs"][0]
@@ -83,6 +83,22 @@ class ReleaseGuardTests(unittest.TestCase):
         self.assertIn("{input:nup}", m["prepare"]["args"])
         self.assertIn("--game={input:nup}", m["start"]["args"])
         self.assertNotIn("{game}", json.dumps(m))
+
+    def test_manifest_reads_in_the_recomplauncher_players_have(self):
+        # RecompLauncher 0.90 beta 67 and older (deny_unknown_fields on an input and its formats) drop the whole
+        # profile for a field they do not know, such as beta 68's `check`, and stop a setup step without `timeout`
+        # after five minutes. Beta 68 reads past `timeout` and `version`. Until beta 68 is what players have, the
+        # profile stays in the form both read.
+        m = release.manifest()
+        for row in m["inputs"]:
+            self.assertLessEqual(set(row), {"id", "label", "role", "optional", "shared", "formats", "destination"}, row["id"])
+            for f in row.get("formats", []):
+                self.assertLessEqual(set(f), {"type", "extensions", "requires"}, row["id"])
+        self.assertGreaterEqual(m["prepare"]["timeout"], 3600)
+        self.assertEqual(m["prepare"]["version"], release.PREPARE_VERSION)
+        self.assertEqual(m["prepare"]["done"], [f"{{install}}/game/aod-ready-v{release.PREPARE_VERSION}.json"])
+        # the whole ModuleId of the update's main (`aod-nup build-id <dump>` prints it), for the check to come
+        self.assertRegex(release.BUILD_ID, r"^[0-9a-f]{40}$")
 
     def test_manifest_says_what_the_pc_needs_for_the_builds_we_ship(self):
         # RecompLauncher's `system` (SDK guide after beta 66): one part per system a release ships a build for.

@@ -133,7 +133,15 @@ pub fn check(nup: &Nup, update_nup: Option<&Nup>, profile: &GameProfile) -> Resu
     steps.push(Step {
         id: "base",
         ok: complete,
-        detail: if base.is_some() { "base game present".into() } else { "base game missing".into() },
+        // A dump may hold the game as its update record alone, marked as standing by itself: the resource step
+        // below says whether everything is really there.
+        detail: if base.is_some() {
+            "base game present".into()
+        } else if complete {
+            "inside the update: this file has no separate base game".into()
+        } else {
+            "base game missing".into()
+        },
     });
 
     // ExeFS of the program that runs: the update shadows the base by name.
