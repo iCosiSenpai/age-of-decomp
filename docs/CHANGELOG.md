@@ -167,6 +167,9 @@ Thank you for these reports too:
 - Code 70 on AMD Radeon cards where this version's change is not enough, like the place in the first battle where an
   RX 9070 XT stops: @hellknight0000 and @maioro (#10) and players on RecompLauncher. A report made with Diagnostics →
   Draw call markers turned on is what helps most.
+- Code 70 when pressing Play on a Ryzen Z1 Extreme handheld: @Ostarion77 (#12) and a player on RecompLauncher
+  (2026-11-19). This version's change for AMD's own driver applies to its Radeon graphics too; the log of a start with
+  this version says whether that was the cause.
 - A freeze on one frame, with the sound going on, when Zelda's shield-breaking skill hits a rock enemy whose guard is
   broken: a player on RecompLauncher (2026-11-21). This version's log says where the game is stuck: please send it
   after the next freeze.
