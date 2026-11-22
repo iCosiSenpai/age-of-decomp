@@ -224,6 +224,17 @@ def verify_zip(z: Path, folder: Path, top: str) -> None:
         sys.exit(f"{z.name} does not match {folder.name}: {len(names ^ want)} differing entries, first bad member {broken}")
 
 
+def stale_engine_files(engine: Path) -> list[str]:
+    """The repository's engine files that the staged bundle does not carry as they are now (VERSION is the bundle's
+    own: the stage writes the release's number there)."""
+    sys.path.insert(0, str(ROOT / "tools"))   # `py -I` leaves the script's folder out of the path
+    import engine as engine_tool   # tools/engine.py: the same list of files and the same hash as its stage
+
+    staged = json.loads((engine / "bundle.json").read_text(encoding="utf-8")).get("files", {})
+    return [name for name in engine_tool.source_files()
+            if name != "VERSION" and staged.get(f"source/{name}") != engine_tool.sha256(engine_tool.ENGINE / name)]
+
+
 def release_info(allow_dirty: bool, engine: Path) -> dict:
     def git(*args):
         return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
@@ -234,6 +245,17 @@ def release_info(allow_dirty: bool, engine: Path) -> dict:
     if dirty:
         print("releasing a dirty repository (--allow-dirty)")
     bundle = json.loads((engine / "bundle.json").read_text(encoding="utf-8"))
+    # A clean repository is not enough: the bundle may have been staged while engine files were uncommitted, or
+    # before the last engine change. A release carries the engine of its commit.
+    if bundle.get("dirty") and not allow_dirty:
+        sys.exit("the engine bundle was staged from uncommitted engine files; run tools/engine.py stage again "
+                 "(or pass --allow-dirty)")
+    stale = stale_engine_files(engine)
+    if stale and not allow_dirty:
+        sys.exit(f"the engine bundle is not this repository's engine: {len(stale)} file(s) differ, the first is "
+                 f"{stale[0]}; run tools/engine.py stage again (or pass --allow-dirty)")
+    if stale:
+        print(f"releasing an engine bundle that differs from the repository in {len(stale)} file(s) (--allow-dirty)")
     runtime_version = (engine / "source/VERSION").read_text(encoding="utf-8").strip()
     if bundle.get("version") != version() or runtime_version != version():
         sys.exit("engine/compiler versions differ; run tools/engine.py stage again")

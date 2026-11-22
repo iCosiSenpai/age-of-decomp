@@ -21,9 +21,8 @@
   let rows = $derived(catalog.settings.filter((s) => s.group === group && (!s.advanced || app.showAdvanced)));
   let hidden = $derived(catalog.settings.filter((s) => s.group === group && s.advanced && !app.showAdvanced).length);
 
-  async function reset() {
-    app.settings = await api.resetSettings(catalog.settings.filter((s) => s.group === group).map((s) => s.key));
-    app.toast(tr('Defaults restored'), 'ok');
+  function reset() {
+    return app.reset(catalog.settings.filter((s) => s.group === group).map((s) => s.key), tr('Defaults restored'));
   }
 
   // NVIDIA DLSS (Upscaling = NVIDIA DLSS): NVIDIA's own nvngx_dlss.dll, which Age of Decomp cannot ship (src-tauri/src/dlss.rs). Its

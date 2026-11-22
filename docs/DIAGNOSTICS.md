@@ -2,8 +2,10 @@
 
 Age of Decomp asks for your choice on first launch when the diagnostics service is available. You can change it
 in **System → Anonymous diagnostics**. Diagnostics start disabled. Turning them off removes pending reports.
-A game started from RecompLauncher sends no diagnostics yet: RecompLauncher starts it without the launcher window,
-where the choice is made, and keeps its files in its own data folder. Send the log with your report there instead.
+A game started from RecompLauncher keeps its files, this choice included, in RecompLauncher's own data folder, and
+RecompLauncher starts the game without the launcher window, where the choice is made. So it sends nothing unless you
+opened the Age of Decomp window from RecompLauncher and turned diagnostics on there. Send the log with your report
+there in either case.
 The choice is stored separately from ordinary preferences, so saving settings in another window cannot
 turn sharing back on.
 

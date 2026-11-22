@@ -14,7 +14,7 @@
     {
       "key": "output_res", "section": "display", "group": "display", "kind": "choice", "restart": true,
       "label": "Game resolution", "default": "auto",
-      "help": "The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it. Larger sizes need more graphics power and video memory.",
+      "help": "The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "1280x720", "label": "720p" },
@@ -26,7 +26,7 @@
     {
       "key": "fullscreen", "section": "display", "group": "display", "kind": "toggle",
       "label": "Fullscreen", "default": "0",
-      "help": "Fills the screen. F11 switches it while you play."
+      "help": "Fills the screen with a borderless window. F11 switches it while you play."
     },
     {
       "key": "window_size", "section": "display", "group": "display", "kind": "choice",
@@ -80,7 +80,7 @@
     {
       "key": "dlss_quality", "section": "display", "group": "display", "kind": "choice", "restart": true,
       "label": "DLSS quality", "default": "native", "when": { "temporal": "dlss" },
-      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer.",
+      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. In dark places a moving character can leave a faint trail.",
       "choices": [
         { "value": "native", "label": "DLAA" },
         { "value": "quality", "label": "Quality" },
@@ -162,7 +162,7 @@
     {
       "key": "device_profile", "section": "display", "group": "display", "kind": "choice", "restart": true, "advanced": true,
       "label": "Device profile", "default": "auto",
-      "help": "Steam Deck starts with lighter settings for handheld PCs.",
+      "help": "Steam Deck starts with lighter settings for handheld PCs. Automatic chooses it on a Steam Deck.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "desktop", "label": "Desktop" },
@@ -317,7 +317,7 @@
     {
       "key": "button_prompts", "section": "input", "group": "controls", "kind": "choice",
       "label": "Buttons shown in the game", "default": "auto",
-      "help": "The buttons the game shows in its HUD and hints. Automatic: those of the controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. Pick a maker when your controller is shown as another one, or Game's own to leave the game's pictures as they are.",
+      "help": "The buttons the game shows in its HUD and hints. Automatic: those of the controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. Pick a maker when your controller is shown as another one, or Game's own to keep the buttons as the game draws them.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "xbox", "label": "Xbox" },
@@ -370,6 +370,16 @@
       "key": "replay_async", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
       "label": "Draw on a second thread", "default": "0",
       "help": "Lets the game's own thread run ahead while another one draws. Can raise the frame rate when the processor is the limit, and adds one frame of delay. Experimental."
+    },
+    {
+      "key": "vk_recorder", "section": "performance", "group": "performance", "kind": "choice", "restart": true,
+      "label": "Graphics driver calls on their own thread", "default": "auto",
+      "help": "A thread of its own hands the drawing commands to the graphics driver: more speed where a scene has many objects. Automatic turns it on, except on Radeon cards with AMD's own driver, where it has ended the game with code 70 for some players.",
+      "choices": [
+        { "value": "auto", "label": "Automatic" },
+        { "value": "0", "label": "Off" },
+        { "value": "1", "label": "On" }
+      ]
     },
     {
       "key": "timer_1ms", "section": "performance", "group": "performance", "kind": "toggle", "restart": true,
@@ -436,6 +446,11 @@
       "key": "flight", "section": "diagnostics", "group": "diagnostics", "kind": "toggle", "restart": true,
       "label": "Flight recorder", "default": "0",
       "help": "Records timing spikes into the log for bug reports."
+    },
+    {
+      "key": "draw_crumbs", "section": "diagnostics", "group": "diagnostics", "kind": "toggle", "restart": true,
+      "label": "Draw call markers", "default": "0",
+      "help": "For bug reports about a graphics card that stops answering (code 70): the log then names the draw calls it was working on. A little slower."
     }
   ]
 }

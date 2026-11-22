@@ -8,14 +8,14 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it. Larger sizes need more graphics power and video memory. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K | `auto` | yes |
-| `fullscreen` | Fullscreen — Fills the screen. F11 switches it while you play. | `0` off, `1` on | `0` |  |
+| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when your graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K | `auto` | yes |
+| `fullscreen` | Fullscreen — Fills the screen with a borderless window. F11 switches it while you play. | `0` off, `1` on | `0` |  |
 | `window_size` | Window size — The size of the window when not in fullscreen. | `1280x720` 1280 × 720, `1600x900` 1600 × 900, `1920x1080` 1920 × 1080, `2560x1440` 2560 × 1440 | `1280x720` |  |
 | `fps_limit` | Frame rate — 60 is the game's normal speed. 30 saves power. | `30` 30 FPS, `60` 60 FPS | `60` |  |
 | `vk_present` | Screen sync — How finished frames reach the screen. Fast shows the newest frame without tearing. V-Sync waits for the screen. Off has the least delay and can tear. | `mailbox` Fast, `fifo` V-Sync, `immediate` Off | `mailbox` |  |
 | `render_scale` | 3D rendering — Native draws the 3D scene at the game resolution: the sharpest picture. As on the console runs the game's own path, a 1600×900 scene scaled to 1080p: softer and lighter, and the game resolution is then 1080p. | `100` Native, `game` As on the console | `100` | yes |
 | `temporal` | Upscaling — Rebuilds the 3D picture from several frames: cleaner edges and, at a lower quality, more speed. AMD FSR works on most graphics cards and is downloaded from AMD the first time. NVIDIA DLSS needs an RTX card and NVIDIA's own DLSS file. | `off` Off, `fsr` AMD FSR, `dlss` NVIDIA DLSS | `off` | yes |
-| `dlss_quality` | DLSS quality — DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. | `native` DLAA, `quality` Quality, `balanced` Balanced, `performance` Performance | `native` | yes |
+| `dlss_quality` | DLSS quality — DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. In dark places a moving character can leave a faint trail. | `native` DLAA, `quality` Quality, `balanced` Balanced, `performance` Performance | `native` | yes |
 | `fsr_quality` | FSR quality — Native keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. | `native` Native, `quality` Quality, `balanced` Balanced, `performance` Performance | `native` | yes |
 | `frame_gen` | Frame generation — NVIDIA DLSS draws extra frames between the game's own, so motion looks smoother on a fast screen: 4x turns 60 frames per second into 240. The game itself does not run faster, and your input is felt a little later. Needs a GeForce RTX 40 or 50 card and NVIDIA's own frame generation file. Pick a number your screen can show. While it is on, Screen sync is Off. | `off` Off, `2` 2x, `3` 3x, `4` 4x, `5` 5x, `6` 6x | `off` | yes |
 | `antialiasing` | Edge smoothing — SMAA smooths jagged edges in the finished picture on any graphics card, at a small cost. With FSR or DLSS it is not needed. | `off` Off, `smaa` SMAA | `off` |  |
@@ -24,7 +24,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `aspect` | Picture shape — The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same. | `fit` Black bars, `stretch` Stretch | `fit` |  |
 | `perf_overlay` | Performance overlay — Frame rate and timings in a corner of the game. F10 cycles it while you play. | `off` Off, `fps` FPS, `full` Full | `off` |  |
 | `gpu_index` | Graphics card — Which graphics card runs the game. Automatic takes a dedicated card before an integrated one. | empty = automatic, or the Vulkan device index | `(empty)` | yes |
-| `device_profile` | Device profile — Steam Deck starts with lighter settings for handheld PCs. | `auto` Automatic, `desktop` Desktop, `deck` Steam Deck | `auto` | yes |
+| `device_profile` | Device profile — Steam Deck starts with lighter settings for handheld PCs. Automatic chooses it on a Steam Deck. | `auto` Automatic, `desktop` Desktop, `deck` Steam Deck | `auto` | yes |
 
 ## Picture
 
@@ -63,7 +63,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `player1_type` | Player 1 appears to the game as — The Switch controller the game is told this player holds, whatever the real one is. Change it only if the game asks for the other kind. | `pro` Pro Controller, `dual` Joy-Con pair | `pro` |  |
 | `player2_type` | Player 2 appears to the game as — The Switch controller the game is told player 2 holds. | `pro` Pro Controller, `dual` Joy-Con pair | `pro` |  |
 | `pad_layout` | Button layout — Which button is the game's A. Automatic: the right button on a controller that has A there (Switch controllers), the bottom one on the others (Xbox A, PlayStation cross). | `auto` Automatic, `nintendo` A on the right, `xbox` A at the bottom | `auto` |  |
-| `button_prompts` | Buttons shown in the game — The buttons the game shows in its HUD and hints. Automatic: those of the controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. Pick a maker when your controller is shown as another one, or Game's own to leave the game's pictures as they are. | `auto` Automatic, `xbox` Xbox, `playstation` PlayStation, `nintendo` Switch, `game` Game's own | `auto` |  |
+| `button_prompts` | Buttons shown in the game — The buttons the game shows in its HUD and hints. Automatic: those of the controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. Pick a maker when your controller is shown as another one, or Game's own to keep the buttons as the game draws them. | `auto` Automatic, `xbox` Xbox, `playstation` PlayStation, `nintendo` Switch, `game` Game's own | `auto` |  |
 | `stick_deadzone` | Stick dead zone — Raise it if the camera or the character moves on its own. | 0 – 50 (step 1) | `8` |  |
 | `motion` | Motion controls — Uses the controller's gyro and accelerometer where the game asks for motion. | `0` off, `1` on | `1` |  |
 | `rumble_strength` | Rumble strength — 0 turns rumble off. | 0 – 300 (step 10) | `130` |  |
@@ -78,6 +78,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `pipe_prebuild` | Prepare shaders at start — Builds the shaders the game used before while it starts, in the background: fewer hitches in play. | `0` off, `1` on | `1` | yes |
 | `xlate_prefetch` | Translate effect shaders early — Translates compute shaders as the game registers them, before an effect first needs them. | `0` off, `1` on | `1` | yes |
 | `replay_async` | Draw on a second thread — Lets the game's own thread run ahead while another one draws. Can raise the frame rate when the processor is the limit, and adds one frame of delay. Experimental. | `0` off, `1` on | `0` | yes |
+| `vk_recorder` | Graphics driver calls on their own thread — A thread of its own hands the drawing commands to the graphics driver: more speed where a scene has many objects. Automatic turns it on, except on Radeon cards with AMD's own driver, where it has ended the game with code 70 for some players. | `auto` Automatic, `0` Off, `1` On | `auto` | yes |
 | `timer_1ms` | Precise timer — Asks Windows for a 1 ms timer, so the game's short waits do not last a whole 15 ms tick. | `0` off, `1` on | `1` | yes |
 | `lazy_heap` | Memory on demand — Windows: takes game memory as it is first used. About 2 GB less is reserved, with more small hitches while loading. Automatic turns it on only when the PC could not give the game all its memory otherwise. | `auto` Automatic, `0` Off, `1` On | `auto` | yes |
 | `small_memory_pools` | Smaller video memory blocks — Takes video memory 128 MB at a time instead of 256: less is held unused. | `0` off, `1` on | `1` | yes |
@@ -93,3 +94,4 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 |---|---|---|---|---|
 | `vk_validation` | Vulkan validation — For bug reports only: much slower. Needs the Vulkan SDK. | `0` off, `1` on | `0` | yes |
 | `flight` | Flight recorder — Records timing spikes into the log for bug reports. | `0` off, `1` on | `0` | yes |
+| `draw_crumbs` | Draw call markers — For bug reports about a graphics card that stops answering (code 70): the log then names the draw calls it was working on. A little slower. | `0` off, `1` on | `0` | yes |

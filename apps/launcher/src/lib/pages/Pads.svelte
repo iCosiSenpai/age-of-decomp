@@ -77,9 +77,8 @@
   // A back button has no game button until the player gives it one in the game's menu.
   let paddleBound = $derived([...binds.pad.values()].some((list) => list.some((b) => b.includes('paddle'))));
 
-  async function reset() {
-    app.settings = await api.resetSettings(controls.map((s) => s.key));
-    app.toast(tr('Defaults restored'), 'ok');
+  function reset() {
+    return app.reset(controls.map((s) => s.key), tr('Defaults restored'));
   }
 
   async function assign(n: 1 | 2) {

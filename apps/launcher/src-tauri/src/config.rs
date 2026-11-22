@@ -76,9 +76,13 @@ impl Config {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
             _ => {}
         }
-        let tmp = file.with_extension("json.part");
+        // A name of this process's own: the window and aod-cli can save at the same moment.
+        let tmp = file.with_extension(format!("json.{}.part", std::process::id()));
         std::fs::write(&tmp, serde_json::to_string_pretty(self).unwrap()).map_err(|e| e.to_string())?;
-        std::fs::rename(&tmp, &file).map_err(|e| e.to_string())
+        std::fs::rename(&tmp, &file).map_err(|e| {
+            let _ = std::fs::remove_file(&tmp);
+            e.to_string()
+        })
     }
 
     pub fn output(&self, paths: &Paths) -> PathBuf {

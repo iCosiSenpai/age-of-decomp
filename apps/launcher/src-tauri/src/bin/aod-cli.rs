@@ -176,7 +176,10 @@ fn prepare_cmd(args: &[String]) -> i32 {
             cfg.update_nup = update;
             cfg.dlc_nup = dlc;
             cfg.set_output(out);
-            let _ = cfg.save(&paths);
+            // The build itself is done and plays: this is said and not counted as a failed setup.
+            if let Err(e) = cfg.save(&paths) {
+                eprintln!("The game is built, but the Age of Decomp window could not be told where it is ({e}).");
+            }
             0
         }
         Err(e) if e == "cancelled" => 5,

@@ -40,7 +40,7 @@ static const char *const known[] = {
     "EXEFS", "EXPERIMENTAL_GEOMETRY", "FEEDBACK", "FIX_C0", "FIX_INDIRECT_RESET", "FIX_VS_FAULT", "FIX_ZERO", "FLIGHT", "FLIGHT_AT", "FLIGHT_DIR", "FLIGHT_FRAMES", "FLIGHT_SPIKE_MS",
     "HDR", "HDR_GAME_NITS", "HDR_PEAK_NITS", "HDR_UI_NITS",
     "FLIGHT_THUMBS", "FOV", "FOV_PATCH", "FPS60", "FPS_LIMIT", "FREEZE_IDLE", "FREE_CORES", "FULLSCREEN", "GPL", "GPL_DRAW_BUILD", "GPU",
-    "HANG_SECONDS", "HANG_TEST", "SWAPCHAIN_TEST",
+    "HANG_SECONDS", "HANG_TEST", "SWAPCHAIN_TEST", "DRAW_CRUMBS", "DRAW_CRUMBS_TEST",
     "EXPERIMENTAL_RATE", "RATE_DIAG", "RATE_UNLOCK", "FS_DIAG", "GPU_INDEX", "GPU_NAME", "GPU_WRITE_DIAG", "HIGHFPS_FIX", "INPUT", "INPUT_FEED", "INPUT_RECORD", "INPUT_SCRIPT", "LANG", "LIB_PREBUILD",
     "LIB_PREBUILD_KEEP", "LIB_PREBUILD_THREADS", "LINKED_SAVES", "LOCALE", "LOD_GUARD", "MEMORY", "MENU_LANG", "MENU_TEST",
     "KSPIN_US", "REC_SPIN_US",
@@ -90,8 +90,10 @@ static const struct { const char *key, *section; } sections[] = {
     {"BIND_LSTICK_RIGHT", "input"}, {"BIND_LSTICK_DOWN", "input"}, {"BIND_RSTICK_LEFT", "input"},
     {"BIND_RSTICK_UP", "input"}, {"BIND_RSTICK_RIGHT", "input"}, {"BIND_RSTICK_DOWN", "input"}, {"BIND_MENU", "input"},
     {"ASYNC_PREEMPT", "performance"}, {"REPLAY_ASYNC", "performance"}, {"FREE_CORES", "performance"},
-    {"KSPIN_US", "performance"}, {"REC_SPIN_US", "performance"},
+    {"KSPIN_US", "performance"}, {"REC_SPIN_US", "performance"}, {"VK_RECORDER", "performance"},
     {"TIMER_1MS", "performance"}, {"PIPE_WAIT", "performance"}, {"PIPE_SKIP", "performance"},
+    {"XLATE_PREFETCH", "performance"}, {"LAZY_HEAP", "performance"}, {"SMALL_MEMORY_POOLS", "performance"},
+    {"SOURCE_COMPRESS", "performance"},
     {"LIB_PREBUILD", "performance"}, {"LIB_PREBUILD_THREADS", "performance"}, {"PIPE_PREBUILD", "performance"},
     {"PREWARM_XLATE", "performance"}, {"GPL", "performance"}, {"ASTC", "performance"}, {"MEMORY", "performance"},
     {"EXPERIMENTAL_GEOMETRY", "performance"},
@@ -100,7 +102,7 @@ static const struct { const char *key, *section; } sections[] = {
     {"MEMX", "performance"},
     {"PUSH_SKIP", "performance"}, {"SPLIT_DRAWS", "performance"}, {"SPLIT_US", "performance"}, {"VK_VALIDATION", "performance"},
     {"VK_DYN_VERTEX", "performance"}, {"VK_DYN_A2C", "performance"}, {"VK_SUBGROUP_PIN", "performance"},
-    {"TRACE", "diagnostics"}, {"FLIGHT", "diagnostics"}, {"FLIGHT_SPIKE_MS", "diagnostics"},
+    {"TRACE", "diagnostics"}, {"FLIGHT", "diagnostics"}, {"FLIGHT_SPIKE_MS", "diagnostics"}, {"DRAW_CRUMBS", "diagnostics"},
     {"WB_FENCE_LIMIT", "diagnostics"}, {"WB_EXACT", "diagnostics"}, {"NX2_READ_NOWAIT", "diagnostics"},
     {"NVN2_MODE_TRACE", "diagnostics"},
     {"NVN2_MODE_TRACE_START_MS", "diagnostics"}, {"NVN2_MODE_TRACE_DURATION_MS", "diagnostics"},
@@ -186,6 +188,7 @@ static const CfgMeta metas[] = {
     {"FREE_CORES", "0", "0|1", RESTART}, {"TIMER_1MS", "1", "0|1", RESTART},
     {"KSPIN_US", "20", "0..1000", RESTART},   // kernel waits poll before they sleep; off below 6 logical CPUs
     {"REC_SPIN_US", "0", "0..1000", RESTART}, // recorder idle poll by the clock; 0: 4096 pauses
+    {"VK_RECORDER", "auto", "auto|0|1", RESTART}, // auto: on, except on AMD's own driver (vk_rec.c rec_begin)
     // shaders and pipelines
     {"PIPE_WAIT", "default", "default|draw", RESTART}, {"PIPE_SKIP", "fullscreen", "strict|any|fullscreen", RESTART},
     {"PIPE_SCENE", "1", "0|1", RESTART},       // new-scene draws may wait for background shaders
@@ -208,6 +211,7 @@ static const CfgMeta metas[] = {
     {"VK_DYN_A2C", "", "0|1", RESTART}, {"VK_SUBGROUP_PIN", "1", "0|1", RESTART},
     // diagnostics
     {"TRACE", "", NULL, RESTART}, {"FLIGHT", "0", "0|1", RESTART}, {"FLIGHT_SPIKE_MS", "100", "0..60000", RESTART},
+    {"DRAW_CRUMBS", "0", "0|1", RESTART},   // a GPU breadcrumb per draw, for the report of a lost device (vk_crumbs.c)
     {"WB_FENCE_LIMIT", "65536", "0..1073741824", RESTART}, {"WB_EXACT", "1", "0|1", RESTART},
     {"NX2_READ_NOWAIT", "0", "0|1", RESTART},
     {"NVN2_MODE_TRACE", "0", "0|1", RESTART},

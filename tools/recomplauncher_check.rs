@@ -32,6 +32,8 @@ mod aod_check {
         println!("AOD level {level}, flow {flow:?}, caps {caps:?}");
         assert!(unknown.is_empty(), "unknown top-level keys");
         assert!(!items.iter().any(|i| i.level == "err"), "the Developer tab would show errors");
+        // Warnings alone can lower the level too: a release needs the highest one.
+        assert!(level >= 3, "level {level}: a release needs level 3");
     }
 
     #[test]

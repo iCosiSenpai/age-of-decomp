@@ -115,7 +115,8 @@ class ReleaseGuardTests(unittest.TestCase):
             bundle_fixture(root, source_revision="engine-rev")
             def git(cmd, **kwargs):
                 return SimpleNamespace(stdout=" M file\n" if "status" in cmd else "repo-rev\n")
-            with patch.object(release.subprocess, "run", side_effect=git):
+            with patch.object(release.subprocess, "run", side_effect=git), \
+                    patch.object(release, "stale_engine_files", return_value=[]):
                 with self.assertRaises(SystemExit):
                     release.release_info(False, root)
                 info = release.release_info(True, root)
@@ -126,13 +127,52 @@ class ReleaseGuardTests(unittest.TestCase):
     def test_clean_repository_is_recorded_as_clean(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            bundle_fixture(root, source_revision="engine-rev", dirty=True)
+            bundle_fixture(root, source_revision="engine-rev")
             def git(cmd, **kwargs):
                 return SimpleNamespace(stdout="" if "status" in cmd else "repo-rev\n")
-            with patch.object(release.subprocess, "run", side_effect=git):
+            with patch.object(release.subprocess, "run", side_effect=git), \
+                    patch.object(release, "stale_engine_files", return_value=[]):
                 info = release.release_info(False, root)
             self.assertFalse(info["dirty"])
-            self.assertTrue(info["engine_dirty"])
+            self.assertFalse(info["engine_dirty"])
+
+    def test_a_clean_repository_does_not_ship_an_engine_staged_dirty_or_before_its_last_change(self):
+        def git(cmd, **kwargs):
+            return SimpleNamespace(stdout="" if "status" in cmd else "repo-rev\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # staged with --allow-dirty, then the changes were committed: the tree is clean, the bundle is not
+            bundle_fixture(root, source_revision="engine-rev", dirty=True)
+            with patch.object(release.subprocess, "run", side_effect=git), \
+                    patch.object(release, "stale_engine_files", return_value=[]):
+                with self.assertRaises(SystemExit):
+                    release.release_info(False, root)
+                self.assertTrue(release.release_info(True, root)["engine_dirty"])
+            # staged clean, then an engine file changed in a later commit
+            bundle_fixture(root, source_revision="engine-rev")
+            with patch.object(release.subprocess, "run", side_effect=git), \
+                    patch.object(release, "stale_engine_files", return_value=["runtime/a.c"]):
+                with self.assertRaises(SystemExit):
+                    release.release_info(False, root)
+                self.assertFalse(release.release_info(True, root)["dirty"])
+
+    def test_stale_engine_files_compares_the_repository_with_the_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, stage = root / "engine-source", root / "stage"
+            (source / "runtime").mkdir(parents=True)
+            (source / "runtime/a.c").write_text("int a;\n", encoding="utf-8")
+            (source / "runtime/b.c").write_text("int b;\n", encoding="utf-8")
+            (source / "runtime/c.c").write_text("int c;\n", encoding="utf-8")
+            (source / "VERSION").write_text("dev\n", encoding="utf-8")
+            stage.mkdir()
+            files = {"source/runtime/a.c": engine.sha256(source / "runtime/a.c"), "source/runtime/b.c": "0" * 64,
+                     "source/VERSION": "another"}
+            (stage / "bundle.json").write_text(json.dumps({"files": files}), encoding="utf-8")
+            tracked = ["VERSION", "runtime/a.c", "runtime/b.c", "runtime/c.c"]
+            with patch.object(engine, "ENGINE", source), patch.object(engine, "source_files", return_value=tracked):
+                # b.c changed since the stage and c.c is new: both are named; VERSION is the bundle's own
+                self.assertEqual(release.stale_engine_files(stage), ["runtime/b.c", "runtime/c.c"])
 
     def test_engine_copy_must_match_its_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:

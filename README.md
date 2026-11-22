@@ -58,10 +58,10 @@ RecompLauncher integration.
 
 | | |
 |---|---|
-| 🧭 **Five-step setup** | Pick your `.nup` (it is also found automatically), see every check pass, choose a folder, press *Build*: one progress bar, a list of stages, time left. Stop any time; continuing reuses everything already done. About **7 minutes** on a Core Ultra 7 265K. |
-| 🖥️ **Every setting** | Resolution (720p–4K), window, V-Sync mode, frame rate, 3D resolution, FSR upscaling and sharpness, aspect, colour (presets or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume (up to 300 %), mute in the background, audio buffer, players, controller type, button layout, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
-| 🎮 **Controllers, natively** | SDL 3 supports Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro, Joy-Con and GameCube controllers. Switch 2 Pro and Joy-Con 2 work over USB with our SDL build. On Windows, the Switch 2 Pro Controller can also connect over Bluetooth through the included transport. The compiler and its in-game settings menu show controller-specific button images. |
-| 🚀 **RecompLauncher ready** | Each release carries `recomplauncher.json`: one-click setup from your `.nup` (recognised by its build ID), the settings on the game's page, Big Picture mode, save backups. |
+| 🧭 **Guided setup** | Pick your `.nup` (it is also found automatically), see every check pass, choose a folder, press *Build*: one progress bar, a list of stages, time left. Stop any time; continuing reuses everything already done. About **7 minutes** on a Core Ultra 7 265K. |
+| 🖥️ **Every setting** | Game resolution (automatic, or 720p–4K), window, screen sync, frame rate, 3D resolution, upscaling with AMD FSR or NVIDIA DLSS, NVIDIA frame generation, edge smoothing, sharpness, picture shape, colour (profiles or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume (up to 300 %), mute in the background, audio buffer, players, controller type, button layout, the buttons the game shows, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
+| 🎮 **Controllers, natively** | SDL 3 supports Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro, Joy-Con and GameCube controllers. Switch 2 Pro and Joy-Con 2 work over USB with our SDL build. On Windows, the Switch 2 Pro Controller can also connect over Bluetooth through the included transport. The launcher and the in-game settings menu show each controller's own buttons, and the game's own button pictures follow the controller you use, your bindings and the keyboard. |
+| 🚀 **RecompLauncher ready** | Each release carries `recomplauncher.json`: one-click setup from your `.nup` (the setup checks that it is the supported copy), the settings on the game's page, Big Picture mode, save backups. |
 | 🌐 **English and Italian** | Follows your system; switch any time. |
 
 ## Screenshots
@@ -69,11 +69,11 @@ RecompLauncher integration.
 <table>
   <tr>
     <td><img src="docs/assets/screenshots/home.png" alt="Play: status, quick settings, connected controllers"></td>
-    <td><img src="docs/assets/screenshots/setup.png" alt="Setup wizard: six steps with a progress bar"></td>
+    <td><img src="docs/assets/screenshots/setup.png" alt="Setup: six steps, with the checks of this PC"></td>
   </tr>
   <tr>
     <td><img src="docs/assets/screenshots/display.png" alt="Display settings"></td>
-    <td><img src="docs/assets/screenshots/controllers.png" alt="Controllers: live tester, rumble test, player assignment"></td>
+    <td><img src="docs/assets/screenshots/controllers.png" alt="Controls: every device, who plays with it and where the game's buttons are on it"></td>
   </tr>
 </table>
 
@@ -82,12 +82,18 @@ RecompLauncher integration.
 ## Status
 
 Early. The game builds, boots, plays its opening and reaches exploration and combat at 60 FPS on tested PCs. Known
-limits: a full playthrough is not verified yet; menus and movies fill the picture at 1440p (4K is not tested here).
-The frame rate is 30 or 60 FPS, because above 60 the whole game runs faster. The engine has the RDNA 3 recorder
-workaround of [HWAoI Recomp PR #20](https://github.com/Alano6678/hwaoi-recomp/pull/20); synthetic policy tests
-passed, while physical AMD validation here is pending. Players report that on an AMD Radeon RX 9070 or RX 9070 XT
-the game can lose the GPU about a minute into the first field
-([HWAoI Recomp issue #21](https://github.com/Alano6678/hwaoi-recomp/issues/21)); no fix yet. On Intel GPUs the first start could stop after two seconds; 0.1.2 fixes it (tested on an Intel Xe iGPU).
+limits: a full playthrough is not verified yet. The game itself runs at 30 or 60 FPS, because above 60 the whole game
+runs faster; on GeForce RTX 40 and 50 cards NVIDIA frame generation shows more frames than that. Menus and movies
+fill the picture at 1440p and 4K; 4K needs a graphics card with 16 GB of video memory (it started and played its
+opening here on one).
+
+AMD Radeon: on RX 7000 and RX 9000 cards the game can end with code 70 when the graphics card stops answering
+("device lost", [HWAoI Recomp issue #21](https://github.com/Alano6678/hwaoi-recomp/issues/21)). Since 0.1.3 the game
+no longer hands its drawing commands to AMD's own driver from a thread of their own, which caused part of these
+stops, and *Diagnostics → Draw call markers* makes the log name what the card was working on. None of it could be tried on a Radeon here: a report with
+its log helps a lot. On Intel GPUs the first start could stop after two seconds; 0.1.2 fixes it (tested on an Intel
+Xe iGPU).
+
 Linux: the AppImage builds the game from your `.nup` and boots it to its first menu (tested under WSL with a software
 renderer); speed on real Linux PCs and on the Steam Deck is not tested yet.
 

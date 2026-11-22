@@ -68,24 +68,34 @@ fn committed(profile: &Path) -> Vec<(String, PathBuf)> {
     found
 }
 
-/// The finished saves not swapped in yet (`save-tx/ready-<n>` with files): the game loads the newest at its next start.
-fn waiting(profile: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir(profile.join("save-tx")) else { return Vec::new() };
-    entries
-        .flatten()
-        .filter(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
-            name.strip_prefix("ready-").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
-                && e.file_type().is_ok_and(|t| t.is_dir())
-                && holds_a_file(&e.path())
-        })
-        .map(|e| e.path())
-        .collect()
+fn is_ready(name: &str) -> bool {
+    name.strip_prefix("ready-").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
-/// The profile folder has a save the game would load.
+/// The folders of `save-tx` with files in them whose name `wanted` accepts.
+fn transactions(profile: &Path, wanted: impl Fn(&str) -> bool) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(profile.join("save-tx")) else { return Vec::new() };
+    let mut found: Vec<PathBuf> = entries
+        .flatten()
+        .filter(|e| {
+            wanted(&e.file_name().to_string_lossy()) && e.file_type().is_ok_and(|t| t.is_dir()) && holds_a_file(&e.path())
+        })
+        .map(|e| e.path())
+        .collect();
+    found.sort();
+    found
+}
+
+/// The finished saves not swapped in yet (`save-tx/ready-<n>` with files): the game loads the newest at its next start.
+fn waiting(profile: &Path) -> Vec<PathBuf> {
+    transactions(profile, is_ready)
+}
+
+/// The profile folder has a save the game would load: a committed one, or what a save commit left in `save-tx` that
+/// the game takes at its next start, a finished save (`ready-<n>`), its staging copy (`new`) or the save it was
+/// replacing (`old`). The same rule as the runtime's (save_identity.c `save_identity_pending`, fs_host.c).
 pub fn has_save(profile: &Path) -> bool {
-    !committed(profile).is_empty() || !waiting(profile).is_empty()
+    !committed(profile).is_empty() || !transactions(profile, |name| is_ready(name) || name == "new" || name == "old").is_empty()
 }
 
 fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
@@ -143,61 +153,123 @@ pub fn earlier_profiles(cfg: &Config, output: &Path) -> Vec<PathBuf> {
     found
 }
 
+/// The folder one attempt of `adopt` copies into before anything goes into place: a name of that attempt's own.
+fn staging_name() -> String {
+    format!("adopt-{}-{}.partial", std::process::id(), paths::stamp())
+}
+
+fn is_staging(name: &str) -> bool {
+    let Some(rest) = name.strip_prefix("adopt-").and_then(|n| n.strip_suffix(".partial")) else { return false };
+    rest.split_once('-').is_some_and(|(pid, stamp)| {
+        [pid, stamp].iter().all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+    })
+}
+
+/// Removes what an attempt that never finished left (a crash, the power going): staging folders of our own naming
+/// that nothing has written to for an hour. A newer one may be another launcher at work and is left alone.
+fn clear_old_staging(profile: &Path) {
+    let Ok(entries) = fs::read_dir(profile) else { return };
+    for e in entries.flatten() {
+        let old = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age >= std::time::Duration::from_secs(3600));
+        if old && is_staging(&e.file_name().to_string_lossy()) && e.file_type().is_ok_and(|t| t.is_dir()) {
+            let _ = fs::remove_dir_all(e.path());
+        }
+    }
+}
+
 /// Copies the save of the first of `sources` that has one into `profile`, when `profile` has none. Returns the folder
 /// it came from, or None when nothing was copied (the folder has a save already, or no source has one).
 ///
-/// The account goes first and the save after it, through a folder of another name renamed into place at the end: a
-/// copy that fails halfway leaves `profile` without a save, and the next start tries again.
+/// Everything is copied into a folder of this attempt's own first and renamed into place only when all of it is
+/// there: a copy that fails halfway leaves `profile` without a save and without a half-copied one the game could take
+/// for a finished save, and the next start tries again.
 pub fn adopt(profile: &Path, sources: &[PathBuf]) -> Result<Option<PathBuf>, String> {
+    adopt_with(profile, sources, &copy_tree)
+}
+
+fn adopt_with(profile: &Path, sources: &[PathBuf], copy: &dyn Fn(&Path, &Path) -> io::Result<()>) -> Result<Option<PathBuf>, String> {
     if has_save(profile) {
         return Ok(None);
     }
-    let text = |e: io::Error| e.to_string();
     for source in sources.iter().filter(|s| !same_folder(s, profile)) {
         let saves = committed(source);
-        // The account `account.uid` names when it has a save, else the only account there is.
+        let ready = waiting(source);
+        // The account `account.uid` names when it has a save, else the only account there is. With no committed save
+        // at all, the named account when a finished save waits in save-tx (a first save not swapped in yet).
         let named = read_uid(source).map(|uid| uid_name(&uid));
         let pick = saves.iter().find(|(name, _)| Some(name) == named.as_ref()).or(if saves.len() == 1 { saves.first() } else { None });
-        let Some((name, from)) = pick else { continue };
-        let uid = uid_of_name(name).expect("committed() keeps account folder names only");
+        let (name, from) = match (pick, named) {
+            (Some((name, from)), _) => (name.clone(), Some(from.clone())),
+            (None, Some(name)) if saves.is_empty() && !ready.is_empty() => (name, None),
+            _ => continue,
+        };
+        let uid = uid_of_name(&name).expect("an account folder name, or one made from an account id");
 
-        fs::create_dir_all(profile).map_err(text)?;
-        let uid_file = profile.join(UID_FILE);
-        if uid_file.exists() && read_uid(profile) != Some(uid) {
-            // The account this folder made for itself: kept, under another name.
-            fs::rename(&uid_file, profile.join(format!("{UID_FILE}.before-{}", paths::stamp()))).map_err(text)?;
-        }
-        let pending = profile.join(format!("{UID_FILE}.new"));
-        fs::write(&pending, uid).and_then(|_| fs::rename(&pending, &uid_file)).map_err(text)?;
-
-        let save = profile.join("save");
-        fs::create_dir_all(&save).map_err(text)?;
-        let target = save.join(name);
-        if target.exists() {
-            remove_empty(&target).map_err(text)?;
-        }
-        let partial = save.join(format!("{name}.partial"));
-        if partial.exists() {
-            fs::remove_dir_all(&partial).map_err(text)?; // what an earlier try that failed left
-        }
-        copy_tree(from, &partial).and_then(|_| fs::rename(&partial, &target)).map_err(text)?;
-
-        // The saves before it and a finished save not swapped in yet come along when this folder has neither; the
-        // game starts fine without them, so a failure here is not one of the copy.
-        let backups = source.join("save-backup");
-        if backups.is_dir() && !profile.join("save-backup").exists() {
-            let _ = copy_tree(&backups, &profile.join("save-backup"));
-        }
-        if profile.join("save-tx").read_dir().map_or(true, |mut d| d.next().is_none()) {
-            for ready in waiting(source) {
-                if let Some(leaf) = ready.file_name() {
-                    let _ = copy_tree(&ready, &profile.join("save-tx").join(leaf));
-                }
-            }
-        }
+        fs::create_dir_all(profile).map_err(|e| e.to_string())?;
+        clear_old_staging(profile);
+        let staging = profile.join(staging_name());
+        let done = stage(source, from.as_deref(), &ready, profile, &staging, copy)
+            .and_then(|_| publish(profile, &staging, &name, &uid, from.is_some()));
+        let _ = fs::remove_dir_all(&staging); // empty after a publish; what a failed copy left otherwise
+        done.map_err(|e| e.to_string())?;
         return Ok(Some(source.clone()));
     }
     Ok(None)
+}
+
+/// Copies what `adopt` takes from `source` into `staging`: the committed save as `save`, the finished saves not
+/// swapped in yet under `tx` (when `profile` has nothing in its own save-tx) and the saves before it as `save-backup`
+/// (when `profile` has none). The last are only a comfort: the game starts fine without them, so their copy may fail.
+fn stage(source: &Path, from: Option<&Path>, ready: &[PathBuf], profile: &Path, staging: &Path,
+         copy: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
+    fs::create_dir_all(staging)?;
+    if let Some(from) = from {
+        copy(from, &staging.join("save"))?;
+    }
+    if profile.join("save-tx").read_dir().map_or(true, |mut d| d.next().is_none()) {
+        for folder in ready {
+            if let Some(leaf) = folder.file_name() {
+                copy(folder, &staging.join("tx").join(leaf))?;
+            }
+        }
+    }
+    let backups = source.join("save-backup");
+    if backups.is_dir() && !profile.join("save-backup").exists() && copy(&backups, &staging.join("save-backup")).is_err() {
+        let _ = fs::remove_dir_all(staging.join("save-backup"));
+    }
+    Ok(())
+}
+
+/// Moves a complete `staging` into place: the account, then the finished saves that wait (the newest progress: with
+/// them in place a later step that fails still leaves a save the game loads), the committed save, the older saves.
+fn publish(profile: &Path, staging: &Path, name: &str, uid: &[u8; 16], committed: bool) -> io::Result<()> {
+    let uid_file = profile.join(UID_FILE);
+    if uid_file.exists() && read_uid(profile) != Some(*uid) {
+        // The account this folder made for itself: kept, under another name.
+        fs::rename(&uid_file, profile.join(format!("{UID_FILE}.before-{}", paths::stamp())))?;
+    }
+    let pending = profile.join(format!("{UID_FILE}.new"));
+    fs::write(&pending, uid).and_then(|_| fs::rename(&pending, &uid_file))?;
+
+    if let Ok(entries) = fs::read_dir(staging.join("tx")) {
+        fs::create_dir_all(profile.join("save-tx"))?;
+        for e in entries.flatten() {
+            fs::rename(e.path(), profile.join("save-tx").join(e.file_name()))?;
+        }
+    }
+    if committed {
+        let target = profile.join("save").join(name);
+        fs::create_dir_all(profile.join("save"))?;
+        if target.exists() {
+            remove_empty(&target)?;
+        }
+        fs::rename(staging.join("save"), &target)?;
+    }
+    if staging.join("save-backup").is_dir() && !profile.join("save-backup").exists() {
+        let _ = fs::rename(staging.join("save-backup"), profile.join("save-backup"));
+    }
+    Ok(())
 }
 
 /// `adopt` for the game folder `output`, with the folders `earlier_profiles` knows. For the callers that start the game.
@@ -315,6 +387,105 @@ mod tests {
         fs::remove_file(two.join(UID_FILE)).unwrap();
         assert_eq!(adopt(&other, &[two]).unwrap(), None);
         assert!(!has_save(&other));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_copy_that_fails_leaves_no_half_copied_save_behind() {
+        let dir = root("fails");
+        let (old, new) = (dir.join("old"), dir.join("new"));
+        profile_with_save(&old, &UID, b"progress");
+        fs::create_dir_all(old.join("save-tx").join("ready-7")).unwrap();
+        fs::write(old.join("save-tx").join("ready-7").join("DATA.BIN"), b"newest").unwrap();
+        // The game was started once in the new folder: its own account is there.
+        let fresh = [7u8; 16];
+        fs::create_dir_all(&new).unwrap();
+        fs::write(new.join(UID_FILE), fresh).unwrap();
+
+        // The disk fills up while the finished save that waits is copied: half of it is written, then an error.
+        let failing = |from: &Path, to: &Path| -> io::Result<()> {
+            if from.file_name().is_some_and(|n| n == "ready-7") {
+                fs::create_dir_all(to)?;
+                fs::write(to.join("DATA.BIN"), b"new")?;
+                return Err(io::Error::other("disk full"));
+            }
+            copy_tree(from, to)
+        };
+        assert!(adopt_with(&new, std::slice::from_ref(&old), &failing).unwrap_err().contains("disk full"));
+        assert!(!has_save(&new), "nothing the game would load");
+        assert!(!new.join("save-tx").exists() && !new.join("save").exists());
+        assert_eq!(read_uid(&new), Some(fresh), "the folder's own account is still the one in use");
+        let left: Vec<String> = fs::read_dir(&new).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        assert_eq!(left, [UID_FILE], "no staging folder is left: {left:?}");
+
+        // The next start, with room on the disk, copies all of it: the waiting save too.
+        assert_eq!(adopt(&new, std::slice::from_ref(&old)).unwrap(), Some(old));
+        assert_eq!(fs::read(new.join("save-tx").join("ready-7").join("DATA.BIN")).unwrap(), b"newest");
+        assert_eq!(fs::read(new.join("save").join(uid_name(&UID)).join("DATA.BIN")).unwrap(), b"progress");
+        assert_eq!(read_uid(&new), Some(UID));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn what_a_save_commit_left_counts_as_a_save() {
+        let dir = root("pending");
+        let old = dir.join("old");
+        profile_with_save(&old, &UID, b"progress");
+        // The game takes each of these at its next start (fs_host.c save_recover): the folder is not empty.
+        for (i, name) in ["ready-3", "new", "old"].iter().enumerate() {
+            let new = dir.join(format!("new{i}"));
+            fs::create_dir_all(new.join("save-tx").join(name)).unwrap();
+            assert!(!has_save(&new), "{name} without a file is nothing");
+            fs::write(new.join("save-tx").join(name).join("DATA.BIN"), b"mine").unwrap();
+            assert!(has_save(&new), "{name}");
+            assert_eq!(adopt(&new, std::slice::from_ref(&old)).unwrap(), None, "{name}");
+            assert!(!new.join(UID_FILE).exists() && !new.join("save").exists());
+        }
+        // The working copy no commit took is not a save.
+        let work = dir.join("work");
+        fs::create_dir_all(work.join("save-tx").join("work")).unwrap();
+        fs::write(work.join("save-tx").join("work").join("DATA.BIN"), b"uncommitted").unwrap();
+        assert!(!has_save(&work));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_first_save_that_still_waits_is_taken_with_its_account() {
+        let dir = root("first");
+        let (old, new, nameless) = (dir.join("old"), dir.join("new"), dir.join("nameless"));
+        // The game's first save was finished and not swapped in: no committed save yet.
+        fs::create_dir_all(old.join("save-tx").join("ready-1")).unwrap();
+        fs::write(old.join("save-tx").join("ready-1").join("DATA.BIN"), b"first").unwrap();
+        fs::write(old.join(UID_FILE), UID).unwrap();
+        assert_eq!(adopt(&new, std::slice::from_ref(&old)).unwrap(), Some(old.clone()));
+        assert_eq!(read_uid(&new), Some(UID));
+        assert_eq!(fs::read(new.join("save-tx").join("ready-1").join("DATA.BIN")).unwrap(), b"first");
+        assert!(has_save(&new) && !new.join("save").exists());
+        // Without the account file nobody knows whose save it is: nothing is copied.
+        fs::remove_file(old.join(UID_FILE)).unwrap();
+        assert_eq!(adopt(&nameless, &[old]).unwrap(), None);
+        assert!(!nameless.exists() || !has_save(&nameless));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_staging_folder_another_start_is_using_is_left_alone() {
+        let dir = root("staging");
+        let (old, new) = (dir.join("old"), dir.join("new"));
+        profile_with_save(&old, &UID, b"progress");
+        let theirs = new.join("adopt-4242-1795000000.partial");
+        fs::create_dir_all(theirs.join("save")).unwrap();
+        fs::write(theirs.join("save").join("DATA.BIN"), b"being copied").unwrap();
+        let kept = new.join("my-copy.partial");
+        fs::create_dir_all(&kept).unwrap();
+        fs::write(kept.join("DATA.BIN"), b"the player's own").unwrap();
+        assert!(is_staging("adopt-4242-1795000000.partial") && is_staging(&staging_name()));
+        assert!(!is_staging("my-copy.partial") && !is_staging("adopt-x-1.partial") && !is_staging("adopt-1-.partial"));
+
+        assert_eq!(adopt(&new, std::slice::from_ref(&old)).unwrap(), Some(old));
+        assert_eq!(fs::read(theirs.join("save").join("DATA.BIN")).unwrap(), b"being copied");
+        assert_eq!(fs::read(kept.join("DATA.BIN")).unwrap(), b"the player's own");
+        assert_eq!(fs::read(new.join("save").join(uid_name(&UID)).join("DATA.BIN")).unwrap(), b"progress");
         let _ = fs::remove_dir_all(dir);
     }
 

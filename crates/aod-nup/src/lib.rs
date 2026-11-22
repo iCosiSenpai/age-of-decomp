@@ -321,6 +321,9 @@ impl Nup {
     }
 
     pub fn dir_name(&self, dir: u32) -> Result<String> {
+        if dir as u64 >= self.dir_count {
+            return corrupt("folder index out of bounds");
+        }
         let o = self.dirs_at + dir as usize * DIR_SIZE;
         self.name(u32_at(&self.toc, o), u32_at(&self.toc, o + 4))
     }
@@ -353,19 +356,22 @@ impl Nup {
 
     /// The children of a folder, in TOC order (bytewise name order).
     pub fn children(&self, dir: u32) -> Result<Vec<Node>> {
+        if dir as u64 >= self.dir_count {
+            return corrupt("folder index out of bounds");
+        }
         let o = self.dirs_at + dir as usize * DIR_SIZE;
         let first = u32_at(&self.toc, o + 8) as usize;
         let count = u32_at(&self.toc, o + 12) as usize;
         let end = self.children_at as u64 + (first as u64 + count as u64) * 4;
-        if end > self.pool.0.max(self.children_at) as u64 && end > self.toc.len() as u64 {
+        // The children array ends where the name pool starts when the pool follows it (where the format asks
+        // producers to put it), else at the end of the table of contents: a listing never reads names as node ids.
+        let limit = if self.pool.0 >= self.children_at { self.pool.0 } else { self.toc.len() };
+        if end > limit as u64 {
             return corrupt("folder listing out of bounds");
         }
         (0..count)
             .map(|k| {
                 let at = self.children_at + (first + k) * 4;
-                if at + 4 > self.toc.len() {
-                    return corrupt("folder listing out of bounds");
-                }
                 let id = u32_at(&self.toc, at) as u64;
                 if id < self.dir_count {
                     Ok(Node::Dir(id as u32))
@@ -696,6 +702,29 @@ mod tests {
         std::fs::write(&path, &bytes).unwrap();
         assert!(matches!(Nup::open(&path), Err(Error::Corrupt(s)) if s == "package metadata too large"));
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn folder_indices_and_listings_are_bounded() {
+        let data = synthetic_graph(&[(0, 1), (0, 0)], &[1], false);
+        with_synthetic("bounds", &data, |nup| {
+            assert_eq!(nup.children(0).unwrap().len(), 1);
+            assert!(nup.dir_name(1).is_ok());
+            for dir in [2, u32::MAX] {
+                assert!(matches!(nup.children(dir), Err(Error::Corrupt(s)) if s == "folder index out of bounds"));
+                assert!(matches!(nup.dir_name(dir), Err(Error::Corrupt(s)) if s == "folder index out of bounds"));
+            }
+        });
+        // The root lists two slots, and the second one is where the name pool starts: names are not node ids.
+        let mut bytes = synthetic_graph(&[(0, 2), (0, 0)], &[1, 1], false);
+        let pool_at = u64_at(&bytes, SUPERBLOCK_SIZE + 24);
+        bytes[SUPERBLOCK_SIZE + 24..SUPERBLOCK_SIZE + 32].copy_from_slice(&(pool_at - 4).to_le_bytes());
+        bytes[SUPERBLOCK_SIZE + 32..SUPERBLOCK_SIZE + 40].copy_from_slice(&5u64.to_le_bytes());
+        rehash_toc(&mut bytes);
+        with_synthetic("pool", &bytes, |nup| {
+            assert!(matches!(nup.children(0), Err(Error::Corrupt(s)) if s == "folder listing out of bounds"));
+            assert!(nup.children(1).unwrap().is_empty());
+        });
     }
 
     #[test]

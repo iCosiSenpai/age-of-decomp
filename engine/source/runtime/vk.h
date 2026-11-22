@@ -57,11 +57,11 @@ typedef struct {
     int gpl;                           // VK_EXT_graphics_pipeline_library enabled with fast linking (TOTK_GPL=0: off)
     int amd;                           // an AMD GPU (vendor 0x1002), any driver
     int amd_sc;                        // AMD's Windows driver branch for RDNA 1 and 2 ("AMD proprietary shader compiler")
-    int amd_rdna3;                     // a discrete RDNA 3 GPU (Navi 31/32/33, device 0x7440-0x749f) on AMD's own driver
+    int amd_own;                       // an AMD GPU on AMD's own driver (Adrenalin on Windows), both branches: not RADV
     int intel_win;                     // Intel's Windows driver (igvk64): the pipeline cache copy waits for builds
 } VkCaps;
 extern VkCaps vk_caps;
-void vk_caps_driver(VkPhysicalDevice p);             // first, before vkCreateDevice: vk_caps.amd, amd_sc
+void vk_caps_driver(VkPhysicalDevice p);             // first, before vkCreateDevice: vk_caps.amd, amd_sc, amd_own
 void vk_caps_features(VkPhysicalDeviceFeatures *f);   // before vkCreateDevice (TOTK_VK_NO_FLOAT64 clears shaderFloat64)
 // Before vkCreateDevice, with the driver's graphics pipeline library feature and properties: sets vk_caps.gpl,
 // 1 = enable the extensions (VK_KHR_pipeline_library, VK_EXT_graphics_pipeline_library) and the feature.
@@ -84,13 +84,25 @@ void vk_device_fault_report(VkResult r);
 // twice, when the command processor reaches it and when all work before it has finished. After a lost device the two
 // codes bracket the work that hung. Without the extension every call returns at once.
 enum { VK_CRUMB_SUBMIT = 1, VK_CRUMB_SUBMIT_END, VK_CRUMB_UPLOAD, VK_CRUMB_UPLOAD_END, VK_CRUMB_ASTC, VK_CRUMB_PRESENT,
-       VK_CRUMB_PRESENT_END };
+       VK_CRUMB_PRESENT_END, VK_CRUMB_DRAW };
 void vk_crumbs_init(VkCtx *c);       // after the allocator exists
 void vk_crumbs_release(void);
 // Records crumb kind with number n (a timeline value, a batch number; the low 28 bits are kept) into cb. Only the
 // thread that records cb may call it: never into a replay part while the recorder thread owns it (vk_rec.h).
 void vk_crumb(VkCommandBuffer cb, int kind, uint64_t n);
-void vk_crumbs_report(void);         // logs the two codes and what they name
+void vk_crumbs_report(void);         // logs the two codes and what they name, and with draw crumbs the draws between
+// A crumb per draw (TOTK_DRAW_CRUMBS=1): what one draw is, kept for that report.
+typedef struct {
+    uint32_t no;                     // the draw's number (vk_crumbs_draw sets it)
+    uint32_t sub;                    // the submission it is recorded into (its VK_CRUMB_SUBMIT number)
+    uint32_t vertices;
+    uint16_t w, h;                   // the pass's render area
+    uint16_t fmt[9];                 // VkFormat of the colour targets 0-7 and of the depth target; 0: none
+    uint64_t frame;                  // the frame being drawn
+    uint64_t vs, fs;                 // the NVN 2 names of the vertex and the fragment stage (nvn2_origin); 0: not NVN 2
+} VkDrawNote;
+int vk_crumbs_draws(void);                       // 1: draws are marked too
+uint32_t vk_crumbs_draw(const VkDrawNote *n);    // keeps the note and returns the number for the draw's VK_CRUMB_DRAW
 
 // ---- window and present (gfx_present.c). Host threads only.
 // vk_present_image: blits the crop rectangle {x, y, w, h} of src (NULL, or w/h <= 0: the whole w x h image), scaled

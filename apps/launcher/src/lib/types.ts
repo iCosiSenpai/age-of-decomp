@@ -40,6 +40,7 @@ export interface GpuInfo {
   vendor: string;
   vram_gb: number;
   discrete: boolean;
+  vulkan13: boolean; // the card's own Vulkan version is 1.3 or later
 }
 
 export interface SystemInfo {

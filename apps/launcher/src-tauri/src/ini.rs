@@ -129,9 +129,13 @@ impl Ini {
         let eol = if self.crlf { "\r\n" } else { "\n" };
         let mut text = self.lines.join(eol);
         text.push_str(eol);
-        let tmp = path.with_extension("ini.part");
+        // A name of this process's own: the launcher's window, aod-cli and RecompLauncher can each write this file,
+        // and none must rename what another is still writing.
+        let tmp = path.with_extension(format!("ini.{}.part", std::process::id()));
         std::fs::write(&tmp, text)?;
-        std::fs::rename(&tmp, path)
+        std::fs::rename(&tmp, path).inspect_err(|_| {
+            let _ = std::fs::remove_file(&tmp);
+        })
     }
 }
 

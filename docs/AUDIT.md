@@ -275,7 +275,7 @@ our own `libSDL3.so.0` (X-6), the real RecompLauncher app (R-3b), the controller
 ## Second audit (2026-11-19)
 
 An independent read-only review by codex-cli (gpt-6.2-astra) of revision e612ffb. Each finding below was checked in
-the code before it was fixed; severity is ours. Findings A-28 to A-35 are recorded but not yet verified.
+the code before it was fixed; severity is ours. Findings A-28 to A-35 were checked on 2026-11-22.
 
 | ID | Finding | Severity | Status |
 |---|---|---|---|
@@ -288,10 +288,34 @@ the code before it was fixed; severity is ours. Findings A-28 to A-35 are record
 | A-26 | A re-run of the release workflow could replace assets of a published release | Medium | Fixed — uploads go only into a draft, and the tag must equal `v` + `VERSION` |
 | A-27 | NUP metadata was limited per package only | Low | Fixed — at most 256 packages and 64 MiB of metadata in total |
 | A-33 | The menu preview test named one maintainer's toolchain folder | Low | Fixed — engine patch 0021: `AOD_TOOLCHAIN_DIR` or the toolchain beside the checkout |
-| A-28 | Turning diagnostics off may race an upload already authorised | Medium | Open — to verify |
-| A-29 | `hwaoi.ini` and config writes use fixed temporary names without a cross-process lock | Medium | Open — to verify |
+| A-28 | Turning diagnostics off may race an upload already authorised | Low | Checked — the choice is read again right before each upload, so only an upload already being written can still arrive; left as it is |
+| A-29 | `hwaoi.ini` and config writes use fixed temporary names without a cross-process lock | Low | Fixed — each process writes a temporary file of its own name, so none renames another's; two writers at once still mean the last one wins |
 | A-30 | Play forced `HWAOI_PIPE_PREBUILD=1`, so "Prepare shaders early" could not be turned off | Medium | Fixed — no override; the runtime default stays on and `hwaoi.ini` decides |
 | A-31 | A colour profile chosen in the launcher or RecompLauncher wrote only `color_preset`, which the picture ignored | Medium | Fixed — engine patch 0022: a named profile sets the four values, custom uses the player's |
-| A-32 | Patch 0016 counts a skipped depth/stencil copy as handled | Medium | Open — to verify |
-| A-34 | Setup: repeated NUP scan without results, Vulkan 1.3 shown as passed without a GPU, cancel lost during preflight | Medium | Open — to verify |
-| A-35 | Smaller items: NUP index checks, optimistic UI after a failed save, ninja licence, English backend text in the Italian UI | Low | Partly — release-guard test fixtures fixed, `docs/RECOMPLAUNCHER.md` now says setup version 4 |
+| A-32 | Patch 0016 counts a skipped depth/stencil copy as handled | Low | Checked, left as it is: see the third audit |
+| A-34 | Setup: repeated NUP scan without results, Vulkan 1.3 shown as passed without a GPU, cancel lost during preflight | Medium | Fixed — one search per visit, the check asks each card for its own Vulkan version, a Cancel before the engine has started is kept |
+| A-35 | Smaller items: NUP index checks, optimistic UI after a failed save, ninja licence, English backend text in the Italian UI | Low | Fixed, but the last: folder indices are checked, a failed save shows the file's value again, the bundle carries Ninja's licence. Backend messages are still English in the Italian UI |
+
+## Third audit (2026-11-22, before 0.1.3)
+
+A read of the launcher's backend by hand and a second independent read-only review by codex-cli (gpt-6.2-astra) of
+the tracked files. Each finding was checked in the code before it was changed; severity is ours.
+
+| ID | Finding | Severity | Status |
+|---|---|---|---|
+| A-36 | Copying a save into a new game folder: a finished save that waited in `save-tx` was copied under its final name, so a copy cut short could be loaded as the newest save, and the error was dropped | High | Fixed — everything is copied into a folder of the attempt's own and renamed into place when it is whole; a failure is reported and tried again at the next start |
+| A-37 | The same copy deleted `save/<account>.partial` without knowing who made it | Medium | Fixed — only the attempt's own folder is removed, and one left by a crash only after an hour |
+| A-38 | A folder holding only `save-tx/new` or `old` counted as having no save, and a first save that still waited was not taken | Medium | Fixed — the runtime's own rule for what a commit left |
+| A-39 | A DLSS file the player picks was read, and then the picked path was verified again: the bytes verified could differ from the bytes installed | Medium | Fixed — the launcher's own copy is what Windows verifies |
+| A-40 | Settings written before the first build lost every key the launcher has no row for | Low | Fixed — such keys are carried over as they are |
+| A-41 | `tools/release.py` could package an engine bundle staged from uncommitted files, or older than the repository's engine, once the tree was clean | Medium | Fixed — both are refused without `--allow-dirty` |
+| A-42 | `aod-nup`: a folder listing could run into the name pool and read names as node ids; `children` and `dir_name` took any index | Medium | Fixed |
+| A-43 | Logs were read whole and as UTF-8 for their last lines, the frame rate and the end shown after a failure | Medium | Fixed — the end is read as bytes |
+| A-44 | The RecompLauncher check passed below level 3 as long as there was no error, and looked for the wrong folder on Linux | Medium | Fixed |
+| A-45 | Opt-in diagnostics looked for Vulkan error names the game never writes: a lost graphics card and a stop for lack of memory were both "unexpected exit" | Medium | Fixed |
+| A-46 | The engine bundle shipped libvpx, Vulkan Memory Allocator and Ninja without their licence texts: the toolchain step skipped a licence file it did not find | Medium | Fixed — the texts are there and a missing one stops `toolchain` and `stage` |
+| A-47 | Free disk space was looked up by the longest mount point that is a prefix of the path, so `/mnt/games` matched a disk at `/mnt/game` | Low | Fixed — whole folder names |
+| A-48 | `aod-cli prepare` said nothing when the built game could not be recorded for the launcher's window | Low | Fixed — it says so; the build still counts |
+| A-49 | `tools/menu_texts.py` looked for the menu's texts in a folder that is gone since the engine moved | Low | Fixed |
+| A-50 | HDR output has rows in the game's menu only, and the language values `zh-CN` / `zh-TW` the runtime accepts are unknown to the launcher | Low | Open — HDR was never seen on an HDR screen |
+| A-32 | (second audit, checked now) a skipped depth/stencil copy counted as handled | Low | Checked, left as it is — `vk_exec_xfer.c copy_depth_stencil` skips on purpose a copy whose two sides may share memory (Vulkan forbids it), with a warning in the log the first time; the generic copy it would otherwise fall to cannot copy a combined depth/stencil image. Doing it right needs a copy through a temporary image: not done |

@@ -200,9 +200,22 @@ class AppState {
   }
 
   async set(key: string, value: string) {
+    const before = this.settings;
     this.settings = { ...this.settings, [key]: value };
     try {
       this.settings = await api.setSetting(key, value);
+    } catch (err) {
+      // What the file holds is what the game reads: show that again, not the value that was not saved.
+      this.settings = await api.settings().catch(() => before);
+      this.toast(String(err), 'err');
+    }
+  }
+
+  /** These settings back to their defaults; `done` is said when it worked, the reason when it did not. */
+  async reset(keys: string[], done: string) {
+    try {
+      this.settings = await api.resetSettings(keys);
+      this.toast(done, 'ok');
     } catch (err) {
       this.toast(String(err), 'err');
     }

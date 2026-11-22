@@ -11,6 +11,8 @@ pub struct Gpu {
     pub vendor: String,
     pub vram_gb: f64,
     pub discrete: bool,
+    /// The card's own Vulkan version is 1.3 or later: what the game needs (the loader's version says nothing of it).
+    pub vulkan13: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -81,6 +83,7 @@ fn vulkan() -> (Option<String>, Vec<Gpu>) {
                     vendor: vendor.into(),
                     vram_gb: vram as f64 / (1u64 << 30) as f64,
                     discrete: props.device_type == ash::vk::PhysicalDeviceType::DISCRETE_GPU,
+                    vulkan13: props.api_version >= ash::vk::API_VERSION_1_3,
                 });
             }
         }
@@ -122,12 +125,10 @@ pub fn disk_info(path: &Path) -> DiskInfo {
         }
     }
     let probe = probe.canonicalize().unwrap_or(probe);
-    let plain = |p: &Path| p.to_string_lossy().trim_start_matches(r"\\?\").to_ascii_lowercase();
-    let target = plain(&probe);
     let best = disks
         .list()
         .iter()
-        .filter(|d| target.starts_with(&plain(d.mount_point())))
+        .filter(|d| on_disk(&probe, d.mount_point()))
         .max_by_key(|d| d.mount_point().as_os_str().len());
     let gb = |b: u64| b as f64 / (1u64 << 30) as f64;
     DiskInfo {
@@ -135,6 +136,17 @@ pub fn disk_info(path: &Path) -> DiskInfo {
         free_gb: best.map(|d| gb(d.available_space())).unwrap_or(0.0),
         total_gb: best.map(|d| gb(d.total_space())).unwrap_or(0.0),
     }
+}
+
+/// Whether `path` lies on the disk mounted at `mount`: by whole folder names (`/mnt/games` is not on `/mnt/game`),
+/// without regard to case on Windows only.
+fn on_disk(path: &Path, mount: &Path) -> bool {
+    let plain = |p: &Path| {
+        let text = p.to_string_lossy();
+        let text = text.trim_start_matches(r"\\?\");
+        PathBuf::from(if cfg!(windows) { text.to_ascii_lowercase() } else { text.to_string() })
+    };
+    plain(path).starts_with(plain(mount))
 }
 
 /// `{language, country}` from the desktop locale ("it-IT" → it / IT).
@@ -192,6 +204,32 @@ fn walk(dir: &Path, depth: u32, found: &mut Vec<String>, visited: &mut usize) {
             found.push(e.path().to_string_lossy().into_owned());
         } else if ft.is_dir() && !ft.is_symlink() {
             walk(&e.path(), depth + 1, found, visited);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `cargo test this_pc -- --ignored --nocapture` prints what Setup's "This PC" checks read here.
+    #[test]
+    #[ignore]
+    fn this_pc() {
+        println!("{:#?}", system_info());
+    }
+
+    #[test]
+    fn a_folder_is_on_a_disk_by_whole_names() {
+        if cfg!(windows) {
+            assert!(on_disk(Path::new(r"\\?\C:\Games\AoD"), Path::new(r"C:\")));
+            assert!(on_disk(Path::new(r"d:\games"), Path::new(r"D:\")));
+            assert!(!on_disk(Path::new(r"D:\games"), Path::new(r"C:\")));
+        } else {
+            assert!(on_disk(Path::new("/mnt/game/build"), Path::new("/mnt/game")));
+            assert!(!on_disk(Path::new("/mnt/games/build"), Path::new("/mnt/game")));
+            assert!(!on_disk(Path::new("/mnt/Game/build"), Path::new("/mnt/game")));
+            assert!(on_disk(Path::new("/home/player"), Path::new("/")));
         }
     }
 }

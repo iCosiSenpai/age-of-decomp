@@ -213,6 +213,13 @@ compiled by the author but not hardware-tested there. Patch 0009 adds synthetic 
 and recorder-default functions covering 13 GPU/driver profiles and explicit 0/1 overrides (39 cases), run on
 Windows and Linux. AMD physical GPU stability and long-session performance remain unverified here.
 
+Since 0.1.3 (2026-11-22) the default is wider than that pull request's: the recorder thread is off for every card on
+AMD's proprietary driver, the rule DKB Recomp (GPL-3.0, this engine's ancestor) uses, written here from its
+description; the classification by device id went with it, and the synthetic test covers 16 profiles with four
+settings each. The `sfence` before the recorder publishes its progress follows MKW Recomp's pull request #281 by
+tibor-stick (https://github.com/adriadam10/mkw-recomp, MIT): the idea and its measurements are theirs, the three
+lines are written here.
+
 ## Player-facing identity review on 2026-11-19
 
 Engine patch 0010 changes the inherited project labels in the menu footer, Windows/SDL window title,

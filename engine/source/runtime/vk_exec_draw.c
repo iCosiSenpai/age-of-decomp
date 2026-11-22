@@ -3159,6 +3159,26 @@ static int indirect_can_stay_in_pass(const VkExec *ex, uint64_t addr, uint64_t s
 }
 
 // Pass, shaders, pipeline, fixed state and resources for a draw. 0: the draw is skipped.
+// TOTK_DRAW_CRUMBS=1 (vk_crumbs.c): a crumb in front of the draw prepare_draw has just set up, and a note of what the
+// draw is. The crumb goes through the recorder thread in order with the draw's own commands.
+static void draw_crumb(VkExec *ex, int32_t count) {
+    VkDrawNote n = {.sub = (uint32_t)((vk_sync_issued() + 1) & 0x0fffffff), .vertices = (uint32_t)count,
+                    .w = (uint16_t)(ex->pass_w < 0xffff ? ex->pass_w : 0xffff),
+                    .h = (uint16_t)(ex->pass_h < 0xffff ? ex->pass_h : 0xffff),
+                    .frame = __atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED) + 1};
+    for (int i = 0; i < 9; i++) {
+        const VkExecTarget *t = i < 8 ? &ex->color[i] : &ex->depth;
+        if (t->image) n.fmt[i] = (uint16_t)((uint32_t)t->format < 0xffff ? (uint32_t)t->format : 0xffff);
+    }
+    const uint8_t *ctl, *code;
+    uint32_t len;
+    if (ex->prog) {
+        n.vs = bound_stage(ex, NVN_STAGE_VS, &ctl, &code, &len) ? nvn2_origin(code) : 0;
+        n.fs = bound_stage(ex, NVN_STAGE_FS, &ctl, &code, &len) ? nvn2_origin(code) : 0;
+    }
+    rec_crumb(ex->cb, VK_CRUMB_DRAW, vk_crumbs_draw(&n));
+}
+
 static int prepare_draw(VkExec *ex, int prim, int32_t count, int restart) {
     if (ex->render_disabled) return 0;
     static int skip_all = -1;   // DKB_SKIP_DRAWS=1: drop every draw (bisecting GPU faults)
@@ -3336,6 +3356,7 @@ static int prepare_draw(VkExec *ex, int prim, int32_t count, int restart) {
     if (vk_dump_armed) vk_dump_draw(ex, &s, p, info);
     vk_exec_oq_draw(ex);
     if (indirect_batch_on()) ex->pass_storage_writes |= pipeline_storage_writes(info);
+    if (vk_crumbs_draws()) draw_crumb(ex, count);
     return 1;
 }
 

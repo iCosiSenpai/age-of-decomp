@@ -16,7 +16,7 @@ C/C++ runtime (Horizon services, NVN2 on Vulkan, Ampere shaders → SPIR-V).
 | Launcher | `apps/launcher/` | Tauri 2 app: Rust backend (`src-tauri/`) + Svelte 5 / TypeScript UI (`src/`). Setup wizard with steps and progress bar, Play, full Graphics / Controls / Audio / System settings, controller-navigable UI. Also the headless CLI `aod-cli` used by RecompLauncher's `prepare`. |
 | NUP crate | `crates/aod-nup/` | Rust reader of the NUP container (spec: `refs/nup/SPEC.md`): superblock, TOC, meta TLVs, zstd extraction, build ID, profile verification. |
 | Packaging | `packaging/` | `recomplauncher.json`, Windows zip layout, Linux AppImage AppDir. |
-| Tools | `tools/` | `engine.py` (toolchain/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check), `fetch_refs.py`, `check_content.py`, `catalog_fmt.py` (the settings catalogue's layout), `menu_texts.py` (game menu texts missing a language or unused), `make_game_icon.py`. Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
+| Tools | `tools/` | `engine.py` (toolchain/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check), `fetch_refs.py`, `check_content.py`, `catalog_fmt.py` (the settings catalogue's layout), `menu_texts.py` (game menu texts missing a language or unused), `make_game_icon.py`, `smoke_game.py` (a start of the built game for a check). Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
 
 ## ⚠️ The notebook: `plan&activity/` (gitignored) — mandatory
 
@@ -97,9 +97,11 @@ apps/launcher/     Tauri 2 launcher (pnpm). src/ = Svelte 5 UI (settings catalog
 crates/aod-nup/    NUP reader crate (+ `aod-nup info|check|build-id` CLI)
 engine/            source/ (the engine: compiler/ recomp/ runtime/ tools/ tests/ docs/ config/games/ = the game profile),
                    ORIGIN.md (where it came from, whose work, licence), tests/ (our own C tests)
-packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` → aod-cli, else launcher; .desktop)
+packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` → aod-cli, else launcher; .desktop),
+                   licenses/ (licence texts of bundled parts whose package has none, libvpx and Ninja: `engine.py
+                   toolchain` adds them to the bundle's licences and stops when one is missing)
 tools/             engine.py, release.py, fetch_refs.py, check_content.py, catalog_fmt.py, menu_texts.py,
-                   make_game_icon.py, capture_window.ps1, recomplauncher_check.py (+ .rs harness)
+                   make_game_icon.py, capture_window.ps1, smoke_game.py, recomplauncher_check.py (+ .rs harness)
 docs/              SETTINGS.md (generated: `release.py docs`), CONTROLLERS.md, CHANGELOG.md (release notes + credits);
                    assets/icon.svg (source of all app icons)
 plan&activity/     agent notebook (gitignored) — see above
@@ -156,7 +158,13 @@ bindings (`runtime/hud_prompts.c`: the game's one button-picture texture, known 
 changes; our own drawings and Roboto Medium only; `tests/hwaoi/test_hud_prompts.py` draws them without the game, and
 `TOTK_TEST_PAD=0,0,0,0` gives a real start a gamepad; the rules are in `docs/CONTROLLERS.md`); `TOTK_DUMP_TEX` writes
 a block-compressed texture's own bytes as `..._blocks.bin`; `TOTK_SWAPCHAIN_TEST=1` resizes the window while its
-swapchain is made, to check that case in the log. Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder
+swapchain is made, to check that case in the log; the recorder thread off on AMD's own driver for every card
+generation and an `sfence` before it publishes its progress (`runtime/vk_rec.c`: `VK_RECORDER=auto|0|1`, catalogue
+`vk_recorder`; the fence is MKW Recomp's pull request #281, the default DKB Recomp's; not run on a Radeon here); a GPU
+breadcrumb per draw for the report of a lost device (`DRAW_CRUMBS=1`, catalogue `draw_crumbs`; `runtime/vk_crumbs.c`
+keeps a note of the last 65536 draws and the report lists the unfinished ones with their shaders;
+`TOTK_DRAW_CRUMBS_TEST=<frame>` writes that list once; VK_AMD_buffer_marker is there on NVIDIA's driver too, so it
+runs on this PC). Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder
 default) and #22 to #26 (@ripps818: 1440p/4K layout, SMAA, HDR10, FSR 3.1/4, Linux client).
 
 Toolchain (`py tools/engine.py toolchain` → `.cache/toolchain/windows/`; never system-wide, never `C:\msys64`):
@@ -286,6 +294,9 @@ for text. Everything reachable with a controller (D-pad/A/B/LB/RB/Start) and the
   `age-of-decomp.exe` and names it `AgeOfDecomp.exe` in the ZIP.
 - Never leave game-derived files outside gitignored folders. Close the game with its window, not by killing it, so
   logs flush.
+- A start of the built game for a check, without touching a save: `py -I tools/smoke_game.py <name> [--frames N]
+  [--press A@20 ...] [--shot] [KEY=VALUE ...]` (Windows: a window behind the others, a scratch profile, the game
+  closed by its window, the log lines that matter printed; its files go to `work/smoke/<name>`).
 
 ## Writing
 

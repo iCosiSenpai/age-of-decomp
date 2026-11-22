@@ -408,8 +408,11 @@ fn log_tail(app: tauri::State<'_, App>, kind: String) -> String {
         .ok()
         .and_then(|rd| rd.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "log")).max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok()));
     newest
-        .and_then(|e| std::fs::read_to_string(e.path()).ok())
-        .map(|t| t.lines().rev().take(200).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n"))
+        .and_then(|e| game::log_end(&e.path(), 256 * 1024))
+        .map(|text| {
+            let lines: Vec<&str> = text.lines().collect();
+            lines[lines.len().saturating_sub(200)..].join("\n")
+        })
         .unwrap_or_default()
 }
 
@@ -552,9 +555,7 @@ fn play_failed(paths: &Paths, cfg: &Config, e: &str) {
 /// The game ended with an error: the end of its log on stderr, so the reason (a "fatal:" line, a crash report) is in
 /// what RecompLauncher keeps of the game's output too. The whole log stays in the game folder's `logs`.
 fn print_log_end(log: &Path, code: i32) {
-    let Ok(bytes) = std::fs::read(log) else { return };
-    let tail = &bytes[bytes.len().saturating_sub(16 * 1024)..];
-    let text = String::from_utf8_lossy(tail);
+    let Some(text) = game::log_end(log, 16 * 1024) else { return };
     let lines: Vec<&str> = text.lines().collect();
     eprintln!("Age of Decomp {VERSION}: the game ended with code {code}. The end of {}:", log.display());
     for line in &lines[lines.len().saturating_sub(60)..] {

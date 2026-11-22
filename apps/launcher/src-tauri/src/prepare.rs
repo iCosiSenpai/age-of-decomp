@@ -191,11 +191,7 @@ pub fn stash_early_settings(paths: &Paths, output: &std::path::Path) -> Result<(
         return Ok(());
     }
     let mut pending = crate::settings::load_ini(&paths.pending_ini())?;
-    for (k, v) in early.values() {
-        if let Ok(s) = crate::settings::validate(&k, &v) {
-            pending.set(&k, &v, &s.section); // the newer choice wins
-        }
-    }
+    crate::settings::carry(&early, &mut pending); // the newer choice wins; a key without a row here goes along
     pending.save(&paths.pending_ini()).map_err(|e| e.to_string())?;
     std::fs::remove_file(&ini).map_err(|e| e.to_string())?;
     let mut dir = ini.parent().map(std::path::Path::to_path_buf);
@@ -282,6 +278,9 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
         return Err(e);
     }
     control.pid.store(child.id(), Ordering::SeqCst);
+    if control.cancel.load(Ordering::SeqCst) {
+        cancel(&control); // Cancel was pressed before the engine had started
+    }
 
     // stderr carries `ERROR: …`; read it on its own thread so neither pipe can fill up.
     let err_lines = Arc::new(Mutex::new(Vec::<String>::new()));
@@ -369,11 +368,12 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
 
 /// Stops a running build (the whole process tree: Python, Ninja, clang).
 pub fn cancel(control: &Control) {
+    // Kept also while the engine has not started yet: `run` stops it as soon as it has.
+    control.cancel.store(true, Ordering::SeqCst);
     let pid = control.pid.load(Ordering::SeqCst);
     if pid == 0 {
         return;
     }
-    control.cancel.store(true, Ordering::SeqCst);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -437,12 +437,24 @@ mod early_settings_tests {
         let p = paths_in(&data);
         let ini = paths::game_ini(&game);
         std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
-        std::fs::write(&ini, "fps_limit=30\nunknown_key=1\n").unwrap();
+        std::fs::write(&ini, "fps_limit=30\nvolume=9999\nhdr = 1\n").unwrap();
         stash_early_settings(&p, &game).unwrap();
         assert!(!ini.exists() && !game.join("work").exists(), "the game folder is empty again");
         let pending = crate::ini::Ini::load(&p.pending_ini()).unwrap().values();
         assert_eq!(pending.get("fps_limit").map(String::as_str), Some("30"));
-        assert!(!pending.contains_key("unknown_key"));
+        assert!(!pending.contains_key("volume"), "a value the launcher would refuse for its own setting is left out");
+        // A key the runtime reads and the launcher has no row for is the player's own line: it goes along.
+        assert_eq!(pending.get("hdr").map(String::as_str), Some("1"));
+        // After the build both reach the game's settings file.
+        std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
+        std::fs::write(&ini, "[display]\noutput_res = auto\n").unwrap();
+        let cfg = Config { output: Some(game.to_string_lossy().into_owned()), ..Config::default() };
+        crate::settings::merge_pending(&cfg, &p).unwrap();
+        let merged = crate::ini::Ini::load(&ini).unwrap().values();
+        assert_eq!(merged.get("fps_limit").map(String::as_str), Some("30"));
+        assert_eq!(merged.get("hdr").map(String::as_str), Some("1"));
+        assert_eq!(merged.get("output_res").map(String::as_str), Some("auto"));
+        assert!(!p.pending_ini().exists());
         let _ = std::fs::remove_dir_all(root);
     }
 

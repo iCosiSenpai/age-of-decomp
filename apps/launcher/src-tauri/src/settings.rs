@@ -40,9 +40,14 @@ pub fn catalog() -> &'static [Setting] {
     C.get_or_init(|| serde_json::from_str::<Catalog>(CATALOG).expect("catalog.json is valid").settings)
 }
 
+/// A value that stays one value in the file: no control character and nothing the file's own syntax uses.
+fn plain_value(value: &str) -> bool {
+    !value.chars().any(|c| c < '\u{20}' || c == '\u{7f}' || matches!(c, '=' | '#' | ';' | '[' | ']' | '"'))
+}
+
 pub fn validate(key: &str, value: &str) -> Result<&'static Setting, String> {
     let s = catalog().iter().find(|s| s.key == key).ok_or_else(|| format!("unknown setting {key}"))?;
-    if value.chars().any(|c| c < '\u{20}' || c == '\u{7f}' || matches!(c, '=' | '#' | ';' | '[' | ']' | '"')) {
+    if !plain_value(value) {
         return Err(format!("{value} is not a valid value for {key}"));
     }
     let ok = match s.kind.as_str() {
@@ -163,6 +168,20 @@ pub fn retire_values(path: &Path) -> Result<(), String> {
     if changed { ini.save(path).map_err(|e| e.to_string()) } else { Ok(()) }
 }
 
+/// Carries the values of `from` into `to` (the newer choice wins): a setting of the catalogue when its value is one
+/// the launcher would take, and any other key as it is, because the runtime reads keys the launcher has no row for
+/// (a line the player wrote by hand, like `hdr = 1`). Comments are not carried.
+pub(crate) fn carry(from: &Ini, to: &mut Ini) {
+    for (k, v) in from.values() {
+        match catalog().iter().find(|s| s.key == k) {
+            Some(s) if validate(&k, &v).is_ok() => to.set(&k, &v, &s.section),
+            Some(_) => {}
+            None if plain_value(&v) => to.set(&k, &v, ""),
+            None => {}
+        }
+    }
+}
+
 /// After a build: settings chosen before the game existed go into its hwaoi.ini.
 pub fn merge_pending(cfg: &Config, paths: &Paths) -> Result<(), String> {
     let pending = paths.pending_ini();
@@ -172,11 +191,7 @@ pub fn merge_pending(cfg: &Config, paths: &Paths) -> Result<(), String> {
         return Ok(());
     }
     let mut ini = load_ini(&target)?;
-    for (k, v) in pending_ini.values() {
-        if let Ok(s) = validate(&k, &v) {
-            ini.set(&k, &v, &s.section);
-        }
-    }
+    carry(&pending_ini, &mut ini);
     ini.save(&target).map_err(|e| e.to_string())?;
     std::fs::remove_file(pending).map_err(|e| e.to_string())
 }

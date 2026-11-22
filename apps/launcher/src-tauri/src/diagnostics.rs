@@ -3,7 +3,7 @@
 use crate::{VERSION, paths::Paths};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -158,17 +158,23 @@ pub fn build_failed(paths: &Paths, stage: u32) {
 }
 
 fn game_failure(code: i32, log: &Path) -> &'static str {
-    let text = fs::File::open(log).ok().and_then(|mut file| {
-        let end = file.metadata().ok()?.len();
-        file.seek(SeekFrom::Start(end.saturating_sub(256 * 1024))).ok()?;
-        let mut bytes = Vec::new();
-        file.take(256 * 1024).read_to_end(&mut bytes).ok()?;
-        Some(String::from_utf8_lossy(&bytes).into_owned())
-    }).unwrap_or_default();
-    if text.contains("VK_ERROR_DEVICE_LOST") { "device_lost" }
-    else if text.contains("VK_ERROR_OUT_OF_DEVICE_MEMORY") || text.contains("VK_ERROR_OUT_OF_HOST_MEMORY") { "out_of_memory" }
-    else if code as u32 == 0xc0000005 { "access_violation" }
-    else { "unexpected_exit" }
+    failure_kind(code, &crate::game::log_end(log, 256 * 1024).unwrap_or_default())
+}
+
+/// The kind of failure from the end of the game's log. The runtime writes a Vulkan error as its number
+/// (`vk: upload submit failed (-4)`), and a lost device also as `vk: device lost` or `vk: device fault` lines
+/// (engine `runtime/vk_device.c`); -1 and -2 are out of host and of device memory.
+fn failure_kind(code: i32, text: &str) -> &'static str {
+    let vulkan_failed = |n: &str| text.lines().any(|l| l.contains("vk: ") && l.trim_end().ends_with(n));
+    if text.contains("vk: device lost") || text.contains("vk: device fault") || vulkan_failed("failed (-4)") {
+        "device_lost"
+    } else if vulkan_failed("failed (-1)") || vulkan_failed("failed (-2)") || text.contains("out of memory") {
+        "out_of_memory"
+    } else if code as u32 == 0xc0000005 {
+        "access_violation"
+    } else {
+        "unexpected_exit"
+    }
 }
 
 pub fn game_finished(paths: &Paths, code: i32, fps: Option<f64>, log: &Path) {
@@ -237,6 +243,24 @@ mod tests {
         assert!(!wire.to_string().contains("Tester"));
         let invalid = br#"{"version":"0.1.2","os":"windows","event":"game_crash","detail":"C:\\Users\\Tester"}"#;
         assert!(wire_report(invalid, "game_crash").is_none());
+    }
+
+    #[test]
+    fn a_failure_is_named_from_the_lines_the_game_writes() {
+        // The end of a Radeon player's log: the runtime writes the Vulkan error as a number.
+        let lost = "vk: GPU breadcrumbs: the GPU last reached the start of a part of submission 3\n\
+                    vk: device lost: heap 0 usage 164 MiB of budget 15419 MiB (VMA blocks 128 MiB)\n\
+                    vk: device fault: \"Device lost detected\" (0 address infos, 0 vendor infos, vendor binary 0 bytes)\n\
+                    FATAL: vk: upload submit failed (-4)\n";
+        assert_eq!(failure_kind(70, lost), "device_lost");
+        assert_eq!(failure_kind(70, "FATAL: vk: vkQueueSubmit2 of value 12 failed (-4)\r\n"), "device_lost");
+        assert_eq!(failure_kind(70, "FATAL: vk: staging buffer of 4096 bytes failed (-2)\n"), "out_of_memory");
+        assert_eq!(failure_kind(70, "FATAL: vk: transient buffer of 64 bytes failed (-1)\n"), "out_of_memory");
+        // A number that is not a Vulkan result, and a line that only looks like one.
+        assert_eq!(failure_kind(70, "FATAL: vk: stencil clear shader failed (-3)\n"), "unexpected_exit");
+        assert_eq!(failure_kind(70, "audio: open failed (-4)\n"), "unexpected_exit");
+        assert_eq!(failure_kind(0xc0000005u32 as i32, ""), "access_violation");
+        assert_eq!(failure_kind(71, "host: fault at 0x1234\n"), "unexpected_exit");
     }
 
     #[test]

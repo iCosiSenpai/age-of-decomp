@@ -279,9 +279,25 @@ fn system_zlib() -> Option<std::path::PathBuf> {
     lib.is_file().then_some(lib)
 }
 
+/// The end of a log as text: its last `max` bytes, without the line the cut fell in. Read as bytes from the end: a
+/// game log can be many megabytes and can hold bytes that are not UTF-8 (a file name in another code page).
+pub fn log_end(log: &Path, max: u64) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(log).ok()?;
+    let size = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(size.saturating_sub(max))).ok()?;
+    let mut bytes = Vec::new();
+    file.take(max).read_to_end(&mut bytes).ok()?;
+    let text = String::from_utf8_lossy(&bytes);
+    if size <= max {
+        return Some(text.into_owned());
+    }
+    Some(text.split_once('\n').map(|(_, whole)| whole.to_string()).unwrap_or_default())
+}
+
 /// The mean FPS the runtime reports when it exits ("frametime: exit: … mean 59.9 fps"), if any.
 pub fn session_fps(log: &Path) -> Option<f64> {
-    let text = std::fs::read_to_string(log).ok()?;
+    let text = log_end(log, 64 * 1024)?;
     let line = text.lines().rev().find(|l| l.contains("frametime: exit:"))?;
     let at = line.find("mean ")? + 5;
     line[at..].split_whitespace().next()?.parse().ok()
@@ -312,6 +328,22 @@ mod tests {
         assert_eq!(LaunchError::NotBuilt("anything".into()).exit_code(), 64);
         assert_eq!(LaunchError::GameFile("anything".into()).exit_code(), 65);
         assert_eq!(LaunchError::Other("game file incomplete".into()).exit_code(), 1);
+    }
+
+    #[test]
+    fn the_end_of_a_log_is_read_as_bytes_and_in_whole_lines() {
+        let file = std::env::temp_dir().join(format!("aod-log-end-{}.log", std::process::id()));
+        let mut bytes = b"first line\nsecond \xff line\n".to_vec();
+        bytes.extend_from_slice(b"[host] frametime: exit: 987 frames in 22.3 s, mean 44.3 fps, 1% low\nlast\n");
+        std::fs::write(&file, &bytes).unwrap();
+        assert_eq!(session_fps(&file), Some(44.3));
+        let all = log_end(&file, 4096).unwrap();
+        assert!(all.starts_with("first line\n") && all.contains("second \u{fffd} line"));
+        // A cut inside a line gives that line up.
+        assert_eq!(log_end(&file, 8).unwrap(), "last\n");
+        assert_eq!(log_end(&file, 3).unwrap(), "");
+        assert!(log_end(&file.with_extension("missing"), 16).is_none());
+        std::fs::remove_file(file).unwrap();
     }
 
     #[test]

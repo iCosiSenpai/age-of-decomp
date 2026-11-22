@@ -97,6 +97,11 @@ PINS = {  # name: (url, sha256)
 # and its latency marks. Never the SDK's other binaries: nvngx_*.dll (NVIDIA RTX SDK licence) and NvLowLatencyVk.dll
 # (NVIDIA's SDK licence, bin/x64/reflex.license.txt; Reflex runs through the driver's VK_NV_low_latency2 instead).
 STREAMLINE_DLLS = ("sl.interposer.dll", "sl.common.dll", "sl.dlss.dll", "sl.dlss_g.dll", "sl.reflex.dll", "sl.pcl.dll")
+# The licence texts the Windows toolchain gathers for what the bundle redistributes (programs, DLLs, static libraries
+# and headers in its bin/, deps/ and llvm/). `toolchain` and `stage` both stop when one is missing.
+WINDOWS_LICENSES = ("SDL3-LICENSE.txt", "libusb-COPYING.txt", "llvm-mingw-LICENSE.txt", "opus-COPYING.txt",
+                    "vulkan-headers-LICENSE.txt", "vulkan-loader-LICENSE.txt", "vma-LICENSE.txt", "zlib-LICENSE.txt",
+                    "zstd-LICENSE.txt", "libvpx-LICENSE.txt", "libvpx-PATENTS.txt", "ninja-LICENSE.txt")
 # The Python packages the engine's generator and NUP tools need (upstream tools/requirements-hwaoi.txt).
 PY_REQUIREMENTS = ROOT / "tools/requirements-engine.txt"
 # llvm-mingw: only the x86_64 Windows target is needed.
@@ -252,17 +257,26 @@ def toolchain_windows() -> None:
     # licences of what we redistribute
     lic = TC / "licenses"
     lic.mkdir(exist_ok=True)
-    for pkg, rel in (("opus", "opus/COPYING"), ("libvpx", "libvpx/LICENSE"), ("vulkan-headers", "vulkan-headers/LICENSE"),
-                     ("vulkan-loader", "vulkan-loader/LICENSE"), ("vma", "vulkan-memory-allocator/LICENSE.txt"),
+    for pkg, rel in (("opus", "opus/COPYING"), ("vulkan-headers", "vulkan-headers/LICENSE"),
+                     ("vulkan-loader", "vulkan-loader/LICENSE"), ("vma", "VulkanMemoryAllocator/LICENSE"),
                      ("zstd", "zstd/LICENSE"), ("zlib", "zlib/LICENSE")):
         p = unpack(pkg) / "ucrt64" / "share" / "licenses" / rel
-        if p.is_file():
-            shutil.copy2(p, lic / f"{pkg}-{p.name}.txt")
+        if not p.is_file():   # never skipped in silence: the bundle would ship the part without its licence
+            die(f"the {pkg} package has no {rel} under share/licenses: find its licence file and name it here")
+        shutil.copy2(p, lic / f"{pkg}-{p.name}.txt")
+    # Parts whose package carries no licence file (the MSYS2 libvpx package, Ninja's zip): the texts kept in the
+    # repository, libvpx's own LICENSE and PATENTS and the Apache License 2.0 Ninja is under.
+    for p in sorted((ROOT / "packaging" / "licenses").glob("*.txt")):
+        shutil.copy2(p, lic / p.name)
     sdl_lic = unpack("sdl3-devel") / f"SDL3-{SDL_VERSION}" / "LICENSE.txt"
-    if sdl_lic.is_file():
-        shutil.copy2(sdl_lic, lic / "SDL3-LICENSE.txt")
+    if not sdl_lic.is_file():
+        die(f"the SDL package has no LICENSE.txt at {sdl_lic}")
+    shutil.copy2(sdl_lic, lic / "SDL3-LICENSE.txt")
     shutil.copy2(llvm / "LICENSE.TXT", lic / "llvm-mingw-LICENSE.txt")
     build_sdl_libusb(llvm, deps, lic)
+    missing = [name for name in WINDOWS_LICENSES if not (lic / name).is_file()]
+    if missing:
+        die(f"licence files missing from {lic}: {', '.join(missing)}")
     # Python: the official NuGet layout (full stdlib, no ._pth) + the generator's packages
     py = TC / "python"
     if not (py / "python.exe").is_file():
@@ -528,6 +542,10 @@ def cmd_stage(args) -> None:
             for name in STREAMLINE_DLLS:
                 (streamline / name).write_bytes(z.read(f"bin/x64/{name}"))
             (STAGE / "licenses" / "streamline-LICENSE.txt").write_bytes(z.read("license.txt"))
+        missing = [name for name in (*WINDOWS_LICENSES, "dotnet-LICENSE.TXT", "dotnet-THIRD-PARTY-NOTICES.TXT",
+                                     "streamline-LICENSE.txt") if not (STAGE / "licenses" / name).is_file()]
+        if missing:
+            die(f"the bundle would ship without {', '.join(missing)}: run `toolchain` again")
     else:
         (STAGE / "licenses").mkdir()
         for lic in sorted((TC / "python" / "lib").glob("python3.*/LICENSE.txt"))[:1]:

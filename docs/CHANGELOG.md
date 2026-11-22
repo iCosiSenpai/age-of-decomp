@@ -15,22 +15,32 @@ Build the game again once after installing this version. Setup keeps your settin
   in the top left corner, or with thin black bands, until F11 was pressed twice. Thanks to kenroark on RecompLauncher,
   who reported it on 2026-11-21.
 - New: Game resolution → Automatic, the default. The game takes your screen's resolution when your graphics card has
-  the memory for it: 1440p from 11 GB, 4K from 15 GB, 1080p otherwise.
+  the memory for it: 1440p on a dedicated card with 12 GB of video memory, 4K on one with 16 GB, 720p on a screen
+  smaller than 1080p, and 1080p otherwise. Game resolution's description now says how much video memory each size
+  wants: a size your card has too little memory for may stop the game while it loads (at 4K the game's texture pool
+  alone takes about 7 GB). Thanks to the player on RecompLauncher who tried 1440p and 4K on a 12 GB card and wrote
+  what happened (2026-11-22).
 - New: Upscaling (Display) with NVIDIA DLSS next to AMD FSR. Upscaling quality goes from DLAA, which only cleans the
   edges at full resolution, to Quality, Balanced and Performance, which draw the 3D scene smaller and scale it up for
   more speed. DLSS needs an RTX card and NVIDIA's own DLSS file, as DLAA did in 0.1.2; a saved DLAA setting becomes
   DLSS with DLAA quality. Asked for upstream by @lustrousdragon (Alano6678/hwaoi-recomp#29).
 - New: Frame generation (Display) on GeForce RTX 40 and 50 cards. NVIDIA DLSS draws extra frames between the game's
   own, from 2x up to 6x: on an RTX 5070 Ti at 1440p the game's 60 frames per second reach the screen as 237 at 4x and
-  359 at 6x. The list ends at what your card can do. The game itself still runs at 60, and your input is felt a
-  little later. It works with or without Upscaling, adds frames only while the game's window is in front, rests in
-  the menu, in movies and on loading screens, and shows its frames without waiting for the screen (Screen sync is Off
-  while it is on). It needs NVIDIA's own frame generation file: the launcher downloads it from NVIDIA when you turn
-  the setting on, and in RecompLauncher the setup does when you tick NVIDIA frame generation. The frame rate overlay
-  shows the frames shown and the ones drawn. A player on RecompLauncher asked for more than 60 frames per second on
-  2026-11-21: this is how far it goes while the game's own speed is tied to 60. Thank you.
+  359 at 6x. A factor your card cannot do is brought down to the highest it can. The game itself still runs at 60,
+  and your input is felt a little later. It works with or without Upscaling, adds frames only while the game's
+  window is in front, rests in the menu, in movies and on loading screens, and shows its frames without waiting for
+  the screen (Screen sync is Off while it is on). It needs NVIDIA's own frame generation file: the launcher downloads
+  it from NVIDIA when you turn the setting on, and in RecompLauncher the setup does when you tick NVIDIA frame
+  generation. The frame rate overlay shows the frames shown and the ones drawn. A player on RecompLauncher asked for
+  more than 60 frames per second on 2026-11-21: this is how far it goes while the game's own speed is tied to 60.
+  Thank you.
 - New from upstream, thanks to @ripps818: AMD FSR 3.1 and FSR 4 upscaling (Alano6678/hwaoi-recomp#25), SMAA edge
   smoothing (#23) and HDR10 output (#24).
+- DLSS quality says that a moving character can leave a faint trail in dark places: the game gives DLSS only the
+  camera's movement, not each character's. Turn Upscaling off where it bothers you. Thanks to the player on
+  RecompLauncher who reported the blur behind Zelda on 2026-11-21 and checked that it goes with DLAA off.
+- Fullscreen's description says what it is: a borderless window that fills the screen, as it has been since 0.1.2.
+  Thanks to the same player, who asked for borderless fullscreen.
 - New: an OLED colour profile (Picture): deeper blacks, a little more contrast and saturation.
 - The game's window has its own icon, the launcher's seal in other colours, in the title bar, the taskbar and Alt+Tab.
 
@@ -65,6 +75,15 @@ Build the game again once after installing this version. Setup keeps your settin
 - Display, Picture and Performance settings are named and explained in plainer words, and each Performance setting
   says what it really does.
 - F5 starts the game from the keyboard, as the hint bar says.
+- A setting that could not be saved no longer stays on screen as if it had been: the page shows the value the game
+  will read, and Restore defaults says when it did not work.
+- Setup looks for your .nup once when you open the step (with none on the PC it searched again and again), its
+  Vulkan 1.3 check asks the graphics card itself instead of trusting that Vulkan is installed, and Cancel pressed in
+  the first instant of a build stops it.
+- A line you wrote by hand into the game's settings file before the first build is kept by the build.
+- A DLSS or frame generation file you pick is checked as the copy the launcher keeps, not as the file it came from.
+- Anonymous diagnostics, for players who turned them on, name a lost graphics card and a stop for lack of memory as
+  what they are. Both were counted as an unexpected exit.
 
 ### In-game menu
 - Italian, Russian and Simplified Chinese have every text of the menu. Simplified Chinese is new, from upstream
@@ -79,14 +98,27 @@ Build the game again once after installing this version. Setup keeps your settin
   Thanks to @Konia1234-Pega for asking (#1).
 - A game folder that has no save yet takes the save of the folder this PC used before: the standalone launcher's game
   folder when you move to RecompLauncher, or the folder you built into until now. It is copied the first time you
-  press Play there, and nothing is deleted or overwritten. Before, a new game folder started the game from its
-  beginning while your save stayed behind in the old one. Thanks to a player on RecompLauncher whose report of a lost
-  save on 2026-11-21 led to it.
+  press Play there, and nothing is deleted or overwritten. The copy goes into place only when all of it is there: one
+  that is cut short (a full disk) leaves the folder as it was and is tried again at the next start. Before, a new game
+  folder started the game from its beginning while your save stayed behind in the old one. Thanks to a player on
+  RecompLauncher whose report of a lost save on 2026-11-21 led to it.
 - A save folder you copy into the game folder yourself is found too. When the folder has one save and the game's own
   account has none, the game uses that save: also when you copied `save` without `account.uid`, or started the game
   there once before copying. The log says so in one line.
 
 ### Stability
+- AMD Radeon, code 70: on Radeon cards with AMD's own driver the game no longer hands its drawing commands to the
+  graphics driver from a thread of their own. With that thread the card could stop answering ("device lost") and the
+  game ended with code 70, at start or minutes into play; DKB Recomp, which this engine comes from, saw the same and
+  ended it this way. A fault in how that thread passed its work on is closed too: it was found and measured by
+  @tibor-stick in MKW Recomp (adriadam10/mkw-recomp#281). This is not tried on a Radeon here and may not end every
+  loss: one tester's RX 9070 XT stopped at the same place with the thread off. Performance → Graphics driver calls on
+  their own thread turns it back on for more speed in crowded scenes, or off on any other card. Thanks to
+  @hellknight0000 and @maioro (#10) and to the players on RecompLauncher who sent their reports and logs between
+  2026-11-19 and 2026-11-21.
+- New: Diagnostics → Draw call markers, for a graphics card that stops answering. With it on, the log names the draw
+  calls the card was working on, with their shaders: what is needed to find the cause on a card we do not have. Off
+  until you turn it on; it costs a little speed.
 - When the game stops showing new frames for 20 seconds, its log says where every thread is. The game is left as it
   is; the report is for the next bug report of a freeze.
 
@@ -96,11 +128,28 @@ Build the game again once after installing this version. Setup keeps your settin
 
 ### Downloads
 - `SHA256SUMS.txt` has Unix line ends, so `sha256sum -c` on Linux checks the download.
+- The engine folder carries the licence texts of libvpx, Vulkan Memory Allocator and Ninja, which were missing.
 
 ### For builders
 - The engine is developed in this repository from now on, in `engine/source`. It was imported from HWAoI Recomp at
   `c6c96e6` with everything Age of Decomp had changed; `engine/ORIGIN.md` names its authors. Building from source no
   longer needs `engine.py fetch`.
+- `tools/release.py` refuses an engine bundle staged from uncommitted files or older than the repository's engine,
+  `tools/engine.py` stops when a licence text of the bundle is missing, and the RecompLauncher check asks for level 3.
+
+### Still being worked on
+Thank you for these reports too:
+- Ultrawide screens (21:9 and 32:9). The game draws everything for a 16:9 screen, so the camera and each part of the
+  picture have to be changed one by one: @ahmadsultan1990 (#8) and a player on RecompLauncher (2026-11-21).
+- Code 70 on AMD Radeon cards where this version's change is not enough, like the place in the first battle where an
+  RX 9070 XT stops: @hellknight0000 and @maioro (#10) and players on RecompLauncher. A report made with Diagnostics →
+  Draw call markers turned on is what helps most.
+- A freeze on one frame, with the sound going on, when Zelda's shield-breaking skill hits a rock enemy whose guard is
+  broken: a player on RecompLauncher (2026-11-21). This version's log says where the game is stuck: please send it
+  after the next freeze.
+- The map cursor that moves slower than normal with the game at 1080p: a player on RecompLauncher (2026-11-21).
+- The trail behind a moving character with NVIDIA DLSS, and 4K on graphics cards with less than 16 GB of video memory
+  (both under Picture).
 
 ## 0.1.2 (2026-11-20)
 

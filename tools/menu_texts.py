@@ -1,4 +1,4 @@
-"""The in-game menu's text catalogue (engine/runtime/ui_text.c): which ids lack a language, and which are unused.
+"""The in-game menu's text catalogue (engine/source/runtime/ui_text.c): which ids lack a language, which are unused.
 
   py -I tools/menu_texts.py [--engine DIR] missing            ids of the menu range without a text, per language
   py -I tools/menu_texts.py [--engine DIR] unused             menu ids no source file names besides the catalogue
@@ -86,7 +86,7 @@ def menu_ids(header):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--engine", type=Path, default=ROOT / "engine")
+    parser.add_argument("--engine", type=Path, default=ROOT / "engine" / "source")
     parser.add_argument("command", choices=("missing", "unused", "dump"))
     parser.add_argument("lang", nargs="?")
     args = parser.parse_args(argv)

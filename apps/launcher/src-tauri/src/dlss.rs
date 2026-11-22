@@ -166,7 +166,8 @@ fn fetch_verified(url: &str, size: u64, sha256: &str, dest: &Path, failed: &str,
     let mut response = client.get(url).send().and_then(|r| r.error_for_status()).map_err(|_| failed.to_string())?;
     let dir = dest.parent().ok_or("no folder for the DLSS file")?;
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let part = dest.with_extension("dll.part");
+    // A name of this process's own: the window and the setup step (aod-cli) can fetch the same file at once.
+    let part = dest.with_extension(format!("dll.{}.part", std::process::id()));
     let result = (|| -> Result<(), String> {
         let mut out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
         let mut hasher = Sha256::new();
@@ -217,15 +218,22 @@ pub fn pick(paths: &Paths, kind: Kind, source: &Path) -> Result<(), String> {
         return Err(pin.not_it.into());
     }
     let bytes = std::fs::read(source).map_err(|e| e.to_string())?;
-    let pinned = meta.len() == pin.size && hex(&Sha256::digest(&bytes)) == pin.sha256;
-    if !pinned && !signed_by_nvidia(source) {
-        return Err("That file is not signed by NVIDIA, so it was not used.".into());
-    }
+    let pinned = bytes.len() as u64 == pin.size && hex(&Sha256::digest(&bytes)) == pin.sha256;
     let dest = file(paths, kind);
     std::fs::create_dir_all(dest.parent().ok_or("no folder for the DLSS file")?).map_err(|e| e.to_string())?;
-    let part = dest.with_extension("dll.part");
+    // Our own copy is what gets checked, never the picked file a second time: the bytes Windows calls signed are
+    // then the bytes that go into place, whatever happens to the picked file meanwhile.
+    let part = dest.with_extension(format!("{}.part.dll", std::process::id()));
     std::fs::write(&part, &bytes).map_err(|e| e.to_string())?;
-    std::fs::rename(&part, &dest).map_err(|e| e.to_string())
+    let result = if pinned || signed_by_nvidia(&part) {
+        std::fs::rename(&part, &dest).map_err(|e| e.to_string())
+    } else {
+        Err("That file is not signed by NVIDIA, so it was not used.".into())
+    };
+    if result.is_err() {
+        let _ = std::fs::remove_file(&part);
+    }
+    result
 }
 
 /// Windows' own verdict on the file's Authenticode signature (Get-AuthenticodeSignature, WinVerifyTrust underneath):
@@ -296,7 +304,7 @@ mod tests {
         assert_eq!(other_hash.unwrap_err(), "mismatch");
         let other_size = fetch_verified(&serve(body.clone()), 4, &digest, &dest, "failed", "mismatch", |_| {});
         assert_eq!(other_size.unwrap_err(), "failed");
-        assert!(!dest.exists() && !dest.with_extension("dll.part").exists());
+        assert_eq!(std::fs::read_dir(dest.parent().unwrap()).unwrap().count(), 0);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -386,6 +394,8 @@ mod tests {
         assert!(pick(&paths, Kind::FrameGen, &fake_fg).is_err());
         assert_eq!(pick(&paths, Kind::FrameGen, &fake).unwrap_err(), "That is not NVIDIA's frame generation file (nvngx_dlssg.dll).");
         assert!(!file(&paths, Kind::FrameGen).exists());
+        // The copy that was checked is gone too.
+        assert_eq!(std::fs::read_dir(file(&paths, Kind::Dlss).parent().unwrap()).unwrap().count(), 0);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

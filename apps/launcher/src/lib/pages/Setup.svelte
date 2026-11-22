@@ -35,14 +35,20 @@
     sys
       ? [
           { ok: sys.avx2, label: tr('Processor with AVX2'), detail: `${sys.cpu} · ${sys.threads} ${tr('threads')}` },
-          { ok: sys.vulkan !== null, label: tr('Vulkan 1.3 graphics'), detail: sys.gpus[0]?.name ?? tr('No GPU found') },
+          // The card itself must speak Vulkan 1.3: a Vulkan loader alone, or a card that stops at 1.2, does not pass.
+          { ok: sys.gpus.some((g) => g.vulkan13), label: tr('Vulkan 1.3 graphics'), detail: (sys.gpus.find((g) => g.vulkan13) ?? sys.gpus[0])?.name ?? tr('No GPU found') },
           { ok: sys.ram_gb >= 15, warn: sys.ram_gb < 31, label: tr('Memory'), detail: `${sys.ram_gb.toFixed(0)} GB (${tr('32 GB recommended')})` },
         ]
       : [],
   );
 
+  // The PC is searched once per visit: with no .nup on it the search would otherwise start again each time it ends.
+  let searched = false;
   $effect(() => {
-    if (step === 1 && !found.length) api.findNups().then((f) => (found = f)).catch(() => {});
+    if (step === 1 && !searched) {
+      searched = true;
+      api.findNups().then((f) => (found = f)).catch(() => {});
+    }
     if (step === 3 && output) api.diskInfo(output).then((d) => (disk = d)).catch(() => (disk = null));
   });
 

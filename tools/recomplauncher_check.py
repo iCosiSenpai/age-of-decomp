@@ -68,8 +68,9 @@ def cmake() -> str | None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ver = json.loads((ROOT / "apps/launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
-    os_name = "Windows" if os.name == "nt" else "Linux"
-    ap.add_argument("--release", type=Path, default=ROOT / "out" / "release" / f"AgeOfDecomp-v{ver}-{os_name}-x64")
+    # The folder tools/release.py makes: the unpacked zip on Windows, the AppDir on Linux.
+    name = f"AgeOfDecomp-v{ver}-Windows-x64" if os.name == "nt" else f"AgeOfDecomp-v{ver}-Linux-x64.AppDir"
+    ap.add_argument("--release", type=Path, default=ROOT / "out" / "release" / name)
     ap.add_argument("--nup", type=Path, help="also read this .nup with RecompLauncher's own NUP reader")
     args = ap.parse_args()
     release = args.release.resolve()
