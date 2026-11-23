@@ -1646,6 +1646,8 @@ void plat_commit_info(double *proc_mb, double *used_mb, double *limit_mb) {
     if (private_bytes) *proc_mb = (double)(private_bytes >> 20);
 }
 
+double plat_commit_growth_mb(void) { return 0; }   // the commit limit does not grow by itself here
+
 // ---- child processes
 
 struct PlatChild {

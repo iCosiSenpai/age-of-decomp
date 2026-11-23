@@ -1546,6 +1546,42 @@ void plat_commit_info(double *proc_mb, double *used_mb, double *limit_mb) {
         *proc_mb = (double)(pmc.PrivateUsage >> 20);
 }
 
+double plat_commit_growth_mb(void) {
+    // NtQuerySystemInformation(SystemPageFileInformationEx): each page file's size and its minimum and maximum, in
+    // pages. A page file Windows manages itself ("?:\pagefile.sys") reports the most it may grow to.
+    typedef struct {
+        ULONG next, size, in_use, peak;
+        struct { USHORT length, maximum; PWSTR buffer; } name;
+        ULONG minimum, maximum;
+    } PageFileEx;
+    typedef LONG(NTAPI *QueryFn)(ULONG, PVOID, ULONG, PULONG);
+    QueryFn query = (QueryFn)(void *)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQuerySystemInformation");
+    if (!query) return 0;
+    ULONG_PTR buf[2048];   // 16 KiB, aligned for the entries
+    ULONG len = 0;
+    if (query(144, buf, sizeof buf, &len) < 0 || len < sizeof(PageFileEx)) return 0;
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    double page_mb = si.dwPageSize / 1048576.0, growth = 0;
+    for (const unsigned char *p = (const unsigned char *)buf;;) {
+        const PageFileEx *e = (const PageFileEx *)p;
+        if (e->maximum > e->size) {
+            double room = (double)(e->maximum - e->size) * page_mb, disk = 0;
+            // The name is "\??\C:\pagefile.sys": the disk is the letter before the first colon
+            const wchar_t *colon = e->name.buffer ? wmemchr(e->name.buffer, L':', e->name.length / 2) : NULL;
+            ULARGE_INTEGER free_bytes;
+            if (colon && colon > e->name.buffer) {
+                wchar_t root[4] = {colon[-1], L':', L'\\', 0};
+                if (GetDiskFreeSpaceExW(root, &free_bytes, NULL, NULL)) disk = free_bytes.QuadPart / 1048576.0 - 2048;
+            }
+            growth += room < disk ? room : disk > 0 ? disk : 0;
+        }
+        if (!e->next || (size_t)(p - (const unsigned char *)buf) + e->next + sizeof(PageFileEx) > len) break;
+        p += e->next;
+    }
+    return growth;
+}
+
 void plat_commit_in(const uint64_t *base, const uint64_t *size, int n, uint64_t *in) {
     MEMORY_BASIC_INFORMATION mbi;
     for (int i = 0; i < n; i++) {

@@ -3,6 +3,15 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
+## 0.2.1 (not released yet)
+
+### Performance
+- On a PC with 16 GB of RAM the game no longer drops to 5-10 frames per second in battle when little of Windows'
+  memory is free as it starts. The game copies its 4.6 GB block of graphics data into the graphics card's own memory
+  only when Windows has room for it (on Windows that copy counts against the same memory limit as RAM); it now also
+  counts the room Windows can still give by enlarging a page file it manages itself. Without the copy the card reads
+  that data over PCIe on every draw. Thanks to @seeep1337 (#15), who sent the log.
+
 ## 0.2.0 (2026-11-23)
 
 Build the game again once after installing this version. Setup keeps your settings and saves.

@@ -408,6 +408,10 @@ void plat_mem_info(float *used_mb, float *total_mb, float *proc_mb);
 // Commit charge in MB: this process's private bytes, the system's commit in use and its limit (RAM plus page files).
 // An allocation fails when the system's reaches the limit, however much physical memory is free. -1 when unknown.
 void plat_commit_info(double *proc_mb, double *used_mb, double *limit_mb);
+// How far that limit can still grow, in MB: what the page files may still add up to their maximum size (one Windows
+// manages itself reports the most it may grow to, three times the RAM), each no more than its disk's free space less
+// 2 GB. 0 when none can grow or it is unknown (Linux: the commit limit does not grow).
+double plat_commit_growth_mb(void);
 // This process's memory in bytes: resident (the working set) and private (Windows: committed private bytes; Linux: the
 // resident anonymous pages). 0 when unknown.
 void plat_process_memory(uint64_t *resident, uint64_t *private_bytes);
