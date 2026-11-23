@@ -3,7 +3,7 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
-## 0.2.0 (not released yet)
+## 0.2.0 (2026-11-23)
 
 Build the game again once after installing this version. Setup keeps your settings and saves.
 
