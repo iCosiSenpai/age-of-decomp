@@ -85,6 +85,7 @@ typedef enum {
 
     // Controls
     UI_MENU_MOTION, UI_MENU_MOTION_DESC,
+    UI_MENU_MOTION_NONE,       // the motion row greyed: no connected gamepad has a gyro the game can read
     UI_MENU_RUMBLE_STRENGTH, UI_MENU_RUMBLE_STRENGTH_DESC,
     UI_MENU_RUMBLE_CURVE, UI_MENU_RUMBLE_CURVE_DESC,
     UI_MENU_RUMBLE_TRIGGERS, UI_MENU_RUMBLE_TRIGGERS_DESC,

@@ -58,8 +58,8 @@ static void defaults(int layout) {
         [B_PLUS] = PAD_START, [B_MINUS] = PAD_BACK, [B_LEFT] = PAD_DPAD_LEFT, [B_UP] = PAD_DPAD_UP,
         [B_RIGHT] = PAD_DPAD_RIGHT, [B_DOWN] = PAD_DPAD_DOWN};
     static const uint8_t keys[24] = {
-        [B_A] = KEY_E, [B_B] = KEY_LSHIFT, [B_X] = KEY_SPACE, [B_Y] = KEY_MOUSE_L, [B_STICK_L] = KEY_LCTRL,
-        [B_STICK_R] = KEY_C, [B_L] = KEY_Q, [B_R] = KEY_R, [B_ZL] = KEY_MOUSE_R, [B_ZR] = KEY_F, [B_PLUS] = KEY_TAB,
+        [B_A] = KEY_E, [B_B] = KEY_SPACE, [B_X] = KEY_MOUSE_R, [B_Y] = KEY_MOUSE_L, [B_STICK_L] = KEY_LCTRL,
+        [B_STICK_R] = KEY_MOUSE_M, [B_L] = KEY_Q, [B_R] = KEY_R, [B_ZL] = KEY_LSHIFT, [B_ZR] = KEY_F, [B_PLUS] = KEY_TAB,
         [B_MINUS] = KEY_M, [B_LEFT] = KEY_1, [B_UP] = KEY_2, [B_RIGHT] = KEY_3, [B_DOWN] = KEY_4,
         [B_SL_LEFT] = KEY_A, [B_SL_UP] = KEY_W, [B_SL_RIGHT] = KEY_D, [B_SL_DOWN] = KEY_S,
         [B_SR_LEFT] = KEY_LEFT, [B_SR_UP] = KEY_UP, [B_SR_RIGHT] = KEY_RIGHT, [B_SR_DOWN] = KEY_DOWN};

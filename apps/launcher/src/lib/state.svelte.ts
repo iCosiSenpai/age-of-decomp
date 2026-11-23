@@ -206,11 +206,26 @@ class AppState {
     this.settings = { ...this.settings, [key]: value };
     try {
       this.settings = await api.setSetting(key, value);
+      if (key === 'rumble_strength' || key === 'rumble_curve') this.rumblePreview();
     } catch (err) {
       // What the file holds is what the game reads: show that again, not the value that was not saved.
       this.settings = await api.settings().catch(() => before);
       this.toast(String(err), 'err');
     }
+  }
+
+  /** A short rumble on every connected controller that has one, with the rumble settings as they are now, so a change
+   *  is felt at once: a game rumble of middle strength on each motor, through the curve and the strength as the game
+   *  applies them (runtime/input.c input_rumble_preview, ov_input.c). */
+  rumblePreview() {
+    const num = (key: string, fallback: number) => {
+      const v = Number(this.settings[key] ?? catalog.settings.find((s) => s.key === key)?.default);
+      return Number.isFinite(v) ? v : fallback;
+    };
+    const strength = Math.min(3, Math.max(0, num('rumble_strength', 130) / 100));
+    const curve = Math.min(1.5, Math.max(0.2, num('rumble_curve', 0.6)));
+    const motor = (a: number) => Math.min(1, Math.pow(a, curve) * strength);
+    for (const p of this.pads) if (p.has_rumble) api.rumble(p.id, motor(0.35), motor(0.6), 300).catch(() => {});
   }
 
   /** These settings back to their defaults; `done` is said when it worked, the reason when it did not. */

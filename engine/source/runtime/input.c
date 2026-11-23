@@ -958,6 +958,22 @@ int input_pad_identify(int index) {
     return ok;
 }
 
+int input_rumble_preview(void) {
+    // A game rumble of middle strength on each motor (the HD rumble's usual amplitudes), as ov_input.c drives it
+    double s = cfg_double("TOTK_RUMBLE_STRENGTH"), c = cfg_double("TOTK_RUMBLE_CURVE");
+    float strength = (float)(s < 0 ? 0 : s > 300 ? 3 : s / 100), curve = (float)(c < 0.2 ? 0.2 : c > 1.5 ? 1.5 : c);
+    uint16_t low = rumble_motor(0.35f, curve, strength), high = rumble_motor(0.6f, curve, strength);
+    int triggers = input_rumble_triggers_enabled(), ok = 0;
+    plat_mutex_lock(&lock);
+    for (int i = 0; state == 1 && i < npads; i++) {
+        if (!pads[i].rumble) continue;
+        ok |= SDL_RumbleGamepad(pads[i].g, low, high, 300);
+        if (triggers) SDL_RumbleGamepadTriggers(pads[i].g, high, high, 300);   // unsupported pads return false
+    }
+    plat_mutex_unlock(&lock);
+    return ok;
+}
+
 int input_keyboard_active(void) { return (int)plat_cas32(&kb_active, 0, 0); }
 
 void input_prompt_state(InputPromptState *o) {

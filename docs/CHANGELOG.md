@@ -107,6 +107,18 @@ we do not have.
 - Buttons shown in the game is in the game menu's Controls page as well, so it can be changed while you play. The
   Button layout row there no longer says that a button you move keeps its old letter.
 - The launcher confirms with the big A button of a GameCube controller.
+- Changed from 0.1.2: new keyboard and mouse keys, made for a PC. The left mouse button is the normal attack and the
+  right one the strong attack, Space dodges, Left Shift (or Z) guards and the middle mouse button is the right stick's
+  click (C too). E is still the special move, R the special actions, F the ZR button, Q the L button, 1 to 4 change
+  the character and Tab opens the game's menu. Keys you moved yourself stay where you put them.
+- With the keyboard, the character wheel shows the keys that change the character (1 to 4) where it showed the
+  controller's arrows.
+- Changing Rumble strength or Rumble curve makes the connected controllers rumble at once with the new values, in
+  the launcher and in the game menu (Trigger rumble too in the game menu), so you feel what you chose.
+- Motion controls stays in the game menu's Controls page, greyed with the reason, when no connected controller has a
+  gyro the game can read: Switch, Switch 2 and PlayStation controllers have one; Xbox controllers, and controllers
+  that work as one, send none, even with a gyro inside. The launcher's Controls page shows Motion controls only for a
+  controller that has one.
 
 ### Launcher
 - The setup builds the game faster, in the launcher and in RecompLauncher: on a 20-thread processor the compiling
@@ -168,6 +180,15 @@ we do not have.
   there once before copying. The log says so in one line.
 
 ### Stability
+- The game no longer stops with code 70 at the start of the main mission Purging the Shadows, about 70% into the story
+  ("required NVN2 stage 1 of program 1538 could not be lowered"). Its effect uses four kinds of graphics instructions
+  the engine could not translate yet. All 101,235 shaders of the game went through the engine's translation to find
+  every other one like it: 26 more translate now, the ones of that mission among them. Thanks to @seeep1337 (#13), who
+  found the instruction in the shader, and to @DracoBogard, who reported the same stop upstream
+  (Alano6678/hwaoi-recomp#27).
+- With NVIDIA DLSS on, the game's log no longer fills with one Streamline error four times a frame ("Cannot have
+  undefined format": 220,000 lines and 37 MB in half an hour of play). A Streamline message that repeats is written
+  five times, then once at every power of ten with its count.
 - AMD Radeon, code 70: on Radeon cards with AMD's own driver the game no longer hands its drawing commands to the
   graphics driver from a thread of their own. With that thread the card could stop answering ("device lost") and the
   game ended with code 70, at start or minutes into play; DKB Recomp, which this engine comes from, saw the same and
@@ -227,6 +248,15 @@ Thank you for these reports too:
   scales two more of the game's 2D shapes (rectangles and lines) with the picture, which is what the dots looked
   like they were missing; it is not yet seen in a battle.
 - Pictures of the game's tutorials that are screenshots with Switch buttons in them keep those buttons.
+- Characters' hands and arms are too dark in the close-up of a Sync Strike, where the console shows them lit by the
+  strike's light.
+- Confirming with the bottom button in the game's menus (A on Xbox, cross on PlayStation) while battle keeps the
+  Switch positions. The game has no such setting and reads the same buttons in both, so the place where its menus read
+  them has to be found first. Until then, A and B can be swapped everywhere in the game menu's Controls page.
+- The game's own mouse support (the Joy-Con 2 used as a mouse, a USB mouse), which could move the cursor on the map:
+  the game asks for a mouse, and for now Age of Decomp answers that none is connected.
+- Some of the game's shaders still do not translate (running all of them through the engine listed them): none is
+  known to be met in play. If one is, the game stops with code 70 and its log names the shader.
 - 4K on graphics cards with less than 16 GB of video memory (under Picture).
 
 ## 0.1.2 (2026-11-20)

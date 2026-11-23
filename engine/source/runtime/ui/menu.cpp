@@ -1033,19 +1033,24 @@ static void tab_controls(float scale) {
                                            UI_MENU_BUTTON_PROMPTS_GAME};
         opt_choice("TOTK_BUTTON_PROMPTS", UI_MENU_BUTTON_PROMPTS, prompts, 5, UI_MENU_BUTTON_PROMPTS_DESC);
     }
-    if (any[FOR_MOTION]) {
-        opt_describe_next(used[FOR_MOTION]);
-        opt_toggle("TOTK_MOTION", UI_MENU_MOTION, UI_MENU_MOTION_DESC);
-    }
+    // Motion stays in sight, greyed with the reason, while no connected gamepad has a gyro and an accelerometer SDL can
+    // read (an Xbox controller, and a controller that works as one, sends none): players look for this row.
+    if (any[FOR_MOTION]) opt_describe_next(used[FOR_MOTION]);
+    else opt_disable_next(UI_MENU_MOTION_NONE);
+    opt_toggle("TOTK_MOTION", UI_MENU_MOTION, UI_MENU_MOTION_DESC);
     if (any[FOR_RUMBLE]) {
+        // Each change rumbles the gamepads at once with the new values, so it is felt (input_rumble_preview).
         opt_describe_next(used[FOR_RUMBLE]);
-        opt_slider("TOTK_RUMBLE_STRENGTH", UI_MENU_RUMBLE_STRENGTH, 0, 300, UI_MENU_RUMBLE_STRENGTH_DESC, 10, "%.0f %%");
+        if (opt_slider("TOTK_RUMBLE_STRENGTH", UI_MENU_RUMBLE_STRENGTH, 0, 300, UI_MENU_RUMBLE_STRENGTH_DESC, 10, "%.0f %%"))
+            input_rumble_preview();
         opt_describe_next(used[FOR_RUMBLE]);
-        opt_slider("TOTK_RUMBLE_CURVE", UI_MENU_RUMBLE_CURVE, 0.2f, 1.5f, UI_MENU_RUMBLE_CURVE_DESC, 0.05f, "%.2f");
+        if (opt_slider("TOTK_RUMBLE_CURVE", UI_MENU_RUMBLE_CURVE, 0.2f, 1.5f, UI_MENU_RUMBLE_CURVE_DESC, 0.05f, "%.2f"))
+            input_rumble_preview();
     }
     if (any[FOR_TRIGGERS]) {
         opt_describe_next(used[FOR_TRIGGERS]);
-        opt_toggle("TOTK_RUMBLE_TRIGGERS", UI_MENU_RUMBLE_TRIGGERS, UI_MENU_RUMBLE_TRIGGERS_DESC);
+        if (opt_toggle("TOTK_RUMBLE_TRIGGERS", UI_MENU_RUMBLE_TRIGGERS, UI_MENU_RUMBLE_TRIGGERS_DESC))
+            input_rumble_preview();
     }
     if (any[FOR_ALL]) {
         opt_describe_next(used[FOR_ALL]);

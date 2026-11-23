@@ -117,8 +117,34 @@ void sl_log(sl::LogType type, const char *msg) {
     if (InterlockedIncrement(&logged) > 300 && type != sl::LogType::eError) return;
     size_t n = strlen(msg);
     while (n && (msg[n - 1] == '\n' || msg[n - 1] == '\r')) n--;
-    rt_log("dlss: streamline %s: %.*s", type == sl::LogType::eError ? "error" : type == sl::LogType::eWarn ? "warning" : "info",
-           (int)n, msg);
+    const char *kind = type == sl::LogType::eError ? "error" : type == sl::LogType::eWarn ? "warning" : "info";
+    // The same error every frame must not fill the log (a player's log of 30 minutes once held 220,000 lines of one):
+    // each message, told apart by what follows Streamline's time and thread prefix, is written 5 times, then once at
+    // every power of ten with its count.
+    const char *body = strstr(msg, "us]");
+    body = body && body < msg + n ? body + 3 : msg;
+    uint64_t key = 0xcbf29ce484222325ull;
+    for (const char *c = body; c < msg + n; c++) key = (key ^ (uint8_t)*c) * 0x100000001b3ull;
+    static SRWLOCK lock = SRWLOCK_INIT;
+    static uint64_t keys[64];
+    static uint64_t counts[64];
+    uint64_t count = 1;
+    AcquireSRWLockExclusive(&lock);
+    for (int i = 0; i < 64; i++) {
+        if (keys[i] == key || !keys[i]) {
+            keys[i] = key;
+            count = ++counts[i];
+            break;
+        }
+    }
+    ReleaseSRWLockExclusive(&lock);
+    if (count <= 5) {
+        rt_log("dlss: streamline %s: %.*s", kind, (int)n, msg);
+    } else {
+        uint64_t p = 10;
+        while (p < count) p *= 10;
+        if (p == count) rt_log("dlss: streamline %s (%llu times so far): %.*s", kind, (unsigned long long)count, (int)n, msg);
+    }
 }
 
 const char *result_name(sl::Result r) {
@@ -800,20 +826,28 @@ extern "C" int aod_dlss_evaluate(VkCommandBuffer cb, const AodDlssFrame *f) {
         if (fails++ < 5) rt_log("dlss: slSetTagForFrame: %s (%d)", result_name(r), (int)r);
         return 0;
     }
-    // Where the history is another surface's (vk_temporal.c): DLSS takes this frame's colour there.
-    // TOTK_DLSS_MASK picks the buffer type for a test: bias (kBufferTypeBiasCurrentColorHint, ignored by this DLSS on
-    // 2026-11-23), reactive (kBufferTypeReactiveMaskHint) or transparency (kBufferTypeTransparencyAndCompositionMaskHint).
-    static sl::BufferType mask_type = [] {
+    // Where the history is another surface's (vk_temporal.c), a mask DLSS could take this frame's colour from. Not
+    // sent unless TOTK_DLSS_MASK asks for it, as a test: Streamline 2.14's Vulkan layer cannot describe the mask's
+    // R8_UNORM (its format table has no such entry), so every frame it logged "Cannot have undefined format" four
+    // times, and DLSS changed nothing with it (DLSS_BIAS=all still ghosted on 2026-11-23); the motion vectors that
+    // point out of the picture (TEMPORAL_DROP) are what drops such a history. TOTK_DLSS_MASK=bias
+    // (kBufferTypeBiasCurrentColorHint), reactive (kBufferTypeReactiveMaskHint) or transparency
+    // (kBufferTypeTransparencyAndCompositionMaskHint).
+    static const char *mask_ask = [] {
         const char *e = getenv("TOTK_DLSS_MASK");
-        if (!e) e = getenv("HWAOI_DLSS_MASK");
+        return e ? e : getenv("HWAOI_DLSS_MASK");
+    }();
+    static sl::BufferType mask_type = [] {
+        const char *e = mask_ask;
         sl::BufferType t = e && !strcmp(e, "reactive") ? sl::kBufferTypeReactiveMaskHint
                          : e && !strcmp(e, "transparency") ? sl::kBufferTypeTransparencyAndCompositionMaskHint
                                                            : sl::kBufferTypeBiasCurrentColorHint;
-        rt_log("dlss: the history mask goes to DLSS as buffer type %u", (unsigned)t);
+        if (e) rt_log("dlss: the history mask goes to DLSS as buffer type %u (TOTK_DLSS_MASK)", (unsigned)t);
         return t;
     }();
     sl::ResourceTag bias_tag(&bias, mask_type, sl::ResourceLifecycle::eValidUntilEvaluate, &rext);
-    if (f->bias.image && (r = sl_tag(*token, g_view_sr, &bias_tag, 1, (sl::CommandBuffer *)cb)) != sl::Result::eOk) {
+    if (mask_ask && f->bias.image &&
+        (r = sl_tag(*token, g_view_sr, &bias_tag, 1, (sl::CommandBuffer *)cb)) != sl::Result::eOk) {
         static int bias_fails;
         if (bias_fails++ < 3) rt_log("dlss: the history mask was not taken: %s (%d)", result_name(r), (int)r);
     }

@@ -145,6 +145,7 @@ int input_player_pad(int player, InputPadInfo *out) {
 }
 int input_keyboard_player(void) { return 0; }
 int input_pad_identify(int) { return 1; }
+int input_rumble_preview(void) { return 1; }
 // AOD_PREVIEW_KEYBOARD=1: as when the keyboard or the mouse was used last (the hints show keys).
 int input_keyboard_active(void) { const char *v = getenv("AOD_PREVIEW_KEYBOARD"); return v && *v == '1'; }
 void input_note_keyboard(void) {}

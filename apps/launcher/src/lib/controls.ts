@@ -124,9 +124,9 @@ const KEYS = new Set([
 const DEFAULT_KEYS: [string, Action][] = [
   ['w', 'LSTICK_UP'], ['a', 'LSTICK_LEFT'], ['s', 'LSTICK_DOWN'], ['d', 'LSTICK_RIGHT'],
   ['up', 'RSTICK_UP'], ['left', 'RSTICK_LEFT'], ['down', 'RSTICK_DOWN'], ['right', 'RSTICK_RIGHT'],
-  ['mouse_l', 'Y'], ['mouse_r', 'ZL'], ['z', 'ZL'], ['f', 'ZR'], ['x', 'ZR'],
-  ['space', 'X'], ['lshift', 'B'], ['e', 'A'], ['q', 'L'], ['r', 'R'],
-  ['lctrl', 'LCLICK'], ['c', 'RCLICK'],
+  ['mouse_l', 'Y'], ['mouse_r', 'X'], ['space', 'B'], ['e', 'A'],
+  ['lshift', 'ZL'], ['z', 'ZL'], ['f', 'ZR'], ['x', 'ZR'], ['q', 'L'], ['r', 'R'],
+  ['lctrl', 'LCLICK'], ['mouse_m', 'RCLICK'], ['c', 'RCLICK'],
   ['1', 'LEFT'], ['2', 'UP'], ['3', 'RIGHT'], ['4', 'DOWN'],
   ['tab', 'PLUS'], ['m', 'MINUS'], ['escape', 'MENU'],
 ];

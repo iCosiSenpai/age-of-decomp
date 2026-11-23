@@ -58,6 +58,9 @@ int input_player_pad(int player, InputPadInfo *out);
 int input_keyboard_player(void);              // the player the keyboard and mouse feed, -1 none
 // A short rumble on gamepad index of input_pads, to tell which one it is; 0 when it has no motors.
 int input_pad_identify(int index);
+// The menu's rumble rows: a short pulse on every connected gamepad that rumbles, through the rumble strength, curve
+// and trigger settings as they are now, so a change is felt at once. 1 if one rumbled.
+int input_rumble_preview(void);
 // The device used last: 1 while it is the keyboard or the mouse (also with gamepads connected), 0 a gamepad.
 // input_note_keyboard: the window saw a key or the mouse (the menu's own events, which never pass the game's poll).
 int input_keyboard_active(void);

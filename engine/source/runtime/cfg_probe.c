@@ -236,8 +236,14 @@ int probe_cfg(void) {
     CHECK(input_map_buttons(dn) == 0, "keys: nothing held, no buttons");
     dn[KEY_MOUSE_L] = 1;
     CHECK(input_map_buttons(dn) == 1ull << B_Y, "keys: left mouse button is Y");
-    dn[KEY_MOUSE_R] = dn[KEY_Z] = 1;
-    CHECK(input_map_buttons(dn) == (1ull << B_Y | 1ull << B_ZL), "keys: right mouse button and Z both press ZL");
+    dn[KEY_MOUSE_R] = 1;
+    CHECK(input_map_buttons(dn) == (1ull << B_Y | 1ull << B_X), "keys: right mouse button is X");
+    memset(dn, 0, sizeof dn);
+    dn[KEY_LSHIFT] = dn[KEY_Z] = 1;
+    CHECK(input_map_buttons(dn) == 1ull << B_ZL, "keys: Left Shift and Z both press ZL");
+    memset(dn, 0, sizeof dn);
+    dn[KEY_SPACE] = dn[KEY_MOUSE_M] = 1;
+    CHECK(input_map_buttons(dn) == (1ull << B_B | 1ull << B_STICK_R), "keys: Space B, middle mouse button stick click");
     memset(dn, 0, sizeof dn);
     dn[KEY_X] = dn[KEY_TAB] = dn[KEY_M] = dn[KEY_LCTRL] = dn[KEY_3] = 1;
     CHECK(input_map_buttons(dn) == (1ull << B_ZR | 1ull << B_PLUS | 1ull << B_MINUS | 1ull << B_STICK_L | 1ull << B_RIGHT),
@@ -342,7 +348,7 @@ int probe_cfg(void) {
     CHECK(!strcmp(line, "key:x, pad:default"), "edit: ZR keeps X");
     CHECK(input_map_set_key(&mp, B_ZL, 1, KEY_NONE) == -1, "edit: clearing a key takes from no one");
     uint8_t ks[8];
-    CHECK(input_map_keys_of(&mp, B_ZL, ks, 8) == 1 && ks[0] == KEY_MOUSE_R, "edit: ZL keeps its first key only");
+    CHECK(input_map_keys_of(&mp, B_ZL, ks, 8) == 1 && ks[0] == KEY_LSHIFT, "edit: ZL keeps its first key only");
     mp = input_map;
     CHECK(input_map_set_pad(&mp, B_X, PAD_LAYOUT_XBOX, PAD_SOUTH) == B_A, "edit: south swaps X with A (Xbox layout)");
     uint8_t ps[8];

@@ -19,7 +19,7 @@
 // in guest memory are never touched: the copy that goes to the GPU is.
 //
 // The pictures are redrawn by group, so that one style is never mixed inside a group: the four face buttons, the four
-// shoulder buttons, plus and minus, each stick click, the directions.
+// shoulder buttons, plus and minus, each stick click, the directions, the four arrow discs (the character wheel).
 #include "hud_prompts.h"
 
 #include <math.h>
@@ -77,7 +77,7 @@ static const struct { uint16_t w, h; uint32_t probe_at; uint64_t probe; uint8_t 
 
 // A picture of one Switch button in the atlas: the box the game's own picture fills, the gamepad input the game draws
 // there, and the group it is redrawn with. PLAIN: the game draws the sign alone, without a disc.
-enum { G_FACE = 1, G_SHOULDER, G_MENU, G_LCLICK, G_RCLICK, G_DPAD, G_DIRECTIONS };
+enum { G_FACE = 1, G_SHOULDER, G_MENU, G_LCLICK, G_RCLICK, G_DPAD, G_DIRECTIONS, G_ARROWS };
 enum { PLAIN = 1 };
 typedef struct { uint16_t x, y, w, h; uint8_t button, native, group, flags; } Cell;
 // The first cells by name, for the other two textures' pictures of the same buttons.
@@ -96,6 +96,10 @@ static const Cell cells[] = {
     // the four direction buttons of a left Joy-Con
     {761, 515, 42, 44, B_DOWN, PAD_DPAD_DOWN, G_DIRECTIONS, 0},  {814, 515, 43, 42, B_LEFT, PAD_DPAD_LEFT, G_DIRECTIONS, 0},
     {869, 515, 44, 42, B_RIGHT, PAD_DPAD_RIGHT, G_DIRECTIONS, 0}, {923, 531, 42, 44, B_UP, PAD_DPAD_UP, G_DIRECTIONS, 0},
+    // the d-pad as discs with an arrow: the character wheel ("Cambio") draws the direction of each character with one;
+    // a pad's d-pad keeps them, the keyboard gets its keys there (1 to 4 by default)
+    {222, 624, 40, 40, B_RIGHT, PAD_DPAD_RIGHT, G_ARROWS, 0}, {276, 624, 40, 40, B_DOWN, PAD_DPAD_DOWN, G_ARROWS, 0},
+    {330, 624, 40, 40, B_UP, PAD_DPAD_UP, G_ARROWS, 0},       {384, 624, 40, 40, B_LEFT, PAD_DPAD_LEFT, G_ARROWS, 0},
 };
 enum { N_CELLS = sizeof cells / sizeof *cells };
 

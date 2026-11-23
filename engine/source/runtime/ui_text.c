@@ -182,6 +182,8 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_AUDIO_LATENCY_LOW] = "Low (10 ms)", [UI_MENU_AUDIO_LATENCY_NORMAL] = "Normal (20 ms)",
     [UI_MENU_AUDIO_LATENCY_HIGH] = "High (40 ms)",
     [UI_MENU_MOTION] = "Motion controls", [UI_MENU_MOTION_DESC] = "Aiming with the controller's gyroscope.",
+    [UI_MENU_MOTION_NONE] = "No connected controller has a gyro the game can read. Switch, Switch 2 and PlayStation "
+                            "controllers have one; Xbox controllers, and controllers that work as one, send none.",
     [UI_MENU_RUMBLE_STRENGTH] = "Vibration strength",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "How strong the controller vibrates.",
     [UI_MENU_RUMBLE_CURVE] = "Vibration curve",
@@ -518,6 +520,9 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_AUDIO_LATENCY_LOW] = "Низкий (10 мс)", [UI_MENU_AUDIO_LATENCY_NORMAL] = "Обычный (20 мс)",
     [UI_MENU_AUDIO_LATENCY_HIGH] = "Высокий (40 мс)",
     [UI_MENU_MOTION] = "Управление движением", [UI_MENU_MOTION_DESC] = "Прицеливание гироскопом контроллера.",
+    [UI_MENU_MOTION_NONE] = "Ни у одного подключённого контроллера нет гироскопа, который может прочитать игра. Он есть "
+                            "у контроллеров Switch, Switch 2 и PlayStation; контроллеры Xbox и работающие как они его "
+                            "не передают.",
     [UI_MENU_RUMBLE_STRENGTH] = "Сила вибрации",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "Насколько сильно вибрирует контроллер.",
     [UI_MENU_RUMBLE_CURVE] = "Кривая вибрации",
@@ -883,6 +888,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_VOLUME_DESC] = "调整整个游戏的音量。",
     [UI_MENU_MOTION] = "体感控制",
     [UI_MENU_MOTION_DESC] = "使用手柄陀螺仪瞄准。",
+    [UI_MENU_MOTION_NONE] = "已连接的手柄都没有游戏可读取的陀螺仪。Switch、Switch 2 和 PlayStation 手柄有陀螺仪；"
+                            "Xbox 手柄以及以 Xbox 方式工作的手柄不会传送陀螺仪数据。",
     [UI_MENU_RUMBLE_STRENGTH] = "振动强度",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "调整手柄的振动强度。",
     [UI_MENU_RUMBLE_CURVE] = "振动曲线",
@@ -1344,6 +1351,9 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_AUDIO_LATENCY_HIGH] = "Alto (40 ms)",
     [UI_MENU_MOTION] = "Comandi di movimento",
     [UI_MENU_MOTION_DESC] = "Mira usando il giroscopio del controller.",
+    [UI_MENU_MOTION_NONE] = "Nessun controller collegato ha un giroscopio che il gioco possa leggere. Ce l'hanno i "
+                            "controller Switch, Switch 2 e PlayStation; i controller Xbox, e quelli che funzionano come "
+                            "loro, non lo trasmettono.",
     [UI_MENU_RUMBLE_STRENGTH] = "Intensità della vibrazione",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "Quanto vibra il controller.",
     [UI_MENU_RUMBLE_CURVE] = "Curva della vibrazione",

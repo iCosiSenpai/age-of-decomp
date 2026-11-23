@@ -24,7 +24,10 @@ DPAD = {"DOWN": (697, 619, 34, 34), "LEFT": (735, 619, 34, 34), "RIGHT": (773, 6
 DIAMOND = {"YA": (220, 515, 44, 42), "XB": (275, 514, 42, 44), "B": (329, 515, 42, 42), "Y": (383, 515, 42, 42),
            "A": (437, 515, 42, 42), "X": (491, 515, 42, 42)}
 STICK = {"LSTICK": (977, 536, 41, 37), "RSTICK": (5, 572, 41, 37)}   # "move" and "look around"
-EVERY = {**{"face " + k: v for k, v in FACE.items()}, **SHOULDER, **MENU, **CLICK, **DPAD, **STICK,
+# the d-pad as discs with an arrow, which the character wheel draws
+ARROWS = {"ARROW_RIGHT": (222, 624, 40, 40), "ARROW_DOWN": (276, 624, 40, 40), "ARROW_UP": (330, 624, 40, 40),
+          "ARROW_LEFT": (384, 624, 40, 40)}
+EVERY = {**{"face " + k: v for k, v in FACE.items()}, **SHOULDER, **MENU, **CLICK, **DPAD, **STICK, **ARROWS,
          **{"dots " + k: v for k, v in DIAMOND.items()}}
 # The battle HUD's sheet (2048 x 1024): its own copies of some pictures.
 HUD_FACE = {"B": (994, 546, 40, 40), "X": (1048, 546, 40, 40), "Y": (1102, 546, 40, 40), "A": (1490, 542, 40, 40)}
@@ -215,8 +218,9 @@ class HudPrompts(unittest.TestCase):
     def test_the_keyboard_gets_its_keys(self):
         atlas = self.draw("auto", "keyboard")
         singles = {"dots " + k: DIAMOND[k] for k in "BYAX"}   # two buttons at once have no key picture
-        # the sticks are the four keys that move and the mouse
-        self.assert_only(atlas, [{"face " + k: v for k, v in FACE.items()}, SHOULDER, MENU, CLICK, DPAD, STICK, singles])
+        # the sticks are the four keys that move and the mouse; the character wheel's arrows are the keys 1 to 4
+        self.assert_only(atlas, [{"face " + k: v for k, v in FACE.items()}, SHOULDER, MENU, CLICK, DPAD, STICK, ARROWS,
+                                 singles])
         self.assertEqual(self.draw("auto", "keyboard", "family=xbox", "layout=xbox", "labels").alpha, atlas.alpha)
 
     def assert_hud_only(self, atlas, groups):
