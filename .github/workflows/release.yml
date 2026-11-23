@@ -81,6 +81,9 @@ jobs:
           if draft=$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null); then
             if [ "$draft" != "true" ]; then echo "::error::release $tag is already published; its assets stay as they are"; exit 1; fi
           else
-            gh release create "$tag" --draft --prerelease --title "Age of Decomp $tag" --notes "Draft: see the README for what is tested."
+            # Not a pre-release: GitHub's "Latest" (the repository page, /releases/latest) is only ever a full release,
+            # and with pre-releases alone the page showed "3 tags" and no release. Our launcher and RecompLauncher take
+            # both kinds; the title says it is a preview.
+            gh release create "$tag" --draft --title "Age of Decomp $tag" --notes "Draft: see the README for what is tested."
           fi
           gh release upload "$tag" out/release/*.zip out/release/SHA256SUMS.txt --clobber
