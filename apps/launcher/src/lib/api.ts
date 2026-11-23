@@ -122,7 +122,7 @@ const params = typeof location !== 'undefined' ? new URLSearchParams(location.se
 const demoBuilt = !['0', 'stale', 'part'].includes(params.get('built') ?? '');
 
 const demoState: LauncherState = {
-  version: '0.2.0',
+  version: '0.2.1',
   engine_dir: 'C:\\Games\\AgeOfDecomp\\engine',
   data_dir: 'C:\\Users\\Player\\AppData\\Local\\AgeOfDecomp',
   game: {
@@ -160,7 +160,7 @@ const demoPads: Pad[] = [
 ];
 
 async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
-  if (cmd === 'check_updates') return { current: '0.2.0', latest: params.has('update') ? 'v0.3.0' : 'v0.2.0', available: params.has('update'), previous_error: null };
+  if (cmd === 'check_updates') return { current: '0.2.1', latest: params.has('update') ? 'v0.3.0' : 'v0.2.1', available: params.has('update'), previous_error: null };
   if (cmd === 'install_update') throw new Error('Update installation is available in the desktop compiler.');
   await new Promise((r) => setTimeout(r, 120));
   switch (cmd) {
