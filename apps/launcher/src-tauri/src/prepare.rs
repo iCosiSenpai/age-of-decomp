@@ -87,8 +87,10 @@ fn assign_job(child: &std::process::Child) -> Result<(), String> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JobObjectExtendedLimitInformation, SetInformationJobObject,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PRIORITY_CLASS, JobObjectExtendedLimitInformation,
+        SetInformationJobObject,
     };
+    use windows_sys::Win32::System::Threading::BELOW_NORMAL_PRIORITY_CLASS;
 
     static JOB: OnceLock<Result<usize, String>> = OnceLock::new();
     let handle = *JOB.get_or_init(|| unsafe {
@@ -97,7 +99,11 @@ fn assign_job(child: &std::process::Child) -> Result<(), String> {
             return Err(format!("Could not create the build job: {}", std::io::Error::last_os_error()));
         }
         let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        // Below normal for the engine and everything it starts (Python, Ninja, clang, the shader preparation): an
+        // automatic build uses all processors but one in eight (the engine's hostmem.build_threads), and the desktop,
+        // a game or a call still gets the processor first.
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_PRIORITY_CLASS;
+        limits.BasicLimitInformation.PriorityClass = BELOW_NORMAL_PRIORITY_CLASS;
         if SetInformationJobObject(
             job,
             JobObjectExtendedLimitInformation,
@@ -384,6 +390,9 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
             // SIGKILL of aod-cli still leaves Ninja / clang running: the process group outlives it.
             unsafe {
                 cmd.pre_exec(move || {
+                    // A lower priority for the engine and its children, as the Windows job object gives them: the
+                    // build uses most processors and the desktop still comes first. A failure changes nothing else.
+                    libc::nice(10);
                     if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM, 0, 0, 0) != 0 {
                         return Err(std::io::Error::last_os_error());
                     }

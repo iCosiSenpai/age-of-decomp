@@ -161,16 +161,25 @@ GiB = 1 << 30
 # Peak commit of one compile, 1.2.1 at -O1 (2026-10-20): 120-180 MiB per ~3 MiB chunk, 568 MiB for main_table.c
 # (295k-entry tables). 768 MiB leaves headroom for the largest file.
 JOB_MEM = 768 << 20
+# A generated unit of 4 MiB or more is one huge game function or a table. HWAoI 1.0.3's main_0163.c is a single function
+# of 100,473 lines: at -O1 clang spent 278 s on it alone (loop rotation 91 s, machine sinking 46 s, block placement
+# 28 s), the whole compile waited for it, and more workers changed nothing. These passes are turned down for such
+# units only: 107 s, an object of nearly the same size (6.4 MiB against 6.7; -O0 makes 101 MiB), and the function had
+# no sample in a profile of 30 s of play (2026-11-23). The code does the same; only how it is optimised changes.
+LARGE_UNIT = 4 << 20
+LARGE_UNIT_FLAGS = ('-mllvm', '-rotation-max-header-size=0', '-mllvm', '-disable-machine-sink',
+                    '-mllvm', '-disable-block-placement')
 MEM_BUDGET = 50 * GiB  # total for all compile jobs
 
 
 def compile_jobs(requested, cpus, available):
-    """One large HWAoI compile can use 2.2 GiB; budget for it and the small workers."""
+    """One large HWAoI compile can use 2.2 GiB; budget for it and the small workers. Automatic (0): every logical
+    processor but one in eight (hostmem.build_threads), as far as the memory goes; 1..8 caps it."""
     if requested < 0 or requested > 8:
         raise ValueError('jobs must be 0 (automatic) or 1..8')
     budget = max(0, available - GiB)
     safe = max(1, 1 + (budget - (2560 << 20)) // (512 << 20))
-    return max(1, min(requested or 8, cpus, safe))
+    return max(1, min(requested or hostmem.build_threads(cpus), cpus, safe))
 
 
 def below_root(p):
@@ -388,7 +397,11 @@ def ninja_file(gen, out, mods, pool_depth, skip=(), prebuilt=False, runtime_lib=
     # Start expensive units early without changing the canonical link order.
     for size, f, o in sorted(compile_edges, key=lambda e: (-e[0], e[1].as_posix())):
         lines.append(f'build {ninja_path(o)}: cc_gen {ninja_path(f)}{stamp}')
-        lines.append('  pool = large_gen' if size >= 4 << 20 else '  pool = gen')
+        if size >= LARGE_UNIT:
+            lines.append('  pool = large_gen')
+            lines.append('  genflags = $genflags ' + ' '.join(LARGE_UNIT_FLAGS))
+        else:
+            lines.append('  pool = gen')
     rt = []
     sources = runtime_sources(skip)
     if make_lib:

@@ -109,6 +109,11 @@ we do not have.
 - The launcher confirms with the big A button of a GameCube controller.
 
 ### Launcher
+- The setup builds the game faster, in the launcher and in RecompLauncher: on a 20-thread processor the compiling
+  went from about 5 minutes to under 3. It now uses all of your processor's threads but one in eight (it stopped at
+  eight before), at a lower priority than your other programs, so Windows or Linux stays as quick as before while it
+  works: a test program ran just as fast during a build as without one. The game's one very large function, which
+  did not run at all in a test of play, is compiled with a few of the slowest optimisation steps left out.
 - New: the Play page says when the game should be built again and why: after an engine update that needs it, when a
   rebuild is only on offer because the engine changed, when the build was stopped, or when your game file is no longer
   where it was. Each comes with its button.

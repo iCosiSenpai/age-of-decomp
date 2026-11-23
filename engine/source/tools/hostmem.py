@@ -1,6 +1,7 @@
 """Memory the machine can still give to new processes, for sizing worker pools (stdlib only; Windows and Linux)."""
 import ctypes
 import ctypes.wintypes as wt
+import os
 import sys
 
 JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
@@ -112,3 +113,14 @@ def available_commit():
         return None
     headroom = _job_headroom()
     return status.apf if headroom is None else min(status.apf, headroom)
+
+
+def build_threads(cpus=None):
+    """How many workers an automatic build starts at most: every logical processor but one in eight, and always at
+    least one left for the rest of the system (20 -> 18, 16 -> 14, 8 -> 7, 4 -> 3, 2 -> 1). The setup runs the build
+    below normal priority (the launcher's job object on Windows, nice on Linux), so the desktop, a game or a call still
+    gets the processor first; the memory checks of each stage can lower the count further."""
+    if not cpus:
+        count = getattr(os, "process_cpu_count", None)   # Python 3.13+: the processors this process may use
+        cpus = (count() if count else None) or os.cpu_count() or 1
+    return max(1, cpus - max(1, cpus // 8))
