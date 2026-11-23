@@ -240,10 +240,6 @@ Thank you for these reports too:
 - Code 70 when pressing Play on a Ryzen Z1 Extreme handheld: @Ostarion77 (#12) and a player on RecompLauncher
   (2026-11-19). This version's change for AMD's own driver applies to its Radeon graphics too; the log of a start with
   this version says whether that was the cause.
-- A freeze on one frame, with the sound going on, when Zelda's shield-breaking skill hits a rock enemy whose guard is
-  broken: a player on RecompLauncher (2026-11-21). This version's log says where the game is stuck: please send it
-  after the next freeze.
-- The map cursor that moves slower than normal with the game at 1080p: a player on RecompLauncher (2026-11-21).
 - The enemies' dots missing from the zoomed minimap above 1080p, while the whole-map view shows them. This version
   scales two more of the game's 2D shapes (rectangles and lines) with the picture, which is what the dots looked
   like they were missing; it is not yet seen in a battle.
