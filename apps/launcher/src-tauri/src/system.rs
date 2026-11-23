@@ -121,6 +121,60 @@ pub fn system_info() -> SystemInfo {
     }
 }
 
+/// Whether a screen of this PC shows HDR now: what the game's HDR output needs (Windows turns it on per screen, and
+/// the game then finds an HDR10 picture format for its window). `None` when the system does not say: every other
+/// system, or a Windows that does not answer. Windows names it "advanced colour", which is on with HDR and also
+/// with its automatic colour management alone, so `Some(false)` is the certain answer: no screen can take HDR.
+pub fn hdr_screen() -> Option<bool> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Devices::Display::{
+            DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig,
+            DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO, DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO,
+            DISPLAYCONFIG_MODE_INFO, DISPLAYCONFIG_PATH_INFO, QDC_ONLY_ACTIVE_PATHS,
+        };
+        // SAFETY: the two buffers have the sizes Windows asked for, the query writes at most that many entries and
+        // says how many, and the info block carries its own size.
+        unsafe {
+            let (mut paths_n, mut modes_n) = (0u32, 0u32);
+            if GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut paths_n, &mut modes_n) != 0 {
+                return None;
+            }
+            let mut paths = vec![std::mem::zeroed::<DISPLAYCONFIG_PATH_INFO>(); paths_n as usize];
+            let mut modes = vec![std::mem::zeroed::<DISPLAYCONFIG_MODE_INFO>(); modes_n as usize];
+            if QueryDisplayConfig(
+                QDC_ONLY_ACTIVE_PATHS,
+                &mut paths_n,
+                paths.as_mut_ptr(),
+                &mut modes_n,
+                modes.as_mut_ptr(),
+                std::ptr::null_mut(),
+            ) != 0
+            {
+                return None;
+            }
+            let mut answer = None;
+            for path in paths.iter().take(paths_n as usize) {
+                let mut info: DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO = std::mem::zeroed();
+                info.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
+                info.header.size = std::mem::size_of::<DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO>() as u32;
+                info.header.adapterId = path.targetInfo.adapterId;
+                info.header.id = path.targetInfo.id;
+                if DisplayConfigGetDeviceInfo(&mut info.header) == 0 {
+                    // bit 1: advancedColorEnabled (bit 0 is "supported", the screen could if it were turned on)
+                    let on = info.Anonymous.value & 0x2 != 0;
+                    answer = Some(answer.unwrap_or(false) || on);
+                }
+            }
+            answer
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 pub fn disk_info(path: &Path) -> DiskInfo {
     // No list (the library says when it cannot read the disks, since 0.40) is like a folder on no known disk: 0 GB.
     let disks = sysinfo::Disks::new_with_refreshed_list().ok();
@@ -238,5 +292,16 @@ mod tests {
             assert!(!on_disk(Path::new("/mnt/Game/build"), Path::new("/mnt/game")));
             assert!(on_disk(Path::new("/home/player"), Path::new("/")));
         }
+    }
+}
+
+#[cfg(test)]
+mod hdr_tests {
+    #[test]
+    fn the_screens_hdr_state_is_read_without_a_fault() {
+        // A PC with a screen answers yes or no; a session without one (a build server) may answer nothing.
+        let first = super::hdr_screen();
+        eprintln!("hdr_screen: {first:?}");
+        assert_eq!(first, super::hdr_screen());
     }
 }

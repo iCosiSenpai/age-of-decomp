@@ -1,6 +1,6 @@
 [package]
 name = "age-of-decomp"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 description = "Age of Decomp launcher: setup, settings and controllers for a native PC build of your own Hyrule Warriors: Age of Imprisonment"
@@ -38,7 +38,7 @@ sha2 = "0.11.1"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Devices_Display", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.191"

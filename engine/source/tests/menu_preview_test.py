@@ -18,9 +18,9 @@ DEFAULT_CC = TOOLCHAIN / "llvm/bin/clang++.exe"
 DEFAULT_DEPS = TOOLCHAIN / "deps" if os.name == "nt" else Path("/usr")
 
 # Rows of the Controls page above the first binding row with the preview's default devices (the keyboard and one
-# Xbox pad): 2 devices, 5 player rows, layout, the buttons the game shows, rumble strength and curve, trigger
-# rumble, dead zone, mouse, and the bindings' player row.
-CONTROLS_TO_BINDS = 15
+# Xbox pad): 2 devices, 5 player rows, the buttons the game shows, rumble strength and curve, trigger rumble, dead
+# zone, mouse, and the bindings' player row (the Button layout row is gone since 0.2.0).
+CONTROLS_TO_BINDS = 14
 ROW_HOVER = (700, 280)
 CONTINUE = (1660, 968)
 FULLSCREEN_SEGMENT = (1635, 223)
@@ -412,6 +412,29 @@ set PERF_OVERLAY=fps
 sleep 650
 shot state-frame-gen-overlay-{lang}
 """, 1920, 1080, 96, lang, {"MENU_PREVIEW_FG": "6"}, False)
+    # Greyed rows: Window size in fullscreen ("in use" the screen's size, 2560x1440 in the stubs), and the HDR rows on a
+    # screen without HDR (MENU_PREVIEW_NO_HDR=1). A greyed row takes the cursor (its note shows) but no change. The HDR
+    # case goes down past the page's last row to the action bar, then up once onto that row.
+    for lang in ("en", "it"):
+        yield (f"state-greyed-window-{lang}", f"""
+set FULLSCREEN=1
+set WINDOW_SIZE=1920x1080
+open
+key DownArrow tap
+key RightArrow tap
+expect WINDOW_SIZE=1920x1080
+shot state-greyed-window-{lang}
+""", 1920, 1080, 96, lang, None, False)
+        yield (f"state-greyed-hdr-{lang}", """
+set HDR=1
+set HDR_UI_NITS=200
+open
+""" + "key DownArrow tap\n" * 40 + f"""
+key UpArrow tap
+key RightArrow tap
+expect HDR_UI_NITS=200
+shot state-greyed-hdr-{lang}
+""", 1920, 1080, 96, lang, {"MENU_PREVIEW_NO_HDR": "1"}, False)
     yield ("state-segment-hover", f"""
 open
 mouse {SEGMENT_HOVER[0]} {SEGMENT_HOVER[1]}

@@ -148,9 +148,6 @@ pub fn reset(cfg: &Config, paths: &Paths, keys: &[String]) -> Result<(), String>
 const RETIRED: &[(&str, &[&str], &str)] = &[
     ("fps_limit", &["90", "120"], "60"),
     ("temporal", &["dlaa"], "dlss"),
-    // "Xbox prompts": this game's build has no overlay with Xbox letters, so the value only ever gave the
-    // Nintendo button positions.
-    ("pad_layout", &["xbox_prompts"], "nintendo"),
     // The runtime's other two names for Chinese (it reads zh-CN as zh-Hans and zh-TW as zh-Hant, ov_system.c): a
     // settings file written by hand or by another tool may carry them, and the catalogue has one name for each.
     ("lang", &["zh-CN"], "zh-Hans"),
@@ -292,6 +289,20 @@ mod tests {
         retire_values(&path).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "[display]\ntemporal = dlss\n");
         assert!(validate("temporal", "dlaa").is_err() && validate("dlss_quality", "native").is_ok());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn the_button_layout_is_no_setting_and_an_old_line_does_no_harm() {
+        // 0.2.0: the game keeps every button where a Switch controller has it whatever pad_layout says
+        // (runtime/input_map.c input_pad_layout_pick), so the launcher offers no such setting and leaves a line an
+        // older version wrote as it is.
+        let (root, cfg, paths) = setup("layout");
+        let path = ini_path(&cfg, &paths);
+        std::fs::write(&path, "[input]\npad_layout = xbox\n").unwrap();
+        retire_values(&path).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "[input]\npad_layout = xbox\n");
+        assert!(validate("pad_layout", "auto").is_err() && validate("pad_layout", "xbox").is_err());
         let _ = std::fs::remove_dir_all(root);
     }
 

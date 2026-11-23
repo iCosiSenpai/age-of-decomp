@@ -30,14 +30,10 @@ jobs:
         with:
           persist-credentials: false
       - name: The manifest follows RecompLauncher's schema
-        # Without prepare.timeout and prepare.version: RecompLauncher 0.90 beta 68 took both out of its schema and
-        # reads past them, while beta 67 and older need them (tools/release.py says why). Check the file as it is
-        # again once the two keys are gone from it.
         run: |
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/recomplauncher.schema.json" \
             https://raw.githubusercontent.com/elripalda/RecompLauncher/main/docs/recomplauncher.schema.json
-          jq 'del(.prepare.timeout, .prepare.version)' packaging/recomplauncher.json > "$RUNNER_TEMP/manifest.json"
-          pipx run check-jsonschema --schemafile "$RUNNER_TEMP/recomplauncher.schema.json" "$RUNNER_TEMP/manifest.json"
+          pipx run check-jsonschema --schemafile "$RUNNER_TEMP/recomplauncher.schema.json" packaging/recomplauncher.json
 
   guide:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

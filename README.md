@@ -51,7 +51,7 @@
 The game's ARM64 code is translated to C ahead of time and compiled for your processor, with a runtime that provides
 the Switch 2's system services and draws through Vulkan (NVN 2 → Vulkan, Ampere shaders → SPIR-V). The engine
 started as [HWAoI Recomp](https://github.com/Alano6678/hwaoi-recomp) (built on
-[DKB Recomp](https://github.com/Lucas-blip-png/dkb-pc-recomp)) and is developed in this repository since 0.1.3
+[DKB Recomp](https://github.com/Lucas-blip-png/dkb-pc-recomp)) and is developed in this repository since 0.2.0
 ([`engine/source`](engine/source), origin and authors in [`engine/ORIGIN.md`](engine/ORIGIN.md)). Around it Age of
 Decomp has the launcher, the setup, the settings, native controller support, packaging for Windows and Linux, and
 RecompLauncher integration.
@@ -88,7 +88,7 @@ fill the picture at 1440p and 4K; 4K needs a graphics card with 16 GB of video m
 opening here on one).
 
 AMD Radeon: on RX 7000 and RX 9000 cards the game can end with code 70 when the graphics card stops answering
-("device lost", [HWAoI Recomp issue #21](https://github.com/Alano6678/hwaoi-recomp/issues/21)). Since 0.1.3 the game
+("device lost", [HWAoI Recomp issue #21](https://github.com/Alano6678/hwaoi-recomp/issues/21)). Since 0.2.0 the game
 no longer hands its drawing commands to AMD's own driver from a thread of their own, which caused part of these
 stops, and *Diagnostics → Draw call markers* makes the log name what the card was working on. None of it could be tried on a Radeon here: a report with
 its log helps a lot. On Intel GPUs the first start could stop after two seconds; 0.1.2 fixes it (tested on an Intel

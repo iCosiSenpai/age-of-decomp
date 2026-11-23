@@ -3,13 +3,16 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
-## 0.1.3 (not released yet)
+## 0.2.0 (not released yet)
 
 Build the game again once after installing this version. Setup keeps your settings and saves.
 
 ### RecompLauncher
-- Checked with RecompLauncher 0.90 beta 68 as well as beta 67. From beta 68 on, RecompLauncher runs the setup again by
-  itself after every Age of Decomp update: when the game needs no new build, that takes about ten seconds.
+- Made for RecompLauncher 0.90 beta 68: RecompLauncher checks the .nup you pick and refuses one without update 1.0.3
+  right away, and it runs the setup again by itself after every Age of Decomp update: when the game needs no new
+  build, that takes about ten seconds. Update RecompLauncher when it offers beta 68.
+- RecompLauncher's setup runs AgeOfDecomp.exe itself, the program you start, as RecompLauncher's guide asks: one
+  program for the setup and the game. aod-cli.exe is still there for a console.
 - Setup no longer stops with code 4, "Output folder is not empty", when the game's folder holds saves before its first
   build, as RecompLauncher's cloud saves or a restored backup can put them there. Setup puts saves and logs aside for
   the build and back when it is over; a file it does not know stops it with that file's name. An update in place was
@@ -47,11 +50,22 @@ Build the game again once after installing this version. Setup keeps your settin
 - New: HDR output is in the launcher and in RecompLauncher too (Picture), with its three brightness values. It was
   only in the game's own menu. It gives an HDR screen an HDR picture, so the desktop's HDR does not dim or wash out
   the game; HDR has to be on for the screen in Windows.
-- DLSS quality says that a moving character can leave a faint trail in dark places: the game gives DLSS only the
-  camera's movement, not each character's. Turn Upscaling off where it bothers you. Thanks to the player on
-  RecompLauncher who reported the blur behind Zelda on 2026-11-21 and checked that it goes with DLAA off.
+- NVIDIA DLSS, DLAA and frame generation no longer turn a running character see-through in dark places. The game
+  tells DLSS only how the camera moves, not each character: a character the camera follows stays in place on the
+  screen, while DLSS mixed the ground behind it into it, and in the dark, where the two look alike, the character
+  faded away. The game marks its characters in the picture, and now each of them gets its own movement, and where the
+  picture of the frame before belongs to something else (the ground a character has just left, a rock that now hides
+  it) DLSS starts again from the new frame there. A companion in a long robe can still leave a faint trail when the
+  camera turns. Thanks to the player on RecompLauncher who reported the blur behind Zelda on 2026-11-21 and checked
+  that it goes with DLAA off.
 - Fullscreen's description says what it is: a borderless window that fills the screen, as it has been since 0.1.2.
   Thanks to the same player, who asked for borderless fullscreen.
+- HDR output and its brightness values are greyed out in the launcher while no screen of the PC has HDR turned on:
+  the game would draw its usual picture then. Turn HDR on for the screen in Windows and come back to the launcher.
+  RecompLauncher's own settings tab cannot know about the screen and keeps them as they are.
+- Screen sync is greyed out while Frame generation is on, because frame generation shows its frames without it. Fit to
+  the window and its Sharpness are advanced options now: they only act when the window is larger than the game
+  resolution, and the name of the first choice, AMD FSR 1, read as if FSR were on next to DLSS.
 - New: an OLED colour profile (Picture): deeper blacks, a little more contrast and saturation.
 - The game's window has its own icon, the launcher's seal in other colours, in the title bar, the taskbar and Alt+Tab.
 
@@ -67,18 +81,26 @@ Build the game again once after installing this version. Setup keeps your settin
   controllers have, and its hints follow the device in use too.
 - A controller chosen for a player in the launcher is the one the game uses. The launcher counted controllers of the
   same model from 1 and the game from 0, so with two of them the choice could land on the other one or on none.
-- New: the buttons the game shows are the ones you press. The pictures in the game's hints, tutorials and HUD follow
-  the controller you are using: A, B, X and Y where your controller has them, LB and RT on an Xbox controller, cross,
-  circle, square and triangle with L1 and R2 on a PlayStation controller, and the keys and the mouse when you play
-  with the keyboard. A button you move in the game menu's Controls page shows where it is now, at once. Buttons shown
-  in the game (Controls) can also show one maker's buttons whatever the controller says it is, or keep the game's own
-  Switch pictures. Where the game draws a whole controller, it stays a Switch controller. Thanks to a player on
-  RecompLauncher, who asked for PlayStation buttons and reported on 2026-11-21 that a button moved to Square kept its
-  old picture.
+- Changed from 0.1.2: every button is where a Switch controller has it, on every controller. On an Xbox or
+  PlayStation controller the game's A was the bottom button and its X the left one. Now A is the right button (B on
+  Xbox, circle on PlayStation), B the bottom one, X the top one and Y the left one: the normal attack is the left
+  button and the strong one the top button, as on the console, and you confirm with the right button. The game shows
+  its buttons by position in the combo list, in the skill wheel and in the dots of its hints, so with the old layout
+  the button it drew was not the one to press. The Button layout setting is gone, so the drawn button is always the
+  one to press: to confirm with the bottom button, move A and B in the game menu's Controls page. A layout saved by
+  an earlier version is ignored.
+- New: the buttons the game shows are the ones you press. The pictures in the game's hints, tutorials and HUD, the
+  skill wheel included, follow the controller you are using: the letters an Xbox controller prints where it has them
+  (B to confirm, X for the normal attack) with LB and RT, cross, circle, square and triangle with L1 and R2 on a
+  PlayStation controller, and the keys and the mouse when you play with the keyboard. A button you move in the game
+  menu's Controls page shows where it is now, at once. Buttons shown in the game (Controls) can also show one maker's
+  buttons whatever the controller says it is, or keep the game's own Switch pictures. Where the game draws a whole
+  controller, it stays a Switch controller. The small wheels of three buttons, like the one next to Preparativi in the
+  camp, follow too: every texture of the game's interface was searched for the four letters to find them. Thanks to a
+  player on RecompLauncher, who asked for PlayStation buttons and reported on 2026-11-21 that a button moved to Square
+  kept its old picture.
 - Buttons shown in the game is in the game menu's Controls page as well, so it can be changed while you play. The
   Button layout row there no longer says that a button you move keeps its old letter.
-- The Xbox prompts choice of Button layout is gone: in this game it only did what "A on the right" does. A saved Xbox
-  prompts setting becomes "A on the right".
 - The launcher confirms with the big A button of a GameCube controller.
 
 ### Launcher
@@ -115,10 +137,15 @@ Build the game again once after installing this version. Setup keeps your settin
 - Screen sync and the player rows use the same words as the launcher.
 - HDR interface brightness says what it sets: the white of this menu and of the performance overlay. The game's own
   HUD belongs to the picture. HDR output names Windows next to Linux for what it needs.
+- HDR output and its three brightness rows are greyed when the game's screen shows no HDR (HDR off in the system's
+  display settings, or a screen without it), with what to turn on; the brightness rows also while HDR output is off.
+  The launcher greys them the same way.
+- Window size is greyed in fullscreen and says the size in use, the screen's: it is the size of the window, which
+  fullscreen does not use.
 
 ### Game
 - New: Bonuses for other games' saves (Settings → Game). It tells the game you have Age of Calamity and Tears of the
-  Kingdom save data, so it gives the bonus items it has for them as the story goes on. Off until you turn it on.
+  Kingdom save data, so it gives the bonus items it has for them as the story goes on. On unless you turn it off.
   Thanks to @Konia1234-Pega for asking (#1).
 - A game folder that has no save yet takes the save of the folder this PC used before: the standalone launcher's game
   folder when you move to RecompLauncher, or the folder you built into until now. It is copied the first time you
@@ -139,10 +166,14 @@ Build the game again once after installing this version. Setup keeps your settin
   loss: one tester's RX 9070 XT stopped at the same place with the thread off. Performance → Graphics driver calls on
   their own thread turns it back on for more speed in crowded scenes, or off on any other card. Thanks to
   @hellknight0000 and @maioro (#10) and to the players on RecompLauncher who sent their reports and logs between
-  2026-11-19 and 2026-11-21.
+  2026-11-19 and 2026-11-22.
 - New: Diagnostics → Draw call markers, for a graphics card that stops answering. With it on, the log names the draw
   calls the card was working on, with their shaders: what is needed to find the cause on a card we do not have. Off
   until you turn it on; it costs a little speed.
+- The first time an effect drawn like a camera view appears, such as the cut-in of a Sync Strike, the game waits for
+  its new shaders at most a quarter of a second a frame, instead of stopping for seconds: the effect's remaining parts
+  are drawn as soon as they are ready, a few frames later. Effects drawn once and kept (lighting tables, shadows) still
+  wait until they are complete. Not yet tried with a Sync Strike here: the log says when it happens.
 - When the game stops showing new frames for 20 seconds, its log says where every thread is. The game is left as it
   is; the report is for the next bug report of a freeze.
 
@@ -178,8 +209,11 @@ Thank you for these reports too:
   broken: a player on RecompLauncher (2026-11-21). This version's log says where the game is stuck: please send it
   after the next freeze.
 - The map cursor that moves slower than normal with the game at 1080p: a player on RecompLauncher (2026-11-21).
-- The trail behind a moving character with NVIDIA DLSS, and 4K on graphics cards with less than 16 GB of video memory
-  (both under Picture).
+- The enemies' dots missing from the zoomed minimap above 1080p, while the whole-map view shows them. This version
+  scales two more of the game's 2D shapes (rectangles and lines) with the picture, which is what the dots looked
+  like they were missing; it is not yet seen in a battle.
+- Pictures of the game's tutorials that are screenshots with Switch buttons in them keep those buttons.
+- 4K on graphics cards with less than 16 GB of video memory (under Picture).
 
 ## 0.1.2 (2026-11-20)
 

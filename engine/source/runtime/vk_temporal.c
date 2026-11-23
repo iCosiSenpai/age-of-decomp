@@ -82,6 +82,13 @@ static struct {
     // work images and FSR context for one size
     uint32_t w, h, ow, oh;
     Img mv, zcopy, out, cin;          // cin: the LDR input as RGBA16F (fsr4-vk takes only float colour)
+    // The history mask (DLSS) and the characters' motion (mv_pass): this frame's depth with the characters marked
+    // (hist, negative where the stencil says character), last frame's (zprev, copied from hist after the pass) and
+    // its jitter, the mask made from them (bias), and a 1x1 stencil for a depth target without one (nost).
+    Img zprev, bias, hist, nost;
+    Img mvsr;   // the upscalers' motion vectors: mv, or far outside the picture where the history is dropped
+    int zprev_ok, bias_ok;
+    float pjx, pjy;
     void *ctx;
     // motion pass
     VkDescriptorSetLayout dsl;
@@ -280,17 +287,23 @@ static int size_for(VkCommandBuffer cb, uint32_t w, uint32_t h, uint32_t ow, uin
         if (backend() == BACKEND_FSR) vk_ffx_release(T.ctx);
         T.ctx = NULL;
         free_img(&T.mv), free_img(&T.zcopy), free_img(&T.out), free_img(&T.cin);
+        free_img(&T.zprev), free_img(&T.bias), free_img(&T.hist), free_img(&T.nost), free_img(&T.mvsr);
     }
     VkImageUsageFlags u = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                           VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     int upscaler = backend() != BACKEND_FG;   // frame generation alone: the motion vectors and the depth copy only
     if (!image2d(w, h, VK_FORMAT_R16G16_SFLOAT, u, &T.mv) || !image2d(w, h, VK_FORMAT_R32_SFLOAT, u, &T.zcopy) ||
         (upscaler && !image2d(ow, oh, VK_FORMAT_R16G16B16A16_SFLOAT, u, &T.out)) ||
-        (upscaler && !hdr && !image2d(w, h, VK_FORMAT_R16G16B16A16_SFLOAT, u, &T.cin)))
+        (upscaler && !hdr && !image2d(w, h, VK_FORMAT_R16G16B16A16_SFLOAT, u, &T.cin)) ||
+        !image2d(w, h, VK_FORMAT_R32_SFLOAT, u, &T.zprev) || !image2d(w, h, VK_FORMAT_R8_UNORM, u, &T.bias) ||
+        !image2d(w, h, VK_FORMAT_R32_SFLOAT, u, &T.hist) || !image2d(w, h, VK_FORMAT_R16G16_SFLOAT, u, &T.mvsr) ||
+        !image2d(1, 1, VK_FORMAT_R8_UINT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, &T.nost))
         return 0;
-    VkImageMemoryBarrier2 ib[4];
-    VkImage im[4] = {T.mv.img, T.zcopy.img, T.out.img, T.cin.img};
-    uint32_t nim = !upscaler ? 2 : T.cin.img ? 4 : 3;
+    T.zprev_ok = T.bias_ok = 0;
+    VkImageMemoryBarrier2 ib[9];
+    VkImage im[9] = {T.mv.img, T.zcopy.img, T.zprev.img, T.bias.img, T.hist.img, T.nost.img, T.mvsr.img, T.out.img,
+                     T.cin.img};
+    uint32_t nim = !upscaler ? 7 : T.cin.img ? 9 : 8;
     for (uint32_t i = 0; i < nim; i++)
         ib[i] = (VkImageMemoryBarrier2){.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
                                         .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
@@ -313,14 +326,19 @@ static int size_for(VkCommandBuffer cb, uint32_t w, uint32_t h, uint32_t ow, uin
 static int mv_init(void) {
     if (T.pipe) return 1;
     const VkCtx *c = vk_ctx();
-    VkDescriptorSetLayoutBinding b[3] = {
+    VkDescriptorSetLayoutBinding b[8] = {
         {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL},
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL}};
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL},
+        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL},
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL},
+        {5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL},
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL},
+        {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, NULL}};
     VkDescriptorSetLayoutCreateInfo dci = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
-                                           .bindingCount = 3, .pBindings = b};
-    VkPushConstantRange pr = {VK_SHADER_STAGE_COMPUTE_BIT, 0, 80};
+                                           .bindingCount = 8, .pBindings = b};
+    VkPushConstantRange pr = {VK_SHADER_STAGE_COMPUTE_BIT, 0, 112};
     VkSamplerCreateInfo si = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .magFilter = VK_FILTER_NEAREST,
                               .minFilter = VK_FILTER_NEAREST, .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
                               .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -371,7 +389,14 @@ static int inv4(const double m[16], double o[16]) {
 
 // The motion pass: reprojection R = inverse(this VP) * last VP (row vectors), the depth copied to R32F. 0: no motion
 // (no camera now or last frame; the vectors are zero and the history restarts).
-static int mv_pass(VkExec *ex, VkImageView zv, uint32_t w, uint32_t h, float jx, float jy) {
+// The relative difference of distance from which last frame's surface counts as another one (temporal_mv.comp).
+// 0.03: a hand in front of a body differs by more, a slope seen at a low angle by less inside its 3x3 pixels.
+#define BIAS_TOLERANCE 0.03f
+
+// sv: the scene depth's stencil (VK_NULL_HANDLE: the target has none, and characters get the camera's motion).
+// TEMPORAL_CHARS: the stencil bits of a character (HWAoI's G-buffer writes 1 for characters, 2 for the rest of the
+// scene; seen in a frame dump on 2026-11-23); 0 gives every pixel the camera's motion, as before.
+static int mv_pass(VkExec *ex, VkImageView zv, VkImageView sv, uint32_t w, uint32_t h, float jx, float jy) {
     VkCommandBuffer cb = ex->cb;
     double r[16], ci[16];
     int moving = T.cam_ok && T.prev_ok && knob("TEMPORAL_MV", 1) && inv4(T.cam, ci);
@@ -383,25 +408,68 @@ static int mv_pass(VkExec *ex, VkImageView zv, uint32_t w, uint32_t h, float jx,
                 for (int j = 0; j < 4; j++) v += ci[i * 4 + j] * T.prev[j * 4 + k];
                 r[i * 4 + k] = v;
             }
-    struct { float r[16], size[2], jitter[2]; } pc;
+    // The characters' motion (every backend: DLSS, FSR, frame generation) and the history mask (DLSS only), with a
+    // camera for both frames and last frame's depth at this size. DLSS_BIAS=0 leaves the mask out. Two tests: ab, a
+    // second with the characters' motion and the mask and a second without, by the present's number (for HWAOI_SHOTS);
+    // all, every pixel marked (DLSS then keeps no history).
+    static int mode = -1, chars = -1, drop = 1;
+    if (mode < 0) {
+        const char *e = cfg_get("TOTK_DLSS_BIAS");
+        mode = !e || !*e ? 1 : !strcmp(e, "0") ? 0 : !strcmp(e, "ab") ? 2 : !strcmp(e, "all") ? 3 : 1;
+        if (mode != 1) rt_log("temporal: DLSS history mask: %s", mode == 0 ? "off" : mode == 2 ? "a second on, a second off" : "every pixel");
+        e = cfg_get("TOTK_TEMPORAL_CHARS");
+        chars = e && *e ? (int)(strtol(e, NULL, 0) & 0xff) : 1;
+        drop = knob("TEMPORAL_DROP", 1);
+        rt_log("temporal: characters %s; a history that is another surface's is %s", chars ? "get their own motion (stencil bit 1)" : "get the camera's motion only",
+               drop ? "dropped (motion out of the picture)" : "kept");
+    }
+    int on = mode == 2 ? (int)((__atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED) / 60) & 1) : 1;
+    int want = backend() == BACKEND_DLSS && mode != 0 && on, all = mode == 3;
+    int history = all ? 2 : moving && T.zprev_ok && !T.reset;
+    T.bias_ok = want || all;
+    struct { float r[16], size[2], jitter[2], pjitter[2], history, tolerance; uint32_t chars, drop; } pc;
     for (int i = 0; i < 16; i++) pc.r[i] = (float)r[i];
     pc.size[0] = (float)w, pc.size[1] = (float)h, pc.jitter[0] = jx, pc.jitter[1] = jy;
+    pc.pjitter[0] = T.pjx, pc.pjitter[1] = T.pjy, pc.history = (float)history, pc.tolerance = BIAS_TOLERANCE;
+    pc.chars = sv && on ? (uint32_t)chars : 0;
+    pc.drop = (uint32_t)drop;
     VkDescriptorImageInfo zi = {T.samp, zv, VK_IMAGE_LAYOUT_GENERAL};
     VkDescriptorImageInfo mi = {VK_NULL_HANDLE, T.mv.view, VK_IMAGE_LAYOUT_GENERAL};
     VkDescriptorImageInfo di = {VK_NULL_HANDLE, T.zcopy.view, VK_IMAGE_LAYOUT_GENERAL};
-    VkWriteDescriptorSet wr[3] = {
+    VkDescriptorImageInfo pi = {T.samp, T.zprev.view, VK_IMAGE_LAYOUT_GENERAL};
+    VkDescriptorImageInfo bi = {VK_NULL_HANDLE, T.bias.view, VK_IMAGE_LAYOUT_GENERAL};
+    VkDescriptorImageInfo si = {T.samp, sv ? sv : T.nost.view, VK_IMAGE_LAYOUT_GENERAL};
+    VkDescriptorImageInfo hi = {VK_NULL_HANDLE, T.hist.view, VK_IMAGE_LAYOUT_GENERAL};
+    VkDescriptorImageInfo ri = {VK_NULL_HANDLE, T.mvsr.view, VK_IMAGE_LAYOUT_GENERAL};
+    VkWriteDescriptorSet wr[8] = {
         {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 0, .descriptorCount = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &zi},
         {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 1, .descriptorCount = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &mi},
         {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 2, .descriptorCount = 1,
-         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &di}};
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &di},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 3, .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &pi},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 4, .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &bi},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 5, .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &si},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 6, .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &hi},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstBinding = 7, .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &ri}};
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_COMPUTE, T.pipe);
-    rec_push(vk_pipeline_push_fn(), cb, VK_PIPELINE_BIND_POINT_COMPUTE, T.layout, 0, 3, wr);
+    rec_push(vk_pipeline_push_fn(), cb, VK_PIPELINE_BIND_POINT_COMPUTE, T.layout, 0, 8, wr);
     vkCmdPushConstants(cb, T.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof pc, &pc);
     vkCmdDispatch(cb, (w + 7) / 8, (h + 7) / 8, 1);
     full_barrier(cb);
-    ex->recorded += 5;
+    // This frame's depth with its characters is next frame's "last frame" (FSR and Streamline read T.zcopy).
+    VkImageCopy whole = {.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+                         .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, .extent = {w, h, 1}};
+    vkCmdCopyImage(cb, T.hist.img, VK_IMAGE_LAYOUT_GENERAL, T.zprev.img, VK_IMAGE_LAYOUT_GENERAL, 1, &whole);
+    full_barrier(cb);
+    T.zprev_ok = 1, T.pjx = jx, T.pjy = jy;
+    ex->recorded += 7;
     return moving;
 }
 
@@ -424,7 +492,13 @@ static int scene_end(VkExec *ex, uint32_t ow, uint32_t oh, int hdr) {
     T.dlss_cam_ok = T.cam_ok, T.dlss_prev_ok = T.cam_ok && T.prev_ok;
     if (T.cam_ok) memcpy(T.dlss_cam, T.cam, sizeof T.dlss_cam);
     if (T.dlss_prev_ok) memcpy(T.dlss_prev, T.prev, sizeof T.dlss_prev);
-    T.dlss_moving = mv_pass(ex, zv, w, h, T.ux, T.uy);
+    // the stencil, where the depth target has one: it marks the characters (mv_pass)
+    VkImageView sv = z->format == VK_FORMAT_D32_SFLOAT_S8_UINT || z->format == VK_FORMAT_D24_UNORM_S8_UINT ||
+                             z->format == VK_FORMAT_D16_UNORM_S8_UINT
+                         ? vk_exec_target_view(z->img, z->format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_STENCIL_BIT,
+                                               z->level, z->base_layer, 1, 0)
+                         : VK_NULL_HANDLE;
+    T.dlss_moving = mv_pass(ex, zv, sv, w, h, T.ux, T.uy);
     if (!T.dlss_moving) {
         if (!T.cam_ok) T.nocam++;
         if (!T.cam_ok || !T.prev_ok) T.reset = 1;   // TEMPORAL_MV=0 (a test) keeps the history
@@ -481,7 +555,7 @@ static void fsr(VkExec *ex, VkImage color, VkFormat cf, VkImage dst, uint32_t le
     T.last_ns = now;
     int sharp = cfg_int("TOTK_SHARPNESS");
     VkFfxDispatch d = {.color = {color, cf, w, h}, .depth = {T.zcopy.img, VK_FORMAT_R32_SFLOAT, w, h},
-                       .mv = {T.mv.img, VK_FORMAT_R16G16_SFLOAT, w, h},
+                       .mv = {T.mvsr.img, VK_FORMAT_R16G16_SFLOAT, w, h},
                        .out = {T.out.img, VK_FORMAT_R16G16B16A16_SFLOAT, ow, oh},
                        .jx = T.ux, .jy = T.uy, .dt_ms = dt > 0 && dt < 100 ? (float)dt : 16.67f, .cam_near = CAM_NEAR,
                        .cam_far = CAM_FAR, .fov_y = 41.0f * 3.14159265f / 180.0f, .reset = T.reset,
@@ -509,8 +583,9 @@ static void fsr(VkExec *ex, VkImage color, VkFormat cf, VkImage dst, uint32_t le
             .color = {d.color.image, cv, d.color.format, w, h,
                       copy ? work : T.color.img->usage},
             .depth = {T.zcopy.img, T.zcopy.view, VK_FORMAT_R32_SFLOAT, w, h, work},
-            .mv = {T.mv.img, T.mv.view, VK_FORMAT_R16G16_SFLOAT, w, h, work},
+            .mv = {T.mvsr.img, T.mvsr.view, VK_FORMAT_R16G16_SFLOAT, w, h, work},
             .out = {T.out.img, T.out.view, VK_FORMAT_R16G16B16A16_SFLOAT, ow, oh, work},
+            .bias = {T.bias_ok ? T.bias.img : VK_NULL_HANDLE, T.bias.view, VK_FORMAT_R8_UNORM, w, h, work},
             .jx = T.ux, .jy = T.uy, .vp = T.dlss_cam_ok ? T.dlss_cam : NULL, .prev_vp = T.dlss_prev_ok ? T.dlss_prev : NULL,
             .reset = T.reset, .hdr = !copy, .moving = T.dlss_moving};
         if (!cv || !vk_dlss_dispatch(cb, &dd)) return fail("DLSS evaluation");
@@ -519,13 +594,20 @@ static void fsr(VkExec *ex, VkImage color, VkFormat cf, VkImage dst, uint32_t le
     }
     full_barrier(cb);
     // TEMPORAL_DEBUG=1 (native): the motion vectors (x red, y green, render pixels) in place of the picture
+    // ... and TEMPORAL_DEBUG=mask: the history mask (red where DLSS is told to drop its history)
     int dbg = !copy && knob("TEMPORAL_DEBUG", 0);
+    static int dbg_mask = -1;
+    if (dbg_mask < 0) {
+        const char *e = cfg_get("TOTK_TEMPORAL_DEBUG");
+        dbg_mask = e && !strcmp(e, "mask");
+    }
     {
         VkImageBlit b = {.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
                          .srcOffsets = {{0, 0, 0}, {(int32_t)ow, (int32_t)oh, 1}},
                          .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, level, layer, 1},
                          .dstOffsets = {{0, 0, 0}, {(int32_t)ow, (int32_t)oh, 1}}};
-        vkCmdBlitImage(cb, dbg ? T.mv.img : T.out.img, VK_IMAGE_LAYOUT_GENERAL, dst, VK_IMAGE_LAYOUT_GENERAL, 1, &b,
+        VkImage shown = dbg && dbg_mask && T.bias_ok ? T.bias.img : dbg ? T.mv.img : T.out.img;
+        vkCmdBlitImage(cb, shown, VK_IMAGE_LAYOUT_GENERAL, dst, VK_IMAGE_LAYOUT_GENERAL, 1, &b,
                        VK_FILTER_NEAREST);
     }
     full_barrier(cb);

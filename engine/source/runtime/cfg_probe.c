@@ -283,12 +283,12 @@ int probe_cfg(void) {
     input_pad_stick(0, 32767 / 2 + 1, 0.2f, st);
     CHECK(abs(st[1] - 32767 * 3 / 8) <= 3, "pad stick: half deflection past a 20% zone is (0.5 - 0.2) / 0.8 of full");
     // Gamepad layouts (input_map.c)
-    CHECK(input_pad_layout_pick("auto", 1) == PAD_LAYOUT_NINTENDO && input_pad_layout_pick(NULL, 0) == PAD_LAYOUT_XBOX,
-          "pad layout: automatic is Nintendo for an east button labelled A, Xbox otherwise");
-    CHECK(input_pad_layout_pick("Xbox", 1) == PAD_LAYOUT_XBOX && input_pad_layout_pick("nintendo", 0) == PAD_LAYOUT_NINTENDO,
-          "pad layout: a set layout wins over the labels");
-    CHECK(input_pad_layout_pick("xbox_prompts", 0) == PAD_LAYOUT_NINTENDO &&
-              input_pad_layout_pick("Xbox_Prompts", 1) == PAD_LAYOUT_NINTENDO,
+    CHECK(input_pad_layout_pick("auto") == PAD_LAYOUT_NINTENDO && input_pad_layout_pick(NULL) == PAD_LAYOUT_NINTENDO &&
+              input_pad_layout_pick("") == PAD_LAYOUT_NINTENDO,
+          "pad layout: the default is the Nintendo positions on every pad");
+    CHECK(input_pad_layout_pick("Xbox") == PAD_LAYOUT_NINTENDO && input_pad_layout_pick("nintendo") == PAD_LAYOUT_NINTENDO,
+          "pad layout: xbox (gone in 0.2.0) and nintendo are older names of the default");
+    CHECK(input_pad_layout_pick("xbox_prompts") == PAD_LAYOUT_NINTENDO && input_pad_layout_pick("Xbox_Prompts") == PAD_LAYOUT_NINTENDO,
           "pad layout: Xbox prompts keep the Nintendo positions (only the prompts change, romfs.c overlay_init)");
     uint8_t pd[PAD_COUNT] = {0};
     pd[PAD_SOUTH] = pd[PAD_NORTH] = 1;

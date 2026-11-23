@@ -85,7 +85,8 @@ int g_loaded;                      // AOD_SL_*: the features slInit loaded and w
 int g_ready, g_verbose;            // g_ready: DLSS; g_verbose: TOTK_DLSS_LOG=verbose, Streamline's info messages too
 uint32_t g_out_w, g_out_h, g_in_w, g_in_h;   // the sizes the DLSS options were set for
 int g_hdr = -1;                              // ... and whether for HDR colour
-const sl::ViewportHandle g_view{0u};
+const sl::ViewportHandle g_view{0u};      // frame generation's (and Reflex's) viewport
+const sl::ViewportHandle g_view_sr{1u};   // DLSS super resolution's: its motion vectors are not frame generation's (vk_temporal.c mvsr)
 // A fixed project id for Streamline's engine identification (Preferences::projectId): a random UUID, not NVIDIA's.
 const char *const k_project = "6b0d5a52-61a4-4b7e-9f5c-6f2d3e8c9a17";
 
@@ -96,7 +97,7 @@ uint32_t g_fg_max = 1;             // generated frames per rendered one this GPU
 uint32_t g_fg_min;                 // the smallest swapchain side DLSS-G takes
 std::atomic<uint32_t> g_frame{1};  // the frame the game is making
 std::atomic<uint32_t> g_scene[8];  // per frame number modulo 8: the frame whose scene was tagged (aod_fg_scene)
-std::atomic<uint32_t> g_const_frame, g_tag_frame;   // the frame that last got constants / depth and motion vectors
+std::atomic<uint32_t> g_const_frame;   // the frame whose camera frame generation's viewport last got
 std::atomic<uint32_t> g_sim_frame;                  // ... its simulation start mark
 std::atomic<int> g_render_begun;                    // the current frame's first submission was seen
 std::atomic<int> g_api_error;                       // the last Vulkan error of Streamline's own presents
@@ -252,7 +253,8 @@ sl::FrameToken *token_of(uint32_t frame) {
 }
 
 // The camera of f for the frame of token. rw, rh: the size of the depth and the motion vectors.
-bool set_constants(const sl::FrameToken &token, const AodDlssFrame *f, uint32_t rw, uint32_t rh) {
+bool set_constants(const sl::FrameToken &token, const AodDlssFrame *f, uint32_t rw, uint32_t rh,
+                   const sl::ViewportHandle &view = g_view) {
     static int fails;
     sl::Constants c{};
     put(c.cameraViewToClip, f->view_to_clip);
@@ -280,7 +282,7 @@ bool set_constants(const sl::FrameToken &token, const AodDlssFrame *f, uint32_t 
     c.orthographicProjection = sl::Boolean::eFalse;
     c.motionVectorsDilated = sl::Boolean::eFalse;
     c.motionVectorsJittered = sl::Boolean::eFalse;
-    sl::Result r = sl_constants(c, token, g_view);
+    sl::Result r = sl_constants(c, token, view);
     if (r != sl::Result::eOk && fails++ < 5) rt_log("dlss: slSetConstants: %s (%d)", result_name(r), (int)r);
     return r == sl::Result::eOk;
 }
@@ -709,7 +711,7 @@ extern "C" int aod_fg_scene(VkCommandBuffer cb, const AodDlssFrame *f) {
     sl::FrameToken *token = token_of(index);
     if (!token) return 0;
     uint32_t rw = f->depth.width, rh = f->depth.height;
-    // The camera once per frame: the DLSS evaluation of the same frame finds it set
+    // The camera once per frame on frame generation's viewport (DLSS super resolution sets its own, g_view_sr)
     if (g_const_frame.load(std::memory_order_relaxed) != index) {
         if (!set_constants(*token, f, rw, rh)) return 0;
         g_const_frame.store(index, std::memory_order_relaxed);
@@ -734,7 +736,6 @@ extern "C" int aod_fg_scene(VkCommandBuffer cb, const AodDlssFrame *f) {
         if (fails++ < 5) rt_log("frame generation: slSetTagForFrame: %s (%d)", result_name(r), (int)r);
         return 0;
     }
-    g_tag_frame.store(index, std::memory_order_relaxed);
     g_scene[index & 7].store(index, std::memory_order_relaxed);
     return 1;
 }
@@ -764,7 +765,7 @@ extern "C" int aod_dlss_evaluate(VkCommandBuffer cb, const AodDlssFrame *f) {
         o.outputWidth = w, o.outputHeight = h;
         o.colorBuffersHDR = f->hdr ? sl::Boolean::eTrue : sl::Boolean::eFalse;
         o.useAutoExposure = sl::Boolean::eTrue;
-        if ((r = dlss_options(g_view, o)) != sl::Result::eOk) {
+        if ((r = dlss_options(g_view_sr, o)) != sl::Result::eOk) {
             if (fails++ < 5) rt_log("dlss: slDLSSSetOptions %ux%u -> %ux%u: %s (%d)", rw, rh, w, h, result_name(r), (int)r);
             return 0;
         }
@@ -772,17 +773,17 @@ extern "C" int aod_dlss_evaluate(VkCommandBuffer cb, const AodDlssFrame *f) {
         rt_log("dlss: %s, %ux%u -> %ux%u, %s colour", names[(uint32_t)mode], rw, rh, w, h, f->hdr ? "HDR" : "display");
         if (!(token = token_of(index))) return 0;
     }
-    if (!fg || g_const_frame.load(std::memory_order_relaxed) != index) {
-        if (!set_constants(*token, f, rw, rh)) return 0;
-        if (fg) g_const_frame.store(index, std::memory_order_relaxed);
-    }
+    // The camera for DLSS's own viewport, every frame (frame generation's is set by aod_fg_scene)
+    if (!set_constants(*token, f, rw, rh, g_view_sr)) return 0;
 
     const uint32_t general = VK_IMAGE_LAYOUT_GENERAL;
     sl::Resource in(sl::ResourceType::eTex2d, (void *)f->color_in.image, nullptr, (void *)f->color_in.view, general);
     sl::Resource out(sl::ResourceType::eTex2d, (void *)f->color_out.image, nullptr, (void *)f->color_out.view, general);
     sl::Resource depth(sl::ResourceType::eTex2d, (void *)f->depth.image, nullptr, (void *)f->depth.view, general);
     sl::Resource mvec(sl::ResourceType::eTex2d, (void *)f->mvec.image, nullptr, (void *)f->mvec.view, general);
+    sl::Resource bias(sl::ResourceType::eTex2d, (void *)f->bias.image, nullptr, (void *)f->bias.view, general);
     resource(in, f->color_in), resource(out, f->color_out), resource(depth, f->depth), resource(mvec, f->mvec);
+    if (f->bias.image) resource(bias, f->bias);
     sl::SubresourceRange depth_range{};
     depth_range.aspectMask = f->depth.aspect ? f->depth.aspect : VK_IMAGE_ASPECT_DEPTH_BIT;   // an R32F copy: colour
     depth_range.baseMipLevel = 0, depth_range.levelCount = 1, depth_range.baseArrayLayer = 0, depth_range.layerCount = 1;
@@ -794,13 +795,29 @@ extern "C" int aod_dlss_evaluate(VkCommandBuffer cb, const AodDlssFrame *f) {
         sl::ResourceTag(&depth, sl::kBufferTypeDepth, sl::ResourceLifecycle::eValidUntilEvaluate, &rext),
         sl::ResourceTag(&mvec, sl::kBufferTypeMotionVectors, sl::ResourceLifecycle::eValidUntilEvaluate, &rext),
     };
-    // the frame's depth and motion vectors are already tagged for frame generation: tagging them twice would copy twice
-    uint32_t ntags = fg && g_tag_frame.load(std::memory_order_relaxed) == index ? 2 : 4;
-    if ((r = sl_tag(*token, g_view, tags, ntags, (sl::CommandBuffer *)cb)) != sl::Result::eOk) {
+    // DLSS's own viewport: its depth and motion vectors (which drop a wrong history) are not frame generation's
+    if ((r = sl_tag(*token, g_view_sr, tags, 4, (sl::CommandBuffer *)cb)) != sl::Result::eOk) {
         if (fails++ < 5) rt_log("dlss: slSetTagForFrame: %s (%d)", result_name(r), (int)r);
         return 0;
     }
-    const sl::BaseStructure *inputs[] = {&g_view};
+    // Where the history is another surface's (vk_temporal.c): DLSS takes this frame's colour there.
+    // TOTK_DLSS_MASK picks the buffer type for a test: bias (kBufferTypeBiasCurrentColorHint, ignored by this DLSS on
+    // 2026-11-23), reactive (kBufferTypeReactiveMaskHint) or transparency (kBufferTypeTransparencyAndCompositionMaskHint).
+    static sl::BufferType mask_type = [] {
+        const char *e = getenv("TOTK_DLSS_MASK");
+        if (!e) e = getenv("HWAOI_DLSS_MASK");
+        sl::BufferType t = e && !strcmp(e, "reactive") ? sl::kBufferTypeReactiveMaskHint
+                         : e && !strcmp(e, "transparency") ? sl::kBufferTypeTransparencyAndCompositionMaskHint
+                                                           : sl::kBufferTypeBiasCurrentColorHint;
+        rt_log("dlss: the history mask goes to DLSS as buffer type %u", (unsigned)t);
+        return t;
+    }();
+    sl::ResourceTag bias_tag(&bias, mask_type, sl::ResourceLifecycle::eValidUntilEvaluate, &rext);
+    if (f->bias.image && (r = sl_tag(*token, g_view_sr, &bias_tag, 1, (sl::CommandBuffer *)cb)) != sl::Result::eOk) {
+        static int bias_fails;
+        if (bias_fails++ < 3) rt_log("dlss: the history mask was not taken: %s (%d)", result_name(r), (int)r);
+    }
+    const sl::BaseStructure *inputs[] = {&g_view_sr};
     if ((r = sl_evaluate(sl::kFeatureDLSS, *token, inputs, 1, (sl::CommandBuffer *)cb)) != sl::Result::eOk) {
         if (fails++ < 5) rt_log("dlss: slEvaluateFeature: %s (%d)", result_name(r), (int)r);
         return 0;
@@ -810,7 +827,7 @@ extern "C" int aod_dlss_evaluate(VkCommandBuffer cb, const AodDlssFrame *f) {
 
 extern "C" void aod_dlss_shutdown(void) {
     if (!g_mod) return;
-    if (g_ready && sl_free) sl_free(sl::kFeatureDLSS, g_view);
+    if (g_ready && sl_free) sl_free(sl::kFeatureDLSS, g_view_sr);
     if (g_fg.load() && sl_free) sl_free(sl::kFeatureDLSS_G, g_view);
     sl_shutdown();
     unload();

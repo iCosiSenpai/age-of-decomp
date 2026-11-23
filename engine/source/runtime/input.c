@@ -44,7 +44,6 @@ typedef struct {
     SDL_JoystickID id;
     char name[64], guid[33];
     int rumble;                      // has rumble motors
-    int east_a;                      // labels its east face button A (Nintendo layout under TOTK_PAD_LAYOUT=auto)
     int layout;                      // PAD_LAYOUT_* in effect, -1 to pick again; live (cfg_version)
     unsigned layout_seen;
     int32_t labels[4];               // labels of its south, east, west, north buttons (PAD_LABEL_*)
@@ -364,7 +363,6 @@ static void scan_pads(void) {
         snprintf(p->name, sizeof p->name, "%s", name && *name ? name : "Gamepad");
         SDL_GUIDToString(SDL_GetGamepadGUIDForID(ids[i]), p->guid, sizeof p->guid);
         p->rumble = SDL_GetBooleanProperty(SDL_GetGamepadProperties(g), SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
-        p->east_a = SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_EAST) == SDL_GAMEPAD_BUTTON_LABEL_A;
         for (int k = 0; k < 4; k++) p->labels[k] = label_of(SDL_GetGamepadButtonLabel(g, pad_sdl[PAD_SOUTH + k]));
         pads_version++;
         int motion = SDL_GamepadHasSensor(g, SDL_SENSOR_GYRO) && SDL_GamepadHasSensor(g, SDL_SENSOR_ACCEL);
@@ -380,7 +378,8 @@ static void scan_pads(void) {
         p->back_buttons = SDL_GamepadHasButton(g, SDL_GAMEPAD_BUTTON_LEFT_PADDLE1) ||
                           SDL_GamepadHasButton(g, SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1);
         rt_log("input: gamepad \"%s\" (%s, %s, east button %s)", p->name, p->rumble ? "rumble" : "no rumble",
-               motion ? "gyro and accelerometer" : "no motion sensors", p->east_a ? "labelled A" : "not labelled A");
+               motion ? "gyro and accelerometer" : "no motion sensors",
+               p->labels[PAD_EAST - PAD_SOUTH] == PAD_LABEL_A ? "labelled A" : "not labelled A");
     }
     SDL_free(ids);
 }
@@ -403,9 +402,11 @@ static int pad_layout_get(Pad *p) {
     p->layout_seen = ver;
     int was = p->layout;
     const char *set = cfg_value("TOTK_PAD_LAYOUT");
-    p->layout = input_pad_layout_pick(set, p->east_a);
+    p->layout = input_pad_layout_pick(set);
     if (p->layout != was)
-        rt_log("input: \"%s\" layout %s (pad_layout = %s)", p->name, p->layout == PAD_LAYOUT_XBOX ? "xbox" : "nintendo", set);
+        rt_log("input: \"%s\" layout %s (pad_layout = %s)", p->name,
+               p->layout == PAD_LAYOUT_XBOX ? "xbox: A is the bottom button" : "nintendo: every button where a Switch controller has it",
+               set);
     return p->layout;
 }
 
@@ -884,8 +885,9 @@ static int pad_family(const Pad *p) {
     return p->type == SDL_GAMEPAD_TYPE_XBOX360 || p->type == SDL_GAMEPAD_TYPE_XBOXONE ? PAD_FAMILY_XBOX
          : p->type == SDL_GAMEPAD_TYPE_PS3 || p->type == SDL_GAMEPAD_TYPE_PS4 || p->type == SDL_GAMEPAD_TYPE_PS5
                ? PAD_FAMILY_PLAYSTATION
-         : p->type >= SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO || p->switch2 || p->east_a ? PAD_FAMILY_NINTENDO
-                                                                                      : PAD_FAMILY_GENERIC;
+         : p->type >= SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO || p->switch2 || p->labels[PAD_EAST - PAD_SOUTH] == PAD_LABEL_A
+               ? PAD_FAMILY_NINTENDO   // also a pad of another maker that prints A on its east button
+               : PAD_FAMILY_GENERIC;
 }
 
 static void pad_info(int i, InputPadInfo *o) {

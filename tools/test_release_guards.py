@@ -85,20 +85,29 @@ class ReleaseGuardTests(unittest.TestCase):
         self.assertNotIn("{game}", json.dumps(m))
 
     def test_manifest_reads_in_the_recomplauncher_players_have(self):
-        # RecompLauncher 0.90 beta 67 and older (deny_unknown_fields on an input and its formats) drop the whole
-        # profile for a field they do not know, such as beta 68's `check`, and stop a setup step without `timeout`
-        # after five minutes. Beta 68 reads past `timeout` and `version`. Until beta 68 is what players have, the
-        # profile stays in the form both read.
+        # RecompLauncher 0.90 beta 68, what players have since 2026-11-23: an input may carry `check`, and the setup
+        # step has neither `timeout` nor `version` (its schema refuses both). The player's .nup is checked by its
+        # build ID when it is picked.
         m = release.manifest()
         for row in m["inputs"]:
-            self.assertLessEqual(set(row), {"id", "label", "role", "optional", "shared", "formats", "destination"}, row["id"])
+            self.assertLessEqual(set(row), {"id", "label", "role", "optional", "shared", "formats", "destination",
+                                            "check"}, row["id"])
             for f in row.get("formats", []):
                 self.assertLessEqual(set(f), {"type", "extensions", "requires"}, row["id"])
-        self.assertGreaterEqual(m["prepare"]["timeout"], 3600)
-        self.assertEqual(m["prepare"]["version"], release.PREPARE_VERSION)
+        self.assertNotIn("timeout", m["prepare"])
+        self.assertNotIn("version", m["prepare"])
         self.assertEqual(m["prepare"]["done"], [f"{{install}}/game/aod-ready-v{release.PREPARE_VERSION}.json"])
-        # the whole ModuleId of the update's main (`aod-nup build-id <dump>` prints it), for the check to come
+        # the whole ModuleId of the update's main (`aod-nup build-id <dump>` prints it)
         self.assertRegex(release.BUILD_ID, r"^[0-9a-f]{40}$")
+        self.assertEqual(m["inputs"][0]["check"], {"nup_build_id": release.BUILD_ID})
+
+    def test_the_setup_step_runs_the_program_players_start(self):
+        # RecompLauncher's guide (beta 68): "Ship one program, and keep it the one players start". AgeOfDecomp.exe
+        # runs `cli prepare …` without a window; the AppImage's AppRun hands `cli …` to aod-cli inside it.
+        m = release.manifest()
+        self.assertEqual(m["prepare"]["program"], m["start"]["program"])
+        self.assertEqual(m["prepare"]["program"][0], "AgeOfDecomp.exe")
+        self.assertEqual(m["prepare"]["args"][:2], ["cli", "prepare"])
 
     def test_manifest_says_what_the_pc_needs_for_the_builds_we_ship(self):
         # RecompLauncher's `system` (SDK guide after beta 66): one part per system a release ships a build for.

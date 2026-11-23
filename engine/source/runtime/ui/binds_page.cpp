@@ -145,17 +145,17 @@ static const char *pad_label(int p) {
 }
 
 // The layout the hints show: the one in effect for the gamepad the menu shows, or without a gamepad the one the
-// setting names (Xbox for auto).
+// setting names.
 static int hint_layout(void) {
     int l = input_pad_layout();
-    return l >= 0 ? l : input_pad_layout_pick(cfg_value("TOTK_PAD_LAYOUT"), 0);
+    return l >= 0 ? l : input_pad_layout_pick(cfg_value("TOTK_PAD_LAYOUT"));
 }
 
 // The layout the gamepad cells show and change: the shown player's gamepad's, else as the hints.
 static int shown_layout(void) {
     if (g_pad_ok) return g_pad.layout;
     int l = input_pad_layout();
-    return l >= 0 ? l : input_pad_layout_pick(cfg_value("TOTK_PAD_LAYOUT"), 0);
+    return l >= 0 ? l : input_pad_layout_pick(cfg_value("TOTK_PAD_LAYOUT"));
 }
 
 const char *binds_pad_hint(int action, const char *fallback, int *face_label) {

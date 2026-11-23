@@ -1,7 +1,8 @@
-57228b092e02a44aa93d544855dbc0c52e2f4122
-# The RecompLauncher commit (github.com/elripalda/RecompLauncher, main at the tag v0.90.0-beta.68, 2026-11-22) whose
-# developer guide, manifest schema and setup inputs page Age of Decomp was last checked against (2026-11-22, with
-# tools/recomplauncher_check.py on the 0.1.3 release folder: level 3 at this commit and at 48ead11, the code of the
-# released beta 67). The manifest keeps prepare.timeout and prepare.version for beta 67 and older, which this commit's
-# schema no longer has (AGENTS.md, RecompLauncher contract). .github/workflows/recomplauncher.yml opens an issue when
-# the guide, the schema or the inputs page changes after it; put the newest commit id on the first line once checked.
+023e313f25a14b2bb8147af011c81227a198e365
+# The RecompLauncher commit (github.com/elripalda/RecompLauncher, main at the tag v0.90.0-beta.68 with its patch
+# notes, 2026-11-23) whose developer guide, manifest schema and setup inputs page Age of Decomp was last checked
+# against (2026-11-23, with tools/recomplauncher_check.py on the 0.2.0 release folder). From this guide on, the
+# setup step runs the program players start ("Ship one program": AgeOfDecomp.exe cli prepare …) and the manifest
+# has no prepare.timeout or prepare.version (AGENTS.md, RecompLauncher contract).
+# .github/workflows/recomplauncher.yml opens an issue when the guide, the schema or the inputs page changes after it;
+# put the newest commit id on the first line once checked.

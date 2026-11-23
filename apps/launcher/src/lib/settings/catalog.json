@@ -50,7 +50,7 @@
     },
     {
       "key": "vk_present", "section": "display", "group": "display", "kind": "choice",
-      "label": "Screen sync", "default": "mailbox",
+      "label": "Screen sync", "default": "mailbox", "when": { "frame_gen": "off" },
       "help": "How finished frames reach the screen. Fast shows the newest frame without tearing. V-Sync waits for the screen. Off has the least delay and can tear.",
       "choices": [
         { "value": "mailbox", "label": "Fast" },
@@ -80,7 +80,7 @@
     {
       "key": "dlss_quality", "section": "display", "group": "display", "kind": "choice", "restart": true,
       "label": "DLSS quality", "default": "native", "when": { "temporal": "dlss" },
-      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. In dark places a moving character can leave a faint trail.",
+      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer.",
       "choices": [
         { "value": "native", "label": "DLAA" },
         { "value": "quality", "label": "Quality" },
@@ -122,7 +122,7 @@
       ]
     },
     {
-      "key": "upscaler", "section": "display", "group": "display", "kind": "choice",
+      "key": "upscaler", "section": "display", "group": "display", "kind": "choice", "advanced": true,
       "label": "Fit to the window", "default": "fsr",
       "help": "How the finished picture is scaled when the window is larger than the game resolution. AMD FSR 1 keeps edges sharper than Bilinear.",
       "choices": [
@@ -131,7 +131,7 @@
       ]
     },
     {
-      "key": "sharpness", "section": "display", "group": "display", "kind": "slider",
+      "key": "sharpness", "section": "display", "group": "display", "kind": "slider", "advanced": true,
       "label": "Sharpness", "default": "80", "min": 0, "max": 100, "step": 5, "format": "%.0f", "unit": "%", "when": { "upscaler": "fsr" },
       "help": "Sharpening after the picture is scaled. 0 turns it off."
     },
@@ -273,7 +273,7 @@
     },
     {
       "key": "linked_saves", "section": "language", "group": "game", "kind": "toggle",
-      "label": "Bonuses for other games' saves", "default": "0",
+      "label": "Bonuses for other games' saves", "default": "1",
       "help": "Tells the game you have Age of Calamity and Tears of the Kingdom saves, for their bonus items."
     },
     {
@@ -322,16 +322,6 @@
       "choices": [
         { "value": "pro", "label": "Pro Controller" },
         { "value": "dual", "label": "Joy-Con pair" }
-      ]
-    },
-    {
-      "key": "pad_layout", "section": "input", "group": "controls", "kind": "choice",
-      "label": "Button layout", "default": "auto",
-      "help": "Which button is the game's A. Automatic: the right button on a controller that has A there (Switch controllers), the bottom one on the others (Xbox A, PlayStation cross).",
-      "choices": [
-        { "value": "auto", "label": "Automatic" },
-        { "value": "nintendo", "label": "A on the right" },
-        { "value": "xbox", "label": "A at the bottom" }
       ]
     },
     {

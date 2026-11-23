@@ -102,6 +102,8 @@ static const Fmt fmts[] = {
     F(D16_UNORM, "d16", 2, 1, 16, K_D16), F(D16_UNORM_S8_UINT, "d16s8", 2, 1, 16, K_D16),
     F(X8_D24_UNORM_PACK32, "d24", 4, 1, 24, K_D24), F(D24_UNORM_S8_UINT, "d24s8", 4, 1, 24, K_D24),
     F(D32_SFLOAT, "d32f", 4, 1, 32, K_D32F), F(D32_SFLOAT_S8_UINT, "d32fs8", 4, 1, 32, K_D32F),
+    // the stencil aspect, one byte a texel: the PNG's grey is the stencil value itself
+    F(S8_UINT, "s8", 1, 1, 8, K_UNORM),
 };
 #undef F
 
@@ -317,7 +319,8 @@ static const char *copy_region(VkExec *ex, VkImage image, VkFormat vf, VkImageAs
     if (!f) return "format not decoded";
     if (__atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED) + 1 != dump_frame && (uint64_t)w * h * d > 65536)
         return "logged frame, large image";
-    if (aspect & VK_IMAGE_ASPECT_DEPTH_BIT) aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+    if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT && vf == VK_FORMAT_S8_UINT) {}   // target_line's stencil plane
+    else if (aspect & VK_IMAGE_ASPECT_DEPTH_BIT) aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
     else if (aspect != VK_IMAGE_ASPECT_COLOR_BIT) return "stencil only";
     uint64_t bytes = (uint64_t)w * h * d * f->bytes;
     uint64_t est = ((uint64_t)h * (1 + 4ull * w * d) + 128) * (mode_of(f) == M_FLOAT ? 2 : 1);
@@ -756,6 +759,12 @@ void vk_dump_draw(VkExec *ex, const VkPipeState *s, VkPipeline p, const VkPipeIn
        (unsigned)s->ds.dt, (unsigned)s->ds.dw, (unsigned)s->ds.df, (unsigned)s->ds.st,
        (unsigned)s->poly.cull, (unsigned)s->poly.front, s->raster_discard,
        (unsigned)s->color.blend_en, s->chmask.mask);
+    if (s->ds.st)   // which bits a draw tests and writes (front face; the back's when it differs): who marks what
+        sp(&b, "    stencil: func %u ref %#x test-mask %#x write-mask %#x fail/zfail/zpass %u/%u/%u%s\n",
+           (unsigned)s->ds.sf_f, ex->st_ref[0], ex->st_vmask[0], ex->st_wmask[0], (unsigned)s->ds.fail_f,
+           (unsigned)s->ds.zfail_f, (unsigned)s->ds.zpass_f,
+           ex->st_ref[1] != ex->st_ref[0] || ex->st_wmask[1] != ex->st_wmask[0] || s->ds.zpass_b != s->ds.zpass_f
+               ? " (back differs)" : "");
     if (dump_ubo) {
         // NVN2 inline root words feed synthesized c0, outside the ordinary UBO list.
         // Keep the exact bit pattern; guessing which words are floats loses addresses.
@@ -798,6 +807,15 @@ static void target_line(VkExec *ex, const VkExecTarget *t, const char *tag, int 
             t->layers, t->samples, (unsigned long long)(uintptr_t)t->tex->mem,
             (unsigned long long)(uintptr_t)t->image, name, why ? " skipped: " : "",
             why ? why : "");
+    // A depth target with stencil: its stencil plane too (which pixels the game marks, e.g. characters)
+    if (!why && (t->format == VK_FORMAT_D32_SFLOAT_S8_UINT || t->format == VK_FORMAT_D24_UNORM_S8_UINT ||
+                 t->format == VK_FORMAT_D16_UNORM_S8_UINT)) {
+        char sname[176];
+        snprintf(sname, sizeof sname, "%s_st", name);
+        const char *swhy = copy_out(ex, t->image, VK_FORMAT_S8_UINT, VK_IMAGE_ASPECT_STENCIL_BIT, t->level,
+                                    t->base_layer, t->width, t->height, 1, sname);
+        fprintf(passes_f, "  %s stencil -> %s.png%s%s\n", tag, sname, swhy ? " skipped: " : "", swhy ? swhy : "");
+    }
 }
 
 static uint64_t targets_sig(const VkExec *ex) {

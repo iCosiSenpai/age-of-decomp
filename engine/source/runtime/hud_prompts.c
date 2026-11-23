@@ -1,11 +1,18 @@
 // The game's own button pictures follow the device in use: its maker's signs and the player's bindings (hud_prompts.h).
 //
-// The game draws every button picture of its HUD, hints and tutorials from one texture, its glyph set: 1024 x 1024,
-// BC3, one level. It is a white mask (the shape is in alpha, a letter is a hole in its disc) that the text shader
-// tints. vk_texture.c hands us the texture's bytes on their way to the GPU. When they are that atlas (known by its
-// SHA-256, so another build's atlas is left alone), the pictures that are wrong for the player are drawn again in
-// place, in the same style: an Xbox pad gets LB and RT, a PlayStation pad its four signs, a remapped button the
-// button it is on, the keyboard its keys. A Switch controller with the game's own buttons changes nothing.
+// The game draws the button pictures of its hints, tutorials and most of its HUD from one texture, its glyph set:
+// 1024 x 1024, BC3, one level. It is a white mask (the shape is in alpha, a letter is a hole in its disc) that the text
+// shader tints. The battle HUD has two more: its own sheet, with copies of a few of those pictures (the four face
+// buttons, a stick click, R and ZR), and the sheet of the skill wheel, where the four letters are part of the dark
+// discs of the wheel. vk_texture.c hands us a texture's bytes on their way to the GPU. When they are one of the three
+// (known by its SHA-256, so another build's is left alone), the pictures that are wrong for the player are drawn again in
+// place, in the same style: an Xbox pad gets its own letters where the buttons are (B for the game's A, on the right),
+// LB and RT, a PlayStation pad its four signs, a remapped button the button it is on, the keyboard its keys. A Switch
+// controller with the game's own buttons changes nothing.
+//
+// The game also shows the face buttons by position: four dots with the one to press filled, the skill wheel, the
+// combo list. The default layout keeps every button where a Switch controller has it (input_map.h), so those need no
+// change; with A at the bottom (pad_layout = xbox) the dots are drawn again with the right one filled.
 //
 // Every picture here is drawn by this file: discs, rounded boxes and strokes from distance functions, letters of
 // Roboto Medium (hud_prompts_font.c). Nothing is copied from the game or from a controller's maker. The game's bytes
@@ -38,21 +45,43 @@ void rt_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));   // ho
 #include "imstb_truetype.h"
 #pragma clang diagnostic pop
 
-// ---- the atlas of game version 196608 (decoded and measured in a frame dump; positions are texels)
-enum { ATLAS = 1024 };
-static const uint8_t atlas_sha[32] = {
-    0xe4, 0x31, 0xe9, 0x6e, 0xbb, 0x07, 0x20, 0x92, 0x3c, 0x38, 0xa2, 0xf4, 0x5e, 0xc9, 0x32, 0x9b,
-    0x21, 0x6a, 0xb9, 0xc7, 0x44, 0x48, 0x36, 0xcf, 0x2a, 0xf5, 0x95, 0x9f, 0xa4, 0x23, 0x61, 0xc6};
-// A first look that costs next to nothing: FNV-1a of one kilobyte in the row of the letter discs. Only a texture that
-// passes it is hashed whole, so the game's other textures of this size upload as fast as before.
-enum { PROBE_AT = 0x86000, PROBE_SIZE = 1024 };
-static const uint64_t atlas_probe = 0x3de56ef1ba61f545ull;
+// ---- the textures of game version 196608 with button pictures (positions are texels). The first three were decoded
+// and measured in frame dumps; the other two were found on 2026-11-23 by looking for the four letters in every texture
+// of the game's interface files (work/s16/tex_scan.py): small wheels of three discs with their letters, one of them
+// the four buttons next to "Preparativi" in the camp, and a second sheet of the skill wheel's discs.
+// A first look that costs next to nothing: FNV-1a of one kilobyte in a row of pictures. Only a texture that passes it
+// is hashed whole, so the game's other textures of these sizes upload as fast as before.
+enum { ATLAS = 1024, PROBE_SIZE = 1024 };
+enum { SHEET_ATLAS, SHEET_HUD, SHEET_WHEEL, SHEET_TRIO, SHEET_WHEEL2, N_SHEETS };
+static const char *const sheet_names[N_SHEETS] = {"glyph set", "battle HUD sheet", "skill wheel sheet",
+                                                  "three-disc wheels", "second skill wheel sheet"};
+static const struct { uint16_t w, h; uint32_t probe_at; uint64_t probe; uint8_t sha[32]; } sheets[N_SHEETS] = {
+    [SHEET_ATLAS] = {ATLAS, ATLAS, 0x86000, 0x3de56ef1ba61f545ull,
+                     {0xe4, 0x31, 0xe9, 0x6e, 0xbb, 0x07, 0x20, 0x92, 0x3c, 0x38, 0xa2, 0xf4, 0x5e, 0xc9, 0x32, 0x9b,
+                      0x21, 0x6a, 0xb9, 0xc7, 0x44, 0x48, 0x36, 0xcf, 0x2a, 0xf5, 0x95, 0x9f, 0xa4, 0x23, 0x61, 0xc6}},
+    [SHEET_HUD] = {2048, 1024, 0x110f00, 0xb3085e007e7903ffull,
+                   {0xbd, 0xf2, 0x78, 0x9b, 0x38, 0xe1, 0xc1, 0x3c, 0x46, 0x7a, 0xc8, 0xc1, 0x85, 0x32, 0x0e, 0x92,
+                    0x4b, 0xe1, 0x57, 0x27, 0x63, 0x0d, 0xfd, 0x1c, 0x06, 0x16, 0xa2, 0xa8, 0x7d, 0x1b, 0x94, 0x34}},
+    [SHEET_WHEEL] = {2048, 512, 0x58000, 0x6f39678c554ebcd6ull,
+                     {0x41, 0xea, 0xd3, 0x72, 0xc5, 0xf1, 0x52, 0x02, 0xb1, 0x1f, 0x47, 0x6d, 0x1f, 0x7f, 0xd8, 0x27,
+                      0x6a, 0x4e, 0x81, 0xaf, 0x5b, 0x47, 0x1c, 0x07, 0xad, 0x3b, 0xf0, 0x65, 0x77, 0xb7, 0x8e, 0xb8}},
+    // entry 0xb01ff6ec texture 19 of the UI pack 0x6df2ba2a.fdata (BC3, linear in the file)
+    [SHEET_TRIO] = {2048, 1024, 0x103cc0, 0xeb4b28a1ea19c432ull,
+                    {0x80, 0x16, 0x6b, 0x78, 0xd6, 0x66, 0x79, 0xf9, 0xff, 0xb9, 0x13, 0x09, 0x72, 0xeb, 0xa1, 0xe5,
+                     0x6d, 0xe0, 0x6c, 0x89, 0x65, 0x2d, 0xb0, 0x41, 0xd7, 0x8f, 0xf4, 0x46, 0xfd, 0x3a, 0xfc, 0xcb}},
+    // entry 0x975b7775 texture 0 of 0xcc3ddbb3.fdata (BC3, tiled in the file)
+    [SHEET_WHEEL2] = {2048, 1024, 0x15a4c0, 0x2b5d803d8e3af035ull,
+                      {0xf0, 0x0d, 0x4f, 0xa2, 0xcb, 0x82, 0x51, 0xe6, 0x8b, 0xc7, 0x4f, 0xd8, 0x50, 0x1d, 0xfc, 0xf7,
+                       0x0b, 0x70, 0x4a, 0x8b, 0x90, 0x52, 0xe3, 0x90, 0x00, 0xb6, 0x25, 0x6e, 0x8a, 0xd4, 0x88, 0x2a}},
+};
 
-// A picture of one Switch button: the box the game's own picture fills, the gamepad input the game draws there, and
-// the group it is redrawn with. PLAIN: the game draws the sign alone, without a disc.
+// A picture of one Switch button in the atlas: the box the game's own picture fills, the gamepad input the game draws
+// there, and the group it is redrawn with. PLAIN: the game draws the sign alone, without a disc.
 enum { G_FACE = 1, G_SHOULDER, G_MENU, G_LCLICK, G_RCLICK, G_DPAD, G_DIRECTIONS };
 enum { PLAIN = 1 };
 typedef struct { uint16_t x, y, w, h; uint8_t button, native, group, flags; } Cell;
+// The first cells by name, for the other two textures' pictures of the same buttons.
+enum { C_X, C_Y, C_A, C_B, C_L, C_R, C_ZL, C_ZR, C_PLUS_PLAIN, C_MINUS_PLAIN, C_PLUS, C_MINUS, C_LCLICK, C_RCLICK };
 static const Cell cells[] = {
     {5, 515, 42, 42, B_X, PAD_NORTH, G_FACE, 0},        {59, 515, 42, 42, B_Y, PAD_WEST, G_FACE, 0},
     {923, 479, 42, 42, B_A, PAD_EAST, G_FACE, 0},       {977, 479, 42, 42, B_B, PAD_SOUTH, G_FACE, 0},
@@ -82,6 +111,57 @@ enum { N_DIAMONDS = sizeof diamonds / sizeof *diamonds };
 // The left and the right stick as the game draws them where it says "move" and "look around". On the keyboard they
 // are the four keys that move and the mouse.
 static const struct { uint16_t x, y, w, h; } sticks[2] = {{977, 536, 41, 37}, {5, 572, 41, 37}};
+
+// The battle HUD's sheet: its own copies of some pictures, the same white masks (the discs of the skill wheel's
+// buttons that have a skill, the stick click that changes the character, R and ZR). `cell`: the atlas picture of the
+// same button, which they follow.
+static const struct { uint16_t x, y, w, h; uint8_t cell; } hud_copies[] = {
+    {994, 546, 40, 40, C_B},       {1048, 546, 40, 40, C_X}, {1102, 546, 40, 40, C_Y},  {1490, 542, 40, 40, C_A},
+    {1156, 544, 39, 43, C_LCLICK}, {1210, 550, 39, 32, C_R}, {1782, 587, 36, 34, C_ZR},
+};
+enum { N_HUD_COPIES = sizeof hud_copies / sizeof *hud_copies };
+
+// The skill wheel's sheet: dark discs, one for each face button where a Switch controller has it (X at the top, Y on
+// the left, A on the right, B at the bottom), each with its letter in a light colour, or in grey for a wheel that is
+// off. Fourteen wheels in a row and one below it, WHEEL_PITCH apart, each with the discs of some of the buttons: the
+// game puts two of them together, the buttons with a skill and those without. A disc's centre is WHEEL_ARM from its
+// wheel's. Unlike the other two this texture has colour, and a letter is colour in an opaque disc: it is drawn again
+// in the colour blocks alone, in the letter's and the disc's own colours.
+enum { WHEEL_X = 212, WHEEL_Y = 212, WHEEL_PITCH = 134, WHEEL_ROW = 14, WHEEL_ARM = 36, WHEEL_ZONE = 28 };
+enum { LOBE_X = 1, LOBE_Y = 2, LOBE_A = 4, LOBE_B = 8, LOBE_ALL = 15 };
+static const struct { uint8_t lobes, grey; } wheels[] = {
+    {LOBE_X | LOBE_Y | LOBE_B, 0}, {LOBE_X | LOBE_Y, 0},          {LOBE_Y, 0},          {LOBE_X, 0},
+    {LOBE_ALL, LOBE_ALL},          {LOBE_Y | LOBE_B, 0},          {LOBE_B, 0},          {LOBE_X | LOBE_B, 0},
+    {LOBE_X | LOBE_Y | LOBE_A, 0}, {LOBE_Y | LOBE_A, 0},          {LOBE_A, LOBE_A},     {LOBE_X | LOBE_A, 0},
+    {LOBE_Y | LOBE_A | LOBE_B, 0}, {LOBE_A | LOBE_B, 0},
+    {LOBE_X | LOBE_A | LOBE_B, 0},   // the one below the first
+};
+enum { N_WHEELS = sizeof wheels / sizeof *wheels };
+static const struct { int8_t dx, dy; uint8_t cell; } lobes[4] = {   // in the order of the LOBE_ bits
+    {0, -WHEEL_ARM, C_X}, {-WHEEL_ARM, 0, C_Y}, {WHEEL_ARM, 0, C_A}, {0, WHEEL_ARM, C_B}};
+static const uint16_t wheel_light = 0xfffc, wheel_grey = 0x5289;   // the letters' colours, RGB 5:6:5
+
+// The other two sheets' wheels, each at its own place: a wheel's discs are WHEEL_ARM from its centre as on the skill
+// wheel's sheet, with the letters a quieter grey (two shades: RGB 152,152,136 on the dark blue discs, 119,117,103 on
+// the black ones). The three-disc wheels leave out the disc where the game puts a white one (the HUD sheet's).
+typedef struct { uint16_t x, y; uint8_t lobes; uint16_t ink; } WheelAt;
+enum { INK_GREY = 0x9cd1, INK_DARK = 0x73ac };
+static const WheelAt trio_wheels[] = {
+    {1872, 382, LOBE_X | LOBE_Y | LOBE_B, INK_DARK}, {1872, 516, LOBE_X | LOBE_Y | LOBE_A, INK_GREY},
+    {1872, 650, LOBE_Y | LOBE_A | LOBE_B, INK_GREY}, {66, 698, LOBE_X | LOBE_A | LOBE_B, INK_GREY},
+};
+// The second skill wheel sheet: a row with letters (its other wheels are discs without letters) and a row below it.
+static const WheelAt wheel2_wheels[] = {
+    {355, 694, LOBE_X | LOBE_Y | LOBE_B, INK_GREY},  {488, 694, LOBE_X | LOBE_Y | LOBE_A, INK_GREY},
+    {621, 694, LOBE_Y | LOBE_A | LOBE_B, INK_GREY},  {754, 694, LOBE_X | LOBE_A | LOBE_B, INK_GREY},
+    {887, 694, LOBE_X | LOBE_Y | LOBE_B, INK_GREY},  {1020, 694, LOBE_X | LOBE_Y, INK_GREY},
+    {355, 827, LOBE_ALL, INK_GREY},                  {488, 827, LOBE_Y | LOBE_B, INK_GREY},
+    {621, 827, LOBE_B, INK_GREY},                    {754, 827, LOBE_X | LOBE_B, INK_GREY},
+    {887, 827, LOBE_X | LOBE_Y | LOBE_A, INK_GREY},  {1020, 827, LOBE_Y | LOBE_A, INK_GREY},
+    {1153, 827, LOBE_A, INK_GREY},                   {1286, 827, LOBE_X | LOBE_A, INK_GREY},
+    {1419, 827, LOBE_Y | LOBE_A | LOBE_B, INK_GREY}, {1552, 827, LOBE_A | LOBE_B, INK_GREY},
+    {1685, 827, LOBE_X | LOBE_A | LOBE_B, INK_GREY}, {1818, 827, LOBE_X, INK_GREY},
+};
 
 // ---- what a picture shows
 enum { P_KEEP, P_DISC, P_BOX, P_KEY, P_MOUSE, P_DPAD, P_MOVE_KEYS };   // P_KEEP: the game's own picture stays
@@ -518,13 +598,13 @@ static void draw_diamond(Canvas *c, int dots, float cx, float cy, float s) {
 }
 
 // ---- BC3: white texels with the canvas as alpha, over the blocks the box touches
-// 0 for a box the canvas cannot hold or that leaves the atlas: nothing is drawn then.
-static int canvas_over(Canvas *c, int x, int y, int w, int h) {
+// 0 for a box the canvas cannot hold or that leaves the texture of tw x th texels: nothing is drawn then.
+static int canvas_over(Canvas *c, int x, int y, int w, int h, int tw, int th) {
     int x0 = x & ~3, y0 = y & ~3;
     c->ox = (float)x0, c->oy = (float)y0;
     c->w = ((x + w + 3) & ~3) - x0, c->h = ((y + h + 3) & ~3) - y0;
     memset(c->a, 0, sizeof c->a);
-    return c->w <= CELL_MAX && c->h <= CELL_MAX && x0 + c->w <= ATLAS && y0 + c->h <= ATLAS;
+    return x >= 0 && y >= 0 && c->w <= CELL_MAX && c->h <= CELL_MAX && x0 + c->w <= tw && y0 + c->h <= th;
 }
 
 static void canvas_store(const Canvas *c, uint8_t *blocks, uint32_t atlas_w) {
@@ -551,13 +631,34 @@ static void canvas_store(const Canvas *c, uint8_t *blocks, uint32_t atlas_w) {
         }
 }
 
+// The canvas as the colour of opaque blocks: `ink` (RGB 5:6:5) where the canvas is white, over each block's own
+// darker colour. The blocks' alpha stays as it is.
+static void canvas_store_colour(const Canvas *c, uint8_t *blocks, uint32_t tex_w, uint16_t ink) {
+    for (int by = 0; by < c->h / 4; by++)
+        for (int bx = 0; bx < c->w / 4; bx++) {
+            uint8_t *b = blocks + (((size_t)c->oy / 4 + (size_t)by) * (tex_w / 4) + (size_t)c->ox / 4 + (size_t)bx) * 16;
+            // the disc's colour: the darker of the block's two (the other one is the game's letter, where there is one)
+            uint16_t c0 = (uint16_t)(b[8] | b[9] << 8), c1 = (uint16_t)(b[10] | b[11] << 8);
+            unsigned l0 = (c0 >> 11) * 2 + (c0 >> 5 & 63) + (c0 & 31) * 2, l1 = (c1 >> 11) * 2 + (c1 >> 5 & 63) + (c1 & 31) * 2;
+            uint16_t back = l0 < l1 ? c0 : c1;
+            uint32_t bits = 0;   // four colours: 0 ink, 1 back, 2 two thirds ink, 3 one third
+            for (int i = 0; i < 16; i++) {
+                float v = c->a[(by * 4 + i / 4) * c->w + bx * 4 + i % 4];
+                bits |= (uint32_t)(v >= 5.f / 6 ? 0 : v >= .5f ? 2 : v >= 1.f / 6 ? 3 : 1) << (2 * i);
+            }
+            b[8] = (uint8_t)ink, b[9] = (uint8_t)(ink >> 8), b[10] = (uint8_t)back, b[11] = (uint8_t)(back >> 8);
+            for (int i = 0; i < 4; i++) b[12 + i] = (uint8_t)(bits >> (8 * i));
+        }
+}
+
+// The atlas: every picture of the plan in its cell.
 static int plan_draw(uint8_t *blocks, uint32_t w, const Plan *p) {
     static Canvas c;
     int n = 0;
     for (int i = 0; i < N_CELLS; i++) {
         const Cell *k = &cells[i];
         if (p->cell[i].shape == P_KEEP) continue;
-        if (!canvas_over(&c, k->x, k->y, k->w, k->h)) continue;
+        if (!canvas_over(&c, k->x, k->y, k->w, k->h, ATLAS, ATLAS)) continue;
         draw_pic(&c, &p->cell[i], (float)k->x + (float)k->w * .5f, (float)k->y + (float)k->h * .5f, (float)k->w, (float)k->h,
                  k->flags & PLAIN);
         canvas_store(&c, blocks, w);
@@ -565,7 +666,7 @@ static int plan_draw(uint8_t *blocks, uint32_t w, const Plan *p) {
     }
     for (int i = 0; i < 2; i++) {
         if (p->stick[i].shape == P_KEEP) continue;
-        if (!canvas_over(&c, sticks[i].x, sticks[i].y, sticks[i].w, sticks[i].h)) continue;
+        if (!canvas_over(&c, sticks[i].x, sticks[i].y, sticks[i].w, sticks[i].h, ATLAS, ATLAS)) continue;
         draw_pic(&c, &p->stick[i], (float)sticks[i].x + (float)sticks[i].w * .5f, (float)sticks[i].y + (float)sticks[i].h * .5f,
                  (float)sticks[i].w, (float)sticks[i].h, 0);
         canvas_store(&c, blocks, w);
@@ -575,13 +676,81 @@ static int plan_draw(uint8_t *blocks, uint32_t w, const Plan *p) {
         const Diamond *d = &diamonds[i];
         float cx = (float)d->x + (float)d->w * .5f, cy = (float)d->y + (float)d->h * .5f;
         if (!p->diamond_dots[i] && p->diamond_pic[i].shape == P_KEEP) continue;
-        if (!canvas_over(&c, d->x, d->y, d->w, d->h)) continue;
+        if (!canvas_over(&c, d->x, d->y, d->w, d->h, ATLAS, ATLAS)) continue;
         if (p->diamond_dots[i]) draw_diamond(&c, p->diamond_dots[i], cx, cy, 42);
         else draw_pic(&c, &p->diamond_pic[i], cx, cy, 42, 42, 0);
         canvas_store(&c, blocks, w);
         n++;
     }
     return n;
+}
+
+// The battle HUD's sheet: its copies get the pictures of their atlas cells.
+static int plan_draw_hud(uint8_t *blocks, const Plan *p) {
+    static Canvas c;
+    int n = 0;
+    for (int i = 0; i < N_HUD_COPIES; i++) {
+        const Pic *pic = &p->cell[hud_copies[i].cell];
+        int x = hud_copies[i].x, y = hud_copies[i].y, w = hud_copies[i].w, h = hud_copies[i].h;
+        if (pic->shape == P_KEEP || !canvas_over(&c, x, y, w, h, sheets[SHEET_HUD].w, sheets[SHEET_HUD].h)) continue;
+        draw_pic(&c, pic, (float)x + (float)w * .5f, (float)y + (float)h * .5f, (float)w, (float)h, 0);
+        canvas_store(&c, blocks, sheets[SHEET_HUD].w);
+        n++;
+    }
+    return n;
+}
+
+// The skill wheel's sheet: the letter of every disc is the picture of that face button, without its disc (the wheel's
+// own is around it): a letter or a sign as tall as the game's letter; a key or the mouse as a small picture.
+static int plan_draw_wheel(uint8_t *blocks, const Plan *p) {
+    static Canvas c;
+    int n = 0;
+    for (int i = 0; i < N_WHEELS; i++) {
+        int wx = i < WHEEL_ROW ? WHEEL_X + i * WHEEL_PITCH : WHEEL_X, wy = i < WHEEL_ROW ? WHEEL_Y : WHEEL_Y + WHEEL_PITCH;
+        for (int k = 0; k < 4; k++) {
+            const Pic *pic = &p->cell[lobes[k].cell];
+            int cx = wx + lobes[k].dx, cy = wy + lobes[k].dy;
+            if (!(wheels[i].lobes >> k & 1) || pic->shape == P_KEEP) continue;
+            if (!canvas_over(&c, cx - WHEEL_ZONE / 2, cy - WHEEL_ZONE / 2, WHEEL_ZONE, WHEEL_ZONE, sheets[SHEET_WHEEL].w,
+                             sheets[SHEET_WHEEL].h))
+                continue;
+            if (pic->shape == P_DISC || pic->shape == P_BOX) sign(&c, 0, pic, (float)cx, (float)cy, 23.8f);   // a capital 20 texels high
+            else draw_pic(&c, pic, (float)cx, (float)cy, WHEEL_ZONE - 2, WHEEL_ZONE - 2, 0);
+            canvas_store_colour(&c, blocks, sheets[SHEET_WHEEL].w, wheels[i].grey >> k & 1 ? wheel_grey : wheel_light);
+            n++;
+        }
+    }
+    return n;
+}
+
+// The other two sheets: as the skill wheel's, wheel by wheel at the places listed.
+static int plan_draw_wheels(uint8_t *blocks, int sheet, const WheelAt *list, int count, const Plan *p) {
+    static Canvas c;
+    int n = 0;
+    for (int i = 0; i < count; i++)
+        for (int k = 0; k < 4; k++) {
+            const Pic *pic = &p->cell[lobes[k].cell];
+            int cx = list[i].x + lobes[k].dx, cy = list[i].y + lobes[k].dy;
+            if (!(list[i].lobes >> k & 1) || pic->shape == P_KEEP) continue;
+            if (!canvas_over(&c, cx - WHEEL_ZONE / 2, cy - WHEEL_ZONE / 2, WHEEL_ZONE, WHEEL_ZONE, sheets[sheet].w,
+                             sheets[sheet].h))
+                continue;
+            if (pic->shape == P_DISC || pic->shape == P_BOX) sign(&c, 0, pic, (float)cx, (float)cy, 23.8f);
+            else draw_pic(&c, pic, (float)cx, (float)cy, WHEEL_ZONE - 2, WHEEL_ZONE - 2, 0);
+            canvas_store_colour(&c, blocks, sheets[sheet].w, list[i].ink);
+            n++;
+        }
+    return n;
+}
+
+static int sheet_draw(int sheet, uint8_t *blocks, const Plan *p) {
+    switch (sheet) {
+    case SHEET_ATLAS: return plan_draw(blocks, ATLAS, p);
+    case SHEET_HUD: return plan_draw_hud(blocks, p);
+    case SHEET_WHEEL: return plan_draw_wheel(blocks, p);
+    case SHEET_TRIO: return plan_draw_wheels(blocks, sheet, trio_wheels, sizeof trio_wheels / sizeof *trio_wheels, p);
+    default: return plan_draw_wheels(blocks, sheet, wheel2_wheels, sizeof wheel2_wheels / sizeof *wheel2_wheels, p);
+    }
 }
 
 // ---- the state in effect
@@ -591,7 +760,7 @@ static Plan waiting;          // other pictures, as the last look wanted them
 static int waiting_seen;
 static uint32_t plan_gen = 1;
 static uint64_t next_look_ns;
-static int atlas_seen;
+static unsigned sheets_seen;   // bit SHEET_*: that texture went to the GPU
 enum { LOOK_NS = 250000000, LOGGED_CHANGES = 24 };
 
 // Under lock: the pictures for the devices as they are. at_once: an upload takes them as they are now. Otherwise a
@@ -620,7 +789,7 @@ static void look(int at_once) {
     plan = now;
     waiting_seen = 0;
     plan_gen++;
-    if (atlas_seen && logged < LOGGED_CHANGES)
+    if (sheets_seen && logged < LOGGED_CHANGES)
         rt_log("prompts: the game's button pictures are for %s now, %d drawn again%s", whose[now.device], n,
                ++logged == LOGGED_CHANGES ? " (later changes are not logged)" : "");
 }
@@ -637,33 +806,48 @@ uint32_t hud_prompts_gen(void) {
     return gen;
 }
 
+// The first texture of this size that the game has pictures in, after `after`: SHEET_*, or -1.
+static int sheet_sized(uint32_t w, uint32_t h, int after) {
+    for (int s = after + 1; s < N_SHEETS; s++)
+        if (w == sheets[s].w && h == sheets[s].h) return s;
+    return -1;
+}
+
 int hud_prompts_patch(uint8_t *blocks, size_t size, uint32_t w, uint32_t h, uint32_t *gen) {
     uint8_t sum[32];
-    if (w != ATLAS || h != ATLAS || size != (size_t)ATLAS * ATLAS) return 0;
-    uint64_t probe = 0xcbf29ce484222325ull;
-    for (size_t i = 0; i < PROBE_SIZE; i++) probe = (probe ^ blocks[PROBE_AT + i]) * 0x100000001b3ull;
-    if (probe != atlas_probe) return 0;
-    sha256(blocks, size, sum);
-    if (memcmp(sum, atlas_sha, sizeof sum)) return 0;
-    plat_mutex_lock(&lock);
-    if (!atlas_seen) {
-        atlas_seen = 1;
-        rt_log("prompts: the game's button pictures follow the device in use (button_prompts = %s)", cfg_value("TOTK_BUTTON_PROMPTS"));
+    int sheet = -1;
+    if (size != (size_t)w * h) return 0;
+    while ((sheet = sheet_sized(w, h, sheet)) >= 0) {   // two sheets share 2048 x 1024: the probe tells them apart
+        uint64_t probe = 0xcbf29ce484222325ull;
+        for (size_t i = 0; i < PROBE_SIZE; i++) probe = (probe ^ blocks[sheets[sheet].probe_at + i]) * 0x100000001b3ull;
+        if (probe == sheets[sheet].probe) break;
     }
+    if (sheet < 0) return 0;
+    sha256(blocks, size, sum);
+    if (memcmp(sum, sheets[sheet].sha, sizeof sum)) return 0;
+    plat_mutex_lock(&lock);
+    if (!sheets_seen)
+        rt_log("prompts: the game's button pictures follow the device in use (button_prompts = %s)", cfg_value("TOTK_BUTTON_PROMPTS"));
+    if (!(sheets_seen >> sheet & 1)) rt_log("prompts: the game's %s went to the GPU", sheet_names[sheet]);
+    sheets_seen |= 1u << sheet;
     look(1);
     next_look_ns = plat_now_ns() + LOOK_NS;
-    plan_draw(blocks, w, &plan);
+    sheet_draw(sheet, blocks, &plan);
     *gen = plan_gen;
     plat_mutex_unlock(&lock);
     return 1;
 }
 
 int hud_prompts_draw(uint8_t *blocks, uint32_t w, uint32_t h, const InputPromptState *in, const char *mode) {
+    return hud_prompts_draw_sheet(sheet_sized(w, h, -1), blocks, in, mode);
+}
+
+int hud_prompts_draw_sheet(int sheet, uint8_t *blocks, const InputPromptState *in, const char *mode) {
     Plan p;
-    if (w != ATLAS || h != ATLAS) return 0;
+    if (sheet < 0 || sheet >= N_SHEETS) return 0;
     plan_make(&p, in, mode);
     plat_mutex_lock(&lock);
-    int n = plan_draw(blocks, w, &p);
+    int n = sheet_draw(sheet, blocks, &p);
     plat_mutex_unlock(&lock);
     return n;
 }

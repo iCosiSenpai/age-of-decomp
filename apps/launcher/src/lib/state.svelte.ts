@@ -190,8 +190,10 @@ class AppState {
     return this.settings[s.key] ?? s.default;
   }
 
-  /** A setting greyed out because its `when` condition does not hold. */
+  /** A setting greyed out because its `when` condition does not hold, or, for HDR output and its brightness values,
+   *  because no screen of this PC shows HDR now (the game would draw its usual picture). */
   inactive(s: CatalogSetting): boolean {
+    if (this.launcher?.hdr_screen === false && (s.key === 'hdr' || s.when?.hdr !== undefined)) return true;
     if (!s.when) return false;
     return Object.entries(s.when).some(([k, v]) => {
       const dep = catalog.settings.find((x) => x.key === k);

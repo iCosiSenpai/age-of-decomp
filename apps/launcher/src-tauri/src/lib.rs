@@ -1,6 +1,7 @@
 //! Age of Decomp launcher backend: Tauri commands for the Svelte UI, plus the headless entry points used by
-//! `AgeOfDecomp --play` and `aod-cli` (RecompLauncher's `start` and `prepare`).
+//! `AgeOfDecomp --play` and `AgeOfDecomp cli …` / `aod-cli` (RecompLauncher's `start` and `prepare`).
 
+pub mod cli;
 pub mod config;
 mod diagnostics;
 pub mod dlss;
@@ -46,6 +47,9 @@ struct LauncherState {
     recomplauncher: bool,
     diagnostics_available: bool,
     diagnostics: Option<bool>,
+    /// A screen of this PC shows HDR now (system::hdr_screen); `None` when the system does not say. Read with the
+    /// rest each time the window comes back, so turning HDR on in the system's settings shows at once.
+    hdr_screen: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -67,6 +71,7 @@ fn state_of(app: &App) -> LauncherState {
         recomplauncher: std::env::var_os("RECOMPLAUNCHER").is_some(),
         diagnostics_available: diagnostics::available(),
         diagnostics: diagnostics::choice(&app.paths),
+        hdr_screen: system::hdr_screen(),
     }
 }
 

@@ -81,3 +81,18 @@ site hwaoi_ui_canvas main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 4f829000 
 site hwaoi_ui_canvas main 00af42e8 a9412c4a d503201f
 site hwaoi_ui_canvas main 00af42ec a9012c2a d503201f
 site hwaoi_ui_canvas main 00af42f0 a9002428 d503201f
+# The recorder's other two shapes with positions in canvas units. A quad given as a rectangle (x0 y0 x1 y1; main+af3788
+# and af3d7c through main+af43d0, which for a batch with a target copies the four numbers into four corners): each
+# number is scaled as it is read (s2 = page +0xb8; x9 and s2 are free there, and both callers load them again). A line
+# (main+af3b24: two points, colour and width in s0..s4, kept in s12..s8): scaled where the batch has a target, the
+# width too. Without them these shapes stay at their 1080p place above 1080p, towards the upper left: the enemy dots
+# of the zoomed minimap fall outside it and are clipped away, while the whole-map view, which draws quads, shows them.
+site hwaoi_ui_canvas main 00af43d8 bd400040 @page:x9 bd40b922 bd400040 1e220800
+site hwaoi_ui_canvas main 00af43e0 bd400440 bd400440 1e220800
+site hwaoi_ui_canvas main 00af43e8 bd400840 bd400840 1e220800
+site hwaoi_ui_canvas main 00af43f0 bd400440 bd400440 1e220800
+site hwaoi_ui_canvas main 00af43f8 bd400040 bd400040 1e220800
+site hwaoi_ui_canvas main 00af4400 bd400c40 bd400c40 1e220800
+site hwaoi_ui_canvas main 00af4408 bd400840 bd400840 1e220800
+site hwaoi_ui_canvas main 00af4410 bd400c40 bd400c40 1e220800
+site hwaoi_ui_canvas main 00af3b74 f94202a8 @page:x9 bd40b930 1e30098c 1e30096b 1e30094a 1e300929 1e300908 f94202a8

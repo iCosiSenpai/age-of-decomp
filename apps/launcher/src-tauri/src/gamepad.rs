@@ -296,9 +296,10 @@ fn describe(api: &Api, id: u32, h: *mut c_void) -> (PadInfo, bool) {
         };
         // South, east, west, north: SDL's buttons 0 to 3.
         let labels = [0, 1, 2, 3].map(|b| label_of((api.SDL_GetGamepadButtonLabel)(h, b)));
-        // Confirm is the button marked A: the right one where SDL reads A there (Switch pads), as the game's own
-        // layout rule does; the bottom one elsewhere (Xbox A, PlayStation cross, the GameCube pad's big A). A pad
-        // SDL knows no labels of goes by its model.
+        // Confirm is the button marked A: the right one where SDL reads A there (Switch pads), the bottom one
+        // elsewhere (Xbox A, PlayStation cross, the GameCube pad's big A). This is the launcher's own rule: the game
+        // keeps every button where a Switch controller has it (runtime/input_map.c input_pad_layout_pick), so there
+        // an Xbox pad confirms with B. A pad SDL knows no labels of goes by its model.
         let nintendo = if labels.iter().any(|l| !l.is_empty()) {
             labels[1] == "a"
         } else {

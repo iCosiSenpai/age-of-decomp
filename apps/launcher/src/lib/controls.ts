@@ -1,7 +1,7 @@
 // What the game's input layer does with the connected devices and the saved settings, mirrored from the engine so the
-// Controls page shows what the game will do, not a guess: runtime/input.c (assign: who plays with what; the layout of
-// a pad from the label on its right button), runtime/input_map.c (the default keys and buttons, and the bind_
-// lines the game menu's remapping writes) and runtime/hud_prompts.c (whose buttons the game's own pictures show).
+// Controls page shows what the game will do, not a guess: runtime/input.c (assign: who plays with what),
+// runtime/input_map.c (the button layout, the default keys and buttons, and the bind_ lines the game menu's
+// remapping writes) and runtime/hud_prompts.c (whose buttons the game's own pictures show).
 // Change both sides together.
 
 import { tr } from './i18n.svelte';
@@ -86,12 +86,10 @@ export function gamePictures(settings: SettingValues): 'device' | 'maker' | 'gam
   return setting === 'xbox' || setting === 'playstation' || setting === 'nintendo' ? 'maker' : 'device';
 }
 
-/** runtime/input_map.c input_pad_layout_pick: Automatic is `nintendo` on a pad whose right button is marked A. */
-export function padLayout(pad: Pad, settings: SettingValues): Layout {
-  const setting = (settings.pad_layout || 'auto').toLowerCase();
-  if (setting === 'nintendo' || setting === 'xbox_prompts') return 'nintendo';
-  if (setting === 'xbox') return 'xbox';
-  return pad.labels[1] === 'a' ? 'nintendo' : 'xbox';
+/** runtime/input_map.c input_pad_layout_pick: every button where a Switch controller has it, on every maker's pad,
+ *  whatever an older settings file says (the Xbox layout, A at the bottom, is gone in 0.2.0). */
+export function padLayout(_settings: SettingValues): Layout {
+  return 'nintendo';
 }
 
 /** The game's buttons: the Switch controller the game reads, the stick directions the keys drive, and Age of Decomp's

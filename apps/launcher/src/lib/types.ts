@@ -111,6 +111,8 @@ export interface LauncherState {
   recomplauncher: boolean;
   diagnostics_available: boolean;
   diagnostics: boolean | null;
+  /** A screen of this PC shows HDR now; null when the system does not say (system.rs hdr_screen). */
+  hdr_screen: boolean | null;
 }
 
 export type PrepareKind = 'stage' | 'progress' | 'log' | 'done' | 'error' | 'cancelled';

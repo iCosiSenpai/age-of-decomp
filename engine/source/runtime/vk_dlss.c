@@ -280,6 +280,8 @@ static int frame_of(AodDlssFrame *f, const VkDlssDispatch *d) {
                               d->depth.usage, VK_IMAGE_ASPECT_COLOR_BIT};
     f->mvec = (AodDlssImage){d->mv.image, d->mv.view, d->mv.format, d->mv.width, d->mv.height, d->mv.usage,
                              VK_IMAGE_ASPECT_COLOR_BIT};
+    f->bias = (AodDlssImage){d->bias.image, d->bias.view, d->bias.format, d->bias.width, d->bias.height,
+                             d->bias.usage, VK_IMAGE_ASPECT_COLOR_BIT};
     return cam;
 }
 

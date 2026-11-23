@@ -57,9 +57,9 @@ static const char *const known[] = {
     "SCENE_SHARPNESS", "SHADER_MEMO", "SHARED_FONTS", "SPIRV_TRIM", "CS_PREBUILD", "SHARPNESS", "SHOTS", "SHOTS_DIR", "SHOTS_FULL", "SHOTS_LATEST", "SPEED_PROBE", "SPIN", "SPIN_HANDOFF_US", "SPLIT_DRAWS", "SPLIT_US", "STICK_DEADZONE", "SWKBD_ANSWER",
     "SWKBD_TEST", "TEST_PAD", "TEST_PREPARE_SHADERS", "TEX_ALIAS", "TEX_MEMO", "TEX_VRAM_PRESSURE", "TIMER_1MS", "TRACE", "UBO_SNAPSHOT", "UPSCALER", "VK_DYN_A2C", "VK_DYN_VERTEX", "VK_NO_FLOAT64",
     "VK_PRESENT", "VK_RECORDER", "VK_SSBO_ALIGN", "VK_SUBGROUP", "VK_SUBGROUP_PIN", "VK_VALIDATION", "VOLUME", "VRAM_HEADROOM", "SMALL_MEMORY_POOLS", "COPY_RECLAIM", "SOURCE_COMPRESS", "LAZY_HEAP", "LAZY_HEAP_KIB", "LAZY_HEAP_AUTO_FREE_MB", "VS_OUTS",
-    "TEMPORAL", "TEMPORAL_JITTER", "TEMPORAL_MV", "TEMPORAL_DEBUG", "TEMPORAL_LOG", "FSR_QUALITY", "FSR_JITTER_SIGN",
+    "TEMPORAL", "TEMPORAL_CHARS", "TEMPORAL_DROP", "TEMPORAL_JITTER", "TEMPORAL_MV", "TEMPORAL_DEBUG", "TEMPORAL_LOG", "FSR_QUALITY", "FSR_JITTER_SIGN",
     "FSR_DEBUG", "FSR_MODEL", "FSR_VERSION",
-    "DLSS_DIR", "DLSS_JITTER_SIGN", "DLSS_LOG", "DLSS_NGX", "DLSS_QUALITY", "FRAME_GEN", "FRAME_GEN_NGX",
+    "DLSS_BIAS", "DLSS_DIR", "DLSS_JITTER_SIGN", "DLSS_LOG", "DLSS_NGX", "DLSS_QUALITY", "FRAME_GEN", "FRAME_GEN_NGX",
     "WB_EXACT", "WB_FENCE_LIMIT", "WINDOW_SIZE", "XLATE", "XLATE_ID", "XLATE_PREFETCH", "XLATE_PROCS", "ZSTD_CHECK", "ZSTD_NATIVE",
 };
 
@@ -159,12 +159,15 @@ static const CfgMeta metas[] = {
     {"LANG", "", "ja|en-US|fr|de|it|es|zh-CN|ko|nl|pt|ru|zh-TW|en-GB|fr-CA|es-419|zh-Hans|zh-Hant|pt-BR", RESTART},
     {"OPERATION_MODE", "docked", "docked|handheld", LIVE},
     {"ASSUME_FOCUS", "1", "0|1", LIVE},   // read on every focus change (ov_system.c)
-    {"LINKED_SAVES", "0", "0|1", LIVE},   // other games' save data for the data-link bonuses, read when the game asks (fs_host.c)
+    {"LINKED_SAVES", "1", "0|1", LIVE},   // other games' save data for the data-link bonuses, read when the game asks (fs_host.c)
     // Sound, Controls, Menu
     {"VOLUME", "100", "0..300", LIVE}, {"MUTE_UNFOCUSED", "0", "0|1", LIVE},
     {"AUDIO_LATENCY", "low", "low|normal|high", RESTART},
     {"MOTION", "1", "0|1", LIVE}, {"RUMBLE_STRENGTH", "130", "0..300", LIVE}, {"RUMBLE_CURVE", "0.6", "0.2..1.5", LIVE},
-    {"RUMBLE_TRIGGERS", "0", "0|1", LIVE}, {"PAD_LAYOUT", "auto", "auto|nintendo|xbox|xbox_prompts", LIVE},
+    {"RUMBLE_TRIGGERS", "0", "0|1", LIVE},
+    // Every button where a Switch controller has it, whatever the value: no row shows it since 0.2.0, and the other
+    // values are older names a settings file may still hold (input_pad_layout_pick).
+    {"PAD_LAYOUT", "auto", "auto|xbox|nintendo|xbox_prompts", LIVE},
     // The game's own button pictures (hud_prompts.c): the device in use, one maker's gamepad, or as the game draws them
     {"BUTTON_PROMPTS", "auto", "auto|xbox|playstation|nintendo|game", LIVE},
     // Players (input.c assign): auto | keyboard | none | pad:<SDL GUID>:<n>; controller type pro (Pro Controller) | dual (Joy-Con pair)

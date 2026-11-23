@@ -1,8 +1,11 @@
 // Native fixture for runtime/hud_prompts.c: the calls it makes outside itself, a state of the devices built from the
-// command line, and the alpha of the atlas it drew into as a PGM for tests/hwaoi/test_hud_prompts.py. No game data:
-// the atlas starts empty (or is a file of BC3 blocks a developer names).
+// command line, and the texture it drew into as a PGM for tests/hwaoi/test_hud_prompts.py. No game data: the texture
+// starts empty (or is a file of BC3 blocks a developer names).
 //   hud_prompts_fixture <font.ttf> <mode> <out.pgm> [keyboard] [family=xbox|playstation|nintendo|generic]
-//                       [layout=nintendo|xbox] [labels] [bind:<Switch button>=<pad input>]... [in=<blocks>] [out=<blocks>]
+//                       [layout=nintendo|xbox] [labels] [bind:<Switch button>=<pad input>]... [sheet=atlas|hud|wheel|trio|wheel2]
+//                       [in=<blocks>] [out=<blocks>]
+// sheet: which of the game's three textures to draw into (the default is the atlas). The PGM is the texture's alpha;
+// for the skill wheel's sheet, whose pictures are colour in opaque blocks, the brightness of its colour.
 // Prints "drawn <n>" and "patch <0|1>" (hud_prompts_patch on the same bytes before drawing).
 #include <stdarg.h>
 #include <stdint.h>
@@ -78,8 +81,16 @@ static void alpha_of(const uint8_t *block, uint8_t out[16]) {
     }
 }
 
+// The brightness of a block's colour texels (BC1 with four colours, as in a BC3 block): green, 0..255.
+static void colour_of(const uint8_t *block, uint8_t out[16]) {
+    unsigned c[4];
+    for (int i = 0; i < 2; i++) c[i] = ((unsigned)(block[8 + 2 * i] | block[9 + 2 * i] << 8) >> 5 & 63) * 255 / 63;
+    c[2] = (2 * c[0] + c[1]) / 3, c[3] = (c[0] + 2 * c[1]) / 3;
+    for (int i = 0; i < 16; i++) out[i] = (uint8_t)c[block[12 + i / 4] >> (2 * (i % 4)) & 3];
+}
+
 int main(int argc, char **argv) {
-    enum { SIDE = 1024, BYTES = SIDE * SIDE };
+    int W = 1024, H = 1024, colour = 0, sheet = -1;   // sheet: hud_prompts_draw_sheet for the two sheets of the HUD's size
     if (argc < 4) return 2;
     FILE *f = fopen(argv[1], "rb");
     if (f) {
@@ -111,7 +122,12 @@ int main(int argc, char **argv) {
             memcpy(name, a + 5, (size_t)(eq - (a + 5)));
             name[eq - (a + 5)] = 0;
             state.pad[find(actions, 16, name)] = (uint8_t)find(pads, PAD_COUNT, eq + 1);
-        } else if (!strncmp(a, "in=", 3)) in = a + 3;
+        } else if (!strcmp(a, "sheet=atlas")) W = 1024, H = 1024, colour = 0;
+        else if (!strcmp(a, "sheet=hud")) W = 2048, H = 1024, colour = 0;
+        else if (!strcmp(a, "sheet=wheel")) W = 2048, H = 512, colour = 1;
+        else if (!strcmp(a, "sheet=trio")) W = 2048, H = 1024, colour = 1, sheet = 3;
+        else if (!strcmp(a, "sheet=wheel2")) W = 2048, H = 1024, colour = 1, sheet = 4;
+        else if (!strncmp(a, "in=", 3)) in = a + 3;
         else if (!strncmp(a, "out=", 4)) out = a + 4;
         else return 2;
     }
@@ -124,36 +140,40 @@ int main(int argc, char **argv) {
             {PAD_LABEL_B, PAD_LABEL_A, PAD_LABEL_Y, PAD_LABEL_X}};
         memcpy(state.labels, printed[state.family], sizeof state.labels);
     }
-    uint8_t *blocks = calloc(1, BYTES), *before = malloc(BYTES);
+    size_t bytes = (size_t)W * (size_t)H;   // BC3: a byte a texel
+    uint8_t *blocks = calloc(1, bytes), *before = malloc(bytes);
     if (!blocks || !before) return 2;
     if (in) {
         f = fopen(in, "rb");
-        if (!f || fread(blocks, 1, BYTES, f) != BYTES) return 2;
+        if (!f || fread(blocks, 1, bytes, f) != bytes) return 2;
         fclose(f);
     }
-    memcpy(before, blocks, BYTES);
+    memcpy(before, blocks, bytes);
     uint32_t gen = 0;
-    int patched = hud_prompts_patch(blocks, BYTES, SIDE, SIDE, &gen);
-    if (!patched && memcmp(before, blocks, BYTES)) return 3;   // not the atlas: not a byte may change
-    int drawn = patched ? -1 : hud_prompts_draw(blocks, SIDE, SIDE, &state, mode);
+    int patched = hud_prompts_patch(blocks, bytes, (uint32_t)W, (uint32_t)H, &gen);
+    if (!patched && memcmp(before, blocks, bytes)) return 3;   // not the game's texture: not a byte may change
+    int drawn = patched ? -1 : sheet >= 0 ? hud_prompts_draw_sheet(sheet, blocks, &state, mode)
+                                          : hud_prompts_draw(blocks, (uint32_t)W, (uint32_t)H, &state, mode);
     printf("patch %d\ndrawn %d\n", patched, drawn);
     if (out) {
         f = fopen(out, "wb");
-        if (!f || fwrite(blocks, 1, BYTES, f) != BYTES) return 2;
+        if (!f || fwrite(blocks, 1, bytes, f) != bytes) return 2;
         fclose(f);
     }
-    uint8_t *alpha = malloc(BYTES);
-    if (!alpha) return 2;
-    for (int by = 0; by < SIDE / 4; by++)
-        for (int bx = 0; bx < SIDE / 4; bx++) {
+    uint8_t *seen = malloc(bytes);
+    if (!seen) return 2;
+    for (int by = 0; by < H / 4; by++)
+        for (int bx = 0; bx < W / 4; bx++) {
             uint8_t a[16];
-            alpha_of(blocks + ((size_t)by * (SIDE / 4) + bx) * 16, a);
-            for (int i = 0; i < 16; i++) alpha[(by * 4 + i / 4) * SIDE + bx * 4 + i % 4] = a[i];
+            const uint8_t *block = blocks + ((size_t)by * (size_t)(W / 4) + (size_t)bx) * 16;
+            if (colour) colour_of(block, a);
+            else alpha_of(block, a);
+            for (int i = 0; i < 16; i++) seen[(size_t)(by * 4 + i / 4) * (size_t)W + (size_t)(bx * 4 + i % 4)] = a[i];
         }
     f = fopen(argv[3], "wb");
     if (!f) return 2;
-    fprintf(f, "P5\n%d %d\n255\n", SIDE, SIDE);
-    fwrite(alpha, 1, BYTES, f);
+    fprintf(f, "P5\n%d %d\n255\n", W, H);
+    fwrite(seen, 1, bytes, f);
     fclose(f);
     return 0;
 }

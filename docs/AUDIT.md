@@ -296,7 +296,7 @@ the code before it was fixed; severity is ours. Findings A-28 to A-35 were check
 | A-34 | Setup: repeated NUP scan without results, Vulkan 1.3 shown as passed without a GPU, cancel lost during preflight | Medium | Fixed — one search per visit, the check asks each card for its own Vulkan version, a Cancel before the engine has started is kept |
 | A-35 | Smaller items: NUP index checks, optimistic UI after a failed save, ninja licence, English backend text in the Italian UI | Low | Fixed, but the last: folder indices are checked, a failed save shows the file's value again, the bundle carries Ninja's licence. Backend messages are still English in the Italian UI |
 
-## Third audit (2026-11-22, before 0.1.3)
+## Third audit (2026-11-22, before 0.2.0; prepared as 0.1.3)
 
 A read of the launcher's backend by hand and a second independent read-only review by codex-cli (gpt-6.2-astra) of
 the tracked files. Each finding was checked in the code before it was changed; severity is ours.

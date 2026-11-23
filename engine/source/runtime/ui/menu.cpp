@@ -60,6 +60,7 @@ int vk_fg_failed(void);
 int vk_fg_factor(void);
 int vk_fg_max(void);
 double vk_fg_rate(void);
+int vk_hdr_offered(void);       // vk.h: the screen offers an HDR10 picture (1, 0, -1 not known yet)
 void vk_queue_lock(void);
 void vk_queue_unlock(void);
 void res_sizes(unsigned out[2], unsigned scene[2]);
@@ -67,9 +68,6 @@ void res_auto_size(unsigned out[2]);
 int rt_patch_set(const char *name);
 double frame_step_limit_hz(void);
 extern const int rt_game_version;
-// fs.h (romfs.c): romfs-patches-xbox was next to romfs-index.bin at start, and was loaded.
-int romfs_xbox_prompts_ready(void);
-int romfs_xbox_prompts_active(void);
 extern const char rt_port_version[];
 }
 
@@ -580,7 +578,20 @@ static void row_window_size(void) {
         pv[i] = vals[i];
         pn[i] = shown[i];
     }
-    opt_choice_list("TOTK_WINDOW_SIZE", UI_MENU_WINDOW_SIZE, pv, pn, n, UI_MENU_WINDOW_SIZE_DESC);
+    // In fullscreen the window covers the screen and this size waits for Windowed: the row is greyed, as the launcher's
+    // (when: fullscreen = 0), and says the size in use.
+    static char in_use[96];
+    const char *note = nullptr;
+    if (cfg_bool("TOTK_FULLSCREEN")) {
+        opt_disable_next(UI_MENU_WINDOW_SIZE_WINDOWED_ONLY);
+        if (have && !(cur_ok && cw == mw && ch == mh)) {   // as the other "in use" notes: only when it differs
+            char screen[32];
+            snprintf(screen, sizeof screen, "%d × %d", mw, mh);
+            snprintf(in_use, sizeof in_use, menu_text(UI_MENU_PRESENT_IN_USE), screen);
+            note = in_use;
+        }
+    }
+    opt_choice_list("TOTK_WINDOW_SIZE", UI_MENU_WINDOW_SIZE, pv, pn, n, UI_MENU_WINDOW_SIZE_DESC, -1, note);
 }
 
 // The game resolution (resolution.c): 16:9 sizes from its smallest, 1280x720 (for weak GPUs), up, the common 21:9 and
@@ -854,9 +865,23 @@ static void tab_screen(float scale) {
     rows_color();
     if (RT_TARGET_HWAOI) {   // HDR10 output (vk_hdr.c)
         opt_group(UI_MENU_HDR_GROUP);
-        opt_toggle("TOTK_HDR", UI_MENU_HDR, UI_MENU_HDR_DESC);
+        // Greyed while the window's screen offers no HDR10 picture (HDR off in the system, or a screen without it), as
+        // the launcher greys them; the brightness rows also while HDR output is off (the launcher's when: hdr = 1).
+        bool no_screen = vk_hdr_offered() == 0, grey = no_screen || !cfg_bool("TOTK_HDR");
+        UiTextId why = no_screen ? UI_MENU_HDR_NO_SCREEN : UI_MENU_NEEDS_HDR;
+        static char in_use[96];   // set on such a screen: the picture is SDR, as the other rows' "in use: Off"
+        const char *note = nullptr;
+        if (no_screen && cfg_bool("TOTK_HDR")) {
+            snprintf(in_use, sizeof in_use, menu_text(UI_MENU_PRESENT_IN_USE), menu_text(UI_MENU_TEMPORAL_OFF));
+            note = in_use;
+        }
+        if (no_screen) opt_disable_next(why);
+        opt_toggle("TOTK_HDR", UI_MENU_HDR, UI_MENU_HDR_DESC, false, note);
+        if (grey) opt_disable_next(why);
         opt_slider("TOTK_HDR_PEAK_NITS", UI_MENU_HDR_PEAK, 400, 10000, UI_MENU_HDR_PEAK_DESC, 50, "%.0f nits");
+        if (grey) opt_disable_next(why);
         opt_slider("TOTK_HDR_GAME_NITS", UI_MENU_HDR_GAME, 80, 500, UI_MENU_HDR_GAME_DESC, 5, "%.0f nits");
+        if (grey) opt_disable_next(why);
         opt_slider("TOTK_HDR_UI_NITS", UI_MENU_HDR_UI, 80, 500, UI_MENU_HDR_UI_DESC, 5, "%.0f nits");
     }
     opt_end();
@@ -885,22 +910,6 @@ static void tab_sound(float scale) {
                                        UI_MENU_AUDIO_LATENCY_HIGH};
     opt_choice("TOTK_AUDIO_LATENCY", UI_MENU_AUDIO_LATENCY, latency, 3, UI_MENU_AUDIO_LATENCY_DESC);
     opt_end();
-}
-
-// The note under the layout. Xbox prompts (the Nintendo layout with the A/B and X/Y prompts swapped, romfs.c
-// overlay_init) change the buttons at once but the prompts only at the next start: "files missing" without
-// romfs-patches-xbox, "prompts change after restart" while the prompts in use differ from the choice. Automatic with a
-// gamepad connected: "in use: Xbox". NULL otherwise.
-static const char *pad_layout_note(void) {
-    bool want = !strcasecmp(cfg_value("TOTK_PAD_LAYOUT"), "xbox_prompts");
-    if (want && !romfs_xbox_prompts_ready()) return menu_text(UI_MENU_PAD_LAYOUT_PROMPTS_MISSING);
-    if (want != (romfs_xbox_prompts_active() != 0)) return menu_text(UI_MENU_PAD_LAYOUT_PROMPTS_RESTART);
-    int got = input_pad_layout();
-    if (got < 0 || strcmp(cfg_value("TOTK_PAD_LAYOUT"), "auto")) return nullptr;
-    static char note[96];
-    snprintf(note, sizeof note, menu_text(UI_MENU_PAD_LAYOUT_IN_USE),
-             menu_text(got == PAD_LAYOUT_XBOX ? UI_MENU_PAD_LAYOUT_XBOX : UI_MENU_PAD_LAYOUT_NINTENDO));
-    return note;
 }
 
 // A player's input device (input.c assign): Auto, the keyboard and mouse, each connected gamepad by name, and None for
@@ -984,8 +993,7 @@ static void devices_rows(void) {
         for (const auto &c : caps)
             if (c.on && h < (int)sizeof has) h += snprintf(has + h, sizeof has - h, "%s%s", h ? ", " : "", menu_text(c.name));
         if (!h) snprintf(has, sizeof has, "%s", menu_text(UI_MENU_CAP_NONE));
-        int d = snprintf(desc, sizeof desc, menu_text(UI_MENU_DEVICE_DESC), pad_family_name(p), has,
-                         menu_text(p.layout == PAD_LAYOUT_XBOX ? UI_MENU_PAD_LAYOUT_XBOX : UI_MENU_PAD_LAYOUT_NINTENDO));
+        int d = snprintf(desc, sizeof desc, menu_text(UI_MENU_DEVICE_DESC), pad_family_name(p), has);
         if (p.rumble && d > 0 && d < (int)sizeof desc) snprintf(desc + d, sizeof desc - d, " %s", menu_text(UI_MENU_DEVICE_IDENTIFY));
         snprintf(id, sizeof id, "##dev_pad%d", i);
         if (opt_info(id, p.name, value, desc)) input_pad_identify(i);
@@ -1017,16 +1025,7 @@ static void tab_controls(float scale) {
         }
         snprintf(used[k], sizeof used[k], menu_text(UI_MENU_USED_BY), names);
     }
-    if (any[FOR_ALL]) {
-        static const UiTextId layout[] = {UI_MENU_PAD_LAYOUT_AUTO, UI_MENU_PAD_LAYOUT_NINTENDO, UI_MENU_PAD_LAYOUT_XBOX,
-                                          UI_MENU_PAD_LAYOUT_XBOX_PROMPTS};
-        opt_describe_next(used[FOR_ALL]);
-        // The Xbox prompts choice only where the build has that overlay (this game's has none): without it the
-        // value gives the Nintendo positions and nothing else.
-        bool prompts = romfs_xbox_prompts_ready() || !strcasecmp(cfg_value("TOTK_PAD_LAYOUT"), "xbox_prompts");
-        opt_choice("TOTK_PAD_LAYOUT", UI_MENU_PAD_LAYOUT, layout, prompts ? 4 : 3,
-                   prompts ? UI_MENU_PAD_LAYOUT_DESC : UI_MENU_PAD_LAYOUT_DESC_PLAIN, pad_layout_note());
-    }
+    // No Button layout row (gone in 0.2.0): every button is where a Switch controller has it (input_pad_layout_pick).
     {   // Whose buttons the game's own pictures show (hud_prompts.c). Also with the keyboard alone: its automatic
         // choice shows the keys then, and a player may still want a maker's buttons or the game's own.
         static const UiTextId prompts[] = {UI_MENU_PAD_LAYOUT_AUTO, UI_MENU_BUTTON_PROMPTS_XBOX,

@@ -30,16 +30,23 @@ SDL's own HIDAPI drivers talk to the pads.
   the two goes back. The launcher asks SDL what is printed on the buttons (`SDL_GetGamepadButtonLabel`), as the game
   does. The hint bar and the page hints show the buttons of the device used last: the pad that was pressed, or the
   keyboard after a key or a mouse button (`pad-active` event, `app.lastUsed`).
-- **In game**: `PAD_LAYOUT` decides which face button is the game's A: `auto` (the right one on a pad with A there,
-  the bottom one on the rest), `nintendo`, `xbox`. `xbox_prompts` (A on the right with Xbox letters on screen) needs
-  an overlay this game's build does not have: the launcher no longer offers it, the game menu shows it only where
-  the overlay exists. Xbox, DualShock 4 and DualSense button images and each maker's button names (LB, L1, ZL)
-  appear in the launcher and in Age of Decomp's own menu.
+- **In game**: every button is where a Switch controller has it, on every maker's pad: the game's A is the right
+  button (B on an Xbox pad, circle on a PlayStation one) and its B the bottom one. The game shows the face buttons
+  by position in many places (its combo list, the dots, the skill wheels), so this is the layout where the button it
+  draws is the one to press; the pictures show what the pad prints there. To confirm with the bottom button, move A
+  and B in the game menu's Controls page. `PAD_LAYOUT` and its Button layout row are gone in 0.2.0 (its *A at the
+  bottom* choice made the drawn button another than the one to press); an older settings file's value is ignored.
+  Up to 0.1.2 a pad that is not a Nintendo one had A at the bottom. Xbox, DualShock 4 and
+  DualSense button images and each maker's button names (LB, L1, ZL) appear in the launcher and in Age of Decomp's
+  own menu. That menu is moved with the game's own A and B, so it confirms with the button the game confirms with.
 - **The game's own button pictures** (its hints, tutorials and HUD) follow the device in use: `BUTTON_PROMPTS`,
-  *Buttons shown in the game*, engine `runtime/hud_prompts.c`. The game keeps them all in one texture, a white mask it
-  tints. When that texture goes to the graphics card, the pictures that are wrong for the player are drawn again in
-  it, in the game's style and with our own drawings only (discs, boxes, strokes, letters of Roboto Medium): nothing
-  is copied from the game or from a controller's maker, and the game's files and memory are not changed.
+  *Buttons shown in the game*, engine `runtime/hud_prompts.c`. The game keeps them in three textures: its glyph set,
+  a white mask it tints, for hints, tutorials and most of the HUD; the battle HUD's own sheet, with copies of the
+  four face buttons, a stick click, R and ZR (the discs of the skill wheel's buttons that have a skill); and the
+  skill wheel's sheet, where the four letters are part of the wheel's dark discs. When one of them goes to the
+  graphics card, the pictures that are wrong for the player are drawn again in it, in the game's style and with our
+  own drawings only (discs, boxes, strokes, letters of Roboto Medium): nothing is copied from the game or from a
+  controller's maker, and the game's files and memory are not changed.
   - `auto` (default): the pad used last, each game button shown as the button that does it: the letter or sign
     printed there as SDL reports it (A B X Y, cross circle square triangle), LB / RT or L1 / R2 for the shoulders,
     the two menu buttons, and the dots that show where a face button is. With the keyboard and mouse in use: the
@@ -52,7 +59,7 @@ SDL's own HIDAPI drivers talk to the pads.
   - Not followed: the drawings of a whole Switch controller the game has, the stick and d-pad pictures on a gamepad
     (they look the same on every maker's pad), and player 2's own pad: one texture serves both players and shows the
     device used last.
-  - The texture is known by its SHA-256, so only this game version's is touched (`atlas_sha` in `hud_prompts.c`,
+  - Each texture is known by its SHA-256, so only this game version's are touched (`sheets` in `hud_prompts.c`,
     with the place of every picture; `engine/source/tests/hwaoi/test_hud_prompts.py` draws them without the game).
 - **Players**: `PLAYER1_DEVICE` / `PLAYER2_DEVICE` = `auto | keyboard | none | pad:<SDL GUID>:<k>`, k counting the
   connected pads of that GUID from 0 (`runtime/input.c` `pad_value`). Launchers up to 0.1.2 counted from 1: the game

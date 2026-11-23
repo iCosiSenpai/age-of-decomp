@@ -32,8 +32,9 @@ This compiles RecompLauncher's own Developer-tab checks in a scratch worktree. A
 player's build ID through its NUP reader. A new folder normally reports that no game has been set up and no
 saves exist yet. It must otherwise report level 3 and zero errors.
 
-The expected commands are `aod-cli.exe cli prepare --game <nup> --out <install>/game` and
-`AgeOfDecomp.exe --play --game-dir <install>/game --game=<nup>`. The profile asks for the player's NUP as the named
+The expected commands are `AgeOfDecomp.exe cli prepare --game <nup> --out <install>/game` and
+`AgeOfDecomp.exe --play --game-dir <install>/game --game=<nup>`: one program for the setup step and the game, as
+RecompLauncher's guide asks ("Ship one program"). `aod-cli.exe` takes the same commands in a console. The profile asks for the player's NUP as the named
 input `nup` (`{input:nup}`): named inputs are RecompLauncher's one way to ask for a file from 0.90 beta 68 on, and its
 top-level `game` section is deprecated there (beta 65 and 66 refused a `game` section next to named inputs: "That
 copy didn't work: Choose your copy of the game first"). The setup step checks the file itself first (modules and

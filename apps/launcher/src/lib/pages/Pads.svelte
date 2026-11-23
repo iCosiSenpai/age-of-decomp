@@ -33,7 +33,7 @@
   // The player the shown device plays as in the game (0 or 1); -1 when the game does not read it.
   let player = $derived(pad ? (own.pads.get(pad.id) ?? -1) : own.keyboard);
   // The bindings shown are that player's; a device the game does not read shows player 1's.
-  let binds = $derived(bindings(app.settings, Math.max(player, 0), pad ? padLayout(pad, app.settings) : 'xbox'));
+  let binds = $derived(bindings(app.settings, Math.max(player, 0), padLayout(app.settings)));
 
   let live = $state<PadState | null>(null);
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -51,7 +51,7 @@
   // The catalogue's Controls settings, each where it applies: a controller's own (only the ones it has the hardware
   // for), the keyboard and mouse's, and the rest (who plays with what) for every device. A setting that applies to
   // both a controller and the keyboard is in both lists.
-  const PAD_KEYS = ['pad_layout', 'button_prompts', 'stick_deadzone', 'motion', 'rumble_strength', 'rumble_curve', 'rumble_triggers'];
+  const PAD_KEYS = ['button_prompts', 'stick_deadzone', 'motion', 'rumble_strength', 'rumble_curve', 'rumble_triggers'];
   const KEYBOARD_KEYS = ['button_prompts', 'mouse_sens'];
   const controls = catalog.settings.filter((s) => s.group === 'controls');
   function has(p: Pad, key: string): boolean {

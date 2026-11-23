@@ -83,15 +83,14 @@ def manifest() -> dict:
         "system": {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}}},
         # The player's copy is a named input: RecompLauncher's one way to ask for a file from 0.90 beta 68 on (its
         # top-level `game` section is deprecated there, and beta 65 and 66 refused it next to named inputs, player
-        # report RL-1). The input has no `check` yet: beta 68 can look at the picked file itself (`check` with
-        # `nup_build_id`), but beta 67 and older refuse a whole profile whose input has a field they do not know
-        # (run: tools/recomplauncher_check.py at 48ead11). Add `"check": {"nup_build_id": BUILD_ID}` when beta 68 is
-        # what players have. `aod-cli prepare` checks the file itself first (modules and resource inventory, exit 3
-        # with the reason, shown by RecompLauncher as the setup's error).
+        # report RL-1). Beta 68 is what players have (released 2026-11-23), so RecompLauncher looks at the picked
+        # file itself: `check.nup_build_id` is the ModuleId of the newest title's exefs/main, and a copy without
+        # update 1.0.3 is refused when it is picked. The setup step still checks the file first (modules and
+        # resource inventory, exit 3 with the reason, shown by RecompLauncher as the setup's error).
         "inputs": [
             # Short: Easy Setup shows the label as the box's title and again under it until a file is chosen.
             {"id": "nup", "label": "Your Age of Imprisonment .nup with update 1.0.3", "role": "game",
-             "formats": [{"type": "file", "extensions": ["nup"]}]},
+             "formats": [{"type": "file", "extensions": ["nup"]}], "check": {"nup_build_id": BUILD_ID}},
             {"id": "dlc", "label": "Your DLC dump (.nup), if you have it", "role": "dlc", "optional": True,
              "formats": [{"type": "file", "extensions": ["nup"]}]},
             # DLAA (temporal = dlaa): on RTX PCs RecompLauncher fetches NVIDIA's nvngx_dlss.dll from NVIDIA's DLSS
@@ -99,18 +98,16 @@ def manifest() -> dict:
             # and the argument with {input:dlss} is left out).
             {"id": "dlss", "label": "NVIDIA DLSS", "role": "runtime", "shared": "nvidia.dlss", "optional": True},
         ],
+        # The setup step is the program players start (RecompLauncher's guide: "Ship one program, and keep it the
+        # one players start"): AgeOfDecomp.exe runs `cli …` without a window (main.rs, cli.rs), and the AppImage's
+        # AppRun hands `cli …` to aod-cli. aod-cli.exe stays in the zip for a console and the launcher's updates.
         "prepare": {
-            "program": ["aod-cli.exe", "AgeOfDecomp-x86_64.AppImage"],
+            "program": ["AgeOfDecomp.exe", "AgeOfDecomp-x86_64.AppImage"],
             "args": ["cli", "prepare", "--game", "{input:nup}", "--out", GAME_DIR, "--dlc={input:dlc}"],
             "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
-            # `timeout` and `version` are for RecompLauncher 0.90 beta 67 and older: without `timeout` they stop the
-            # step after five minutes, and `version` is how they know a build of an older release must be made again.
-            # Beta 68 took both out of its format and reads past them: its step has no time limit and runs again by
-            # itself after every new release (a run on a finished build of the same engine reuses every stage: about
-            # ten seconds). Its schema refuses both keys, so .github/workflows/recomplauncher.yml checks the file
-            # without them. Take them out when beta 68 is what players have.
-            "timeout": 14400,
-            "version": PREPARE_VERSION,
+            # No `timeout` and no `version`: RecompLauncher 0.90 beta 68 took both out of its format. The step has
+            # no time limit and runs again by itself after every new release (a run on a finished build of the same
+            # engine reuses every stage: about ten seconds).
             "done": [GAME_DIR + f"/aod-ready-v{PREPARE_VERSION}.json"],
             # Frame generation (frame_gen) needs NVIDIA's nvngx_dlssg.dll, which is not ours to ship, and the shared
             # nvidia.dlss input is the DLSS file alone: the setup step fetches it from NVIDIA's DLSS repository into
@@ -133,7 +130,7 @@ def manifest() -> dict:
             "args": ["--play", "--game-dir", GAME_DIR, "--game={input:nup}", "--dlss={input:dlss}"],
         },
         # `new`: the engine's own first hwaoi.ini (compiler/backend.py), used if RecompLauncher has to create the file
-        # (a setting changed before setup): aod-cli prepare moves such an early file aside and merges it back after
+        # (a setting changed before setup): the setup step moves such an early file aside and merges it back after
         # the build (prepare.rs set_aside_early_files), because the engine only builds into an empty folder.
         "config": [{"id": "main", "format": "ini", "file": [{"path": INI}],
                     "new": {"output_res": "auto", "render_scale": "100", "fps_limit": "60"}}],
@@ -153,8 +150,12 @@ def manifest() -> dict:
             "70": "The game stopped on an error. Its log says why: send the newest game-*.log from Logs with your report.",
             "71": "The game crashed. Send the newest game-*.log from Logs with your report.",
         },
-        "looks": {"allowed": False,
-                  "reason": "Age of Decomp has its own picture settings and AMD FSR; ReShade's Vulkan layer is not tested with its renderer yet."},
+        # RecompLauncher's looks (its Shader tab: ReShade filters it adds for the game's process). The game draws with
+        # Vulkan, which RecompLauncher cannot work out from the start program: AgeOfDecomp.exe is the launcher's
+        # window and starts the game, which takes the Vulkan layer from the environment. On for a first test
+        # (2026-11-23): the same renderer in TotK PC Recomp runs them; not yet seen here, with frame generation or HDR
+        # least of all (the looks leave an HDR picture alone).
+        "looks": {"graphics": "vulkan"},
     }
 
 
@@ -309,8 +310,10 @@ def cmd_windows(a) -> None:
         "1. Run AgeOfDecomp.exe and follow Setup: pick your .nup, check it, choose a folder (25 GB free), Build.\n"
         "2. Press Play. Settings: in the launcher, or in game with Esc. F10 performance overlay, F11 fullscreen.\n\n"
         "RecompLauncher: this folder carries recomplauncher.json (one-click setup, settings, Big Picture).\n"
-        "Updating: use System > Updates in the compiler. Rebuild through Setup after an engine update.\n"
+        "Updating: use System > Updates in Age of Decomp. Rebuild through Setup after an engine update.\n"
         "Manual updates: extract the new release over this folder; your build, settings and saves are kept.\n"
+        "Command line: `AgeOfDecomp.exe cli prepare|play|verify …` (RecompLauncher's setup step), or aod-cli.exe\n"
+        "with the same commands in a console.\n"
         "Licences: LICENSE.txt, licenses/ and engine/licenses/. Not affiliated with Nintendo or Koei Tecmo.\n",
         encoding="utf-8")
     (out / "build-info.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8", newline="\n")

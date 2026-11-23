@@ -34,13 +34,14 @@ void opt_group(UiTextId title);
 void opt_text(UiTextId text, bool warn = false);
 
 // The return value of every row: true when it changed the setting this frame.
-// inverted: the row shows "on" while the key is 0 (a setting whose key names the opposite).
-bool opt_toggle(const char *key, UiTextId label, UiTextId desc, bool inverted = false);
+// inverted: the row shows "on" while the key is 0 (a setting whose key names the opposite). note: as opt_choice's.
+bool opt_toggle(const char *key, UiTextId label, UiTextId desc, bool inverted = false, const char *note = nullptr);
 // One name per value of the key's cfg_meta values list, in its order. When the key has no fixed default (an empty
 // def), names[0] is the automatic choice (the key unset) and names[1..] follow the values. note: a short line under
-// the value in place of the "default" mark (NULL: none).
+// the value in place of the "default" mark (NULL: none). cur: the choice in effect when the key may hold a value the
+// row does not show (an older name of one of its choices); -1: the key's value is looked up among the n shown.
 bool opt_choice(const char *key, UiTextId label, const UiTextId *names, int n, UiTextId desc,
-                const char *note = nullptr);
+                const char *note = nullptr, int cur = -1);
 // A choice over a list the caller builds (devices, window sizes): values[i] is written, names[i] shown; "" means the key
 // unset. cur: the index in effect, -1 to find cfg_value(key) in values (no match: the value shown as it is).
 bool opt_choice_list(const char *key, UiTextId label, const char *const *values, const char *const *names, int n,

@@ -142,6 +142,7 @@ int vk_hdr_surface_format(const VkSurfaceFormatKHR *f, uint32_t n, VkSurfaceForm
 void vk_hdr_metadata(VkSwapchainKHR sc, int new_sc);
 void vk_hdr_set_active(int on);
 int vk_hdr_active(void);
+int vk_hdr_offered(void);   // the window's surface offers HDR10 (whatever TOTK_HDR says): 1, 0, -1 before a swapchain
 VkImage vk_hdr_encode(VkCommandBuffer cb, unsigned slot, VkImage src, VkFormat fmt, int srgb, const int crop[4]);
 VkImageView vk_hdr_ui_target(VkCommandBuffer cb, uint32_t w, uint32_t h);
 void vk_hdr_ui_compose(VkCommandBuffer cb, VkImageView dst_view, VkFormat fmt, uint32_t w, uint32_t h);

@@ -23,7 +23,10 @@
             "nup"
           ]
         }
-      ]
+      ],
+      "check": {
+        "nup_build_id": "659cb288b5c5b2b49853add616c0d5bf4ea4e1ba"
+      }
     },
     {
       "id": "dlc",
@@ -49,7 +52,7 @@
   ],
   "prepare": {
     "program": [
-      "aod-cli.exe",
+      "AgeOfDecomp.exe",
       "AgeOfDecomp-x86_64.AppImage"
     ],
     "args": [
@@ -62,8 +65,6 @@
       "--dlc={input:dlc}"
     ],
     "label": "Building the game for this PC from your copy (about 10 minutes on a fast PC)",
-    "timeout": 14400,
-    "version": "5",
     "done": [
       "{install}/game/aod-ready-v5.json"
     ],
@@ -269,7 +270,11 @@
         }
       ],
       "defaults": {
-        "vk_present": "mailbox"
+        "vk_present": "mailbox",
+        "frame_gen": "off"
+      },
+      "when": {
+        "frame_gen": "off"
       }
     },
     {
@@ -327,7 +332,7 @@
     {
       "id": "dlss_quality",
       "label": "DLSS quality",
-      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer. In dark places a moving character can leave a faint trail.",
+      "help": "DLAA keeps the full 3D resolution and only cleans the edges. Quality, Balanced and Performance draw the 3D scene smaller and scale it up: faster, a little softer.",
       "group": "Display",
       "choices": [
         {
@@ -477,6 +482,7 @@
       "label": "Fit to the window",
       "help": "How the finished picture is scaled when the window is larger than the game resolution. AMD FSR 1 keeps edges sharper than Bilinear.",
       "group": "Display",
+      "advanced": true,
       "choices": [
         {
           "label": "AMD FSR 1",
@@ -500,6 +506,7 @@
       "label": "Sharpness",
       "help": "Sharpening after the picture is scaled. 0 turns it off.",
       "group": "Display",
+      "advanced": true,
       "slider": {
         "key": "sharpness",
         "min": 0,
@@ -1021,7 +1028,7 @@
         }
       ],
       "defaults": {
-        "linked_saves": "0"
+        "linked_saves": "1"
       }
     },
     {
@@ -1138,35 +1145,6 @@
       ],
       "defaults": {
         "player2_type": "pro"
-      }
-    },
-    {
-      "id": "pad_layout",
-      "label": "Button layout",
-      "help": "Which button is the game's A. Automatic: the right button on a controller that has A there (Switch controllers), the bottom one on the others (Xbox A, PlayStation cross).",
-      "group": "Controls",
-      "choices": [
-        {
-          "label": "Automatic",
-          "set": {
-            "pad_layout": "auto"
-          }
-        },
-        {
-          "label": "A on the right",
-          "set": {
-            "pad_layout": "nintendo"
-          }
-        },
-        {
-          "label": "A at the bottom",
-          "set": {
-            "pad_layout": "xbox"
-          }
-        }
-      ],
-      "defaults": {
-        "pad_layout": "auto"
       }
     },
     {
@@ -1739,7 +1717,6 @@
     "71": "The game crashed. Send the newest game-*.log from Logs with your report."
   },
   "looks": {
-    "allowed": false,
-    "reason": "Age of Decomp has its own picture settings and AMD FSR; ReShade's Vulkan layer is not tested with its renderer yet."
+    "graphics": "vulkan"
   }
 }

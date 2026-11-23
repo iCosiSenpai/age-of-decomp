@@ -478,10 +478,10 @@ int opt_status(void) {
     return 0;
 }
 
-bool opt_toggle(const char *key, UiTextId label, UiTextId desc, bool inverted) {
+bool opt_toggle(const char *key, UiTextId label, UiTextId desc, bool inverted, const char *note) {
     const CfgMeta *m = cfg_meta(key);
     bool set = cfg_bool(key) != 0, def = m && strcmp(m->def, "0") != 0, on = set != inverted;
-    RowView v = {ROW_TOGGLE, on ? "1" : "0", menu_text((def != inverted) ? UI_MENU_ON : UI_MENU_OFF), nullptr,
+    RowView v = {ROW_TOGGLE, on ? "1" : "0", menu_text((def != inverted) ? UI_MENU_ON : UI_MENU_OFF), note,
                  set == def, nullptr, 0, 0, 0};
     int s = row(key, label, desc, v);
     if (!s) return false;
@@ -586,7 +586,7 @@ int opt_select(const char *key, UiTextId label, const UiTextId *names, int n, in
     return nv == cur || nv == skip || nv < 0 || nv >= n ? -1 : nv;
 }
 
-bool opt_choice(const char *key, UiTextId label, const UiTextId *names, int n, UiTextId desc, const char *note) {
+bool opt_choice(const char *key, UiTextId label, const UiTextId *names, int n, UiTextId desc, const char *note, int cur) {
     enum { MAX = 32 };
     const CfgMeta *m = cfg_meta(key);
     const char *values[MAX], *shown[MAX];
@@ -602,7 +602,7 @@ bool opt_choice(const char *key, UiTextId label, const UiTextId *names, int n, U
     }
     if (n > k) n = k;
     for (int i = 0; i < n; i++) shown[i] = menu_text(names[i]);
-    return choice(key, label, values, shown, n, desc, -1, note, true);
+    return choice(key, label, values, shown, n, desc, cur < n ? cur : -1, note, true);
 }
 
 bool opt_slider(const char *key, UiTextId label, float lo, float hi, UiTextId desc, float step, const char *fmt) {

@@ -306,10 +306,9 @@ void input_map_line(const InputMap *m, int action, char *out, size_t n) {
 #undef PUT
 }
 
-int input_pad_layout_pick(const char *setting, int east_labelled_a) {
-    if (setting && (!strcasecmp(setting, "nintendo") || !strcasecmp(setting, "xbox_prompts"))) return PAD_LAYOUT_NINTENDO;
-    if (setting && !strcasecmp(setting, "xbox")) return PAD_LAYOUT_XBOX;
-    return east_labelled_a ? PAD_LAYOUT_NINTENDO : PAD_LAYOUT_XBOX;
+int input_pad_layout_pick(const char *setting) {
+    (void)setting;   // every value: the Nintendo layout (input_map.h)
+    return PAD_LAYOUT_NINTENDO;
 }
 
 uint64_t input_map_pad_buttons_m(const InputMap *m, const uint8_t down[PAD_COUNT], int layout) {

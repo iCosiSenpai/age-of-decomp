@@ -30,6 +30,7 @@ typedef struct {
 // One frame's inputs. Matrices are row major for row vectors (Streamline's convention: p' = p * M) and carry no jitter.
 typedef struct {
     AodDlssImage color_in, color_out, depth, mvec;   // color_in, depth and mvec at the render size, color_out the output's
+    AodDlssImage bias;           // optional (image 0: none): 1 where DLSS is to take this frame's colour over its history
     double view_to_clip[16], clip_to_view[16], clip_to_prev[16], prev_to_clip[16];
     double cam_pos[3], cam_up[3], cam_right[3], cam_fwd[3];
     double cam_near, cam_far, cam_fov, cam_aspect;

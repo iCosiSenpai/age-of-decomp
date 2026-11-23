@@ -13,7 +13,7 @@ C/C++ runtime (Horizon services, NVN2 on Vulkan, Ampere shaders → SPIR-V).
 | Part | Path | What it is |
 |---|---|---|
 | Engine | `engine/` | Our engine, in `engine/source/`: the compiler a player's PC runs and the runtime the game links against. GPL-3.0-or-later. Imported on 2026-11-21 from [hwaoi-recomp](https://github.com/Alano6678/hwaoi-recomp) (itself built on DKB Recomp) and developed here since: `engine/ORIGIN.md` says from which commit and whose work it is. Upstream is read for ideas only. |
-| Launcher | `apps/launcher/` | Tauri 2 app: Rust backend (`src-tauri/`) + Svelte 5 / TypeScript UI (`src/`). Setup wizard with steps and progress bar, Play, full Graphics / Controls / Audio / System settings, controller-navigable UI. Also the headless CLI `aod-cli` used by RecompLauncher's `prepare`. |
+| Launcher | `apps/launcher/` | Tauri 2 app: Rust backend (`src-tauri/`) + Svelte 5 / TypeScript UI (`src/`). Setup wizard with steps and progress bar, Play, full Graphics / Controls / Audio / System settings, controller-navigable UI. Also the headless commands `AgeOfDecomp cli …` (RecompLauncher's `prepare`; `src/cli.rs`), and `aod-cli` with the same commands for a console and the launcher's own updates. |
 | NUP crate | `crates/aod-nup/` | Rust reader of the NUP container (spec: `refs/nup/SPEC.md`): superblock, TOC, meta TLVs, zstd extraction, build ID, profile verification. |
 | Packaging | `packaging/` | `recomplauncher.json`, Windows zip layout, Linux AppImage AppDir. |
 | Tools | `tools/` | `engine.py` (toolchain/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check), `fetch_refs.py`, `check_content.py`, `catalog_fmt.py` (the settings catalogue's layout), `menu_texts.py` (game menu texts missing a language or unused), `make_game_icon.py`, `smoke_game.py` (a start of the built game for a check). Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
@@ -152,11 +152,17 @@ copy; other games' save data answered for the data-link bonuses (`linked_saves`)
 folder's only save taken when `account.uid` is missing or names an account without one (`runtime/save_identity.c`,
 `ov_system.c` `load_uid`); the frame rate overlay under the
 game's corner label; the Controls page's connected devices and the device in use (`runtime/input.c` `input_pads`,
-`runtime/ui/menu.cpp` `devices_rows`, and its row for `BUTTON_PROMPTS`); the game's own button pictures drawn again for the device in use and its
-bindings (`runtime/hud_prompts.c`: the game's one button-picture texture, known by its SHA-256, is redrawn when
-`vk_texture.c` uploads it and again when the device, a binding or `BUTTON_PROMPTS=auto|xbox|playstation|nintendo|game`
+`runtime/ui/menu.cpp` `devices_rows`, and its row for `BUTTON_PROMPTS`); every button where a Switch controller has it
+on every maker's pad (`PAD_LAYOUT=auto`, `input_pad_layout_pick`; `xbox` = A at the bottom: the game shows positions
+in its combo list, dots and skill wheel, so only the first makes the button drawn the one to press); the game's own
+button pictures drawn again for the device in use and its
+bindings (`runtime/hud_prompts.c`: the game's three textures with button pictures, each known by its SHA-256 (its
+glyph set, the battle HUD's sheet, the skill wheel's sheet, whose letters are colour in the wheel's discs), are redrawn when
+`vk_texture.c` uploads them and again when the device, a binding or `BUTTON_PROMPTS=auto|xbox|playstation|nintendo|game`
 changes; our own drawings and Roboto Medium only; `tests/hwaoi/test_hud_prompts.py` draws them without the game, and
-`TOTK_TEST_PAD=0,0,0,0` gives a real start a gamepad; the rules are in `docs/CONTROLLERS.md`); `TOTK_DUMP_TEX` writes
+`TOTK_TEST_PAD=0,0,0,0` gives a real start a gamepad; the rules are in `docs/CONTROLLERS.md`); the 2D layer above
+1080p (`recomp/patches-hwaoi196608-display.txt`, set `hwaoi_ui_canvas`: the game's 2D recorder gets its quads,
+rectangles and lines scaled by the output's width over 1920; `docs/hwaoi/ui-canvas-notes.md`); `TOTK_DUMP_TEX` writes
 a block-compressed texture's own bytes as `..._blocks.bin`; `TOTK_SWAPCHAIN_TEST=1` resizes the window while its
 swapchain is made, to check that case in the log; the recorder thread off on AMD's own driver for every card
 generation and an `sfence` before it publishes its progress (`runtime/vk_rec.c`: `VK_RECORDER=auto|0|1`, catalogue
@@ -190,7 +196,7 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
 - Settings: the runtime reads `hwaoi.ini` next to the game executable (keys in `runtime/cfg.c` `metas[]`;
   `HWAOI_<KEY>` environment variables override). The launcher edits it line-by-line (keeps comments/unknown keys),
   like RecompLauncher does. Key catalogue: `docs/SETTINGS.md`.
-- Build: `aod-cli [cli] prepare --game <nup> --out <dir> [--update <nup>] [--dlc[=]<nup>] [--jobs N]
+- Build: `AgeOfDecomp cli prepare` / `aod-cli [cli] prepare --game <nup> --out <dir> [--update <nup>] [--dlc[=]<nup>] [--jobs N]
   [--resolution WxH] [--unlock] [--fetch-frame-gen --accept-nvidia-license]` (the last two together: NVIDIA's
   `nvngx_dlssg.dll` from NVIDIA into `<data>/ngx` before the build; a failed download does not stop it) → stdout `progress <0..1> <text>` (RecompLauncher protocol), engine output on
   stderr; on success writes the versioned `<dir>/aod-ready-v<prepare.version>.json` and the launcher config. Exit: 0 ok, 2 arguments, 3 wrong game
@@ -212,8 +218,8 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
   `aod_prepare_version` is older) | complete, plus `engine_changed` (a complete build made by another engine than
   the bundle's `source_revision`: it plays, a rebuild is offered) and `nup_present`. Home shows each with its action;
   the state is read again when the window gets the focus.
-- Input rules the launcher shows are mirrored in `src/lib/controls.ts` from `runtime/input.c` (assign, pad_value,
-  the layout from the label on the right button), `runtime/input_map.c` (default keys and buttons, bind_ lines) and
+- Input rules the launcher shows are mirrored in `src/lib/controls.ts` from `runtime/input.c` (assign, pad_value),
+  `runtime/input_map.c` (the button layout, default keys and buttons, bind_ lines) and
   `runtime/hud_prompts.c` (`gamePictures`: whose buttons the game's own pictures show for a `button_prompts` value):
   change both sides together. Pad values count pads of one GUID from 0.
 
@@ -224,8 +230,8 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
 input `nup` (no `game` section: RecompLauncher 0.90 beta 68 deprecates it, and the Easy Setup of beta 65/66 refuses
 `game` + named inputs when the copy is picked in its window = player report RL-1; `tools/test_release_guards.py` keeps
 it so); the setup step checks the file itself, modules and resource inventory of build `659cb288…e1ba` (exit 3 +
-reason); `prepare` = `aod-cli cli prepare --game {input:nup} --out
-{install}/game --dlc={input:dlc}`, done marker `{install}/game/aod-ready-v<prepare.version>.json`, and one
+reason); `prepare` = `AgeOfDecomp cli prepare --game {input:nup} --out
+{install}/game --dlc={input:dlc}` (the program players start: RecompLauncher's guide asks for one program), done marker `{install}/game/aod-ready-v<prepare.version>.json`, and one
 `prepare.options` tick, "NVIDIA frame generation" (NVIDIA cards on Windows, off until the player accepts NVIDIA's
 licence), which adds `--fetch-frame-gen --accept-nvidia-license`: RecompLauncher's shared `nvidia.dlss` input is the
 DLSS file alone, so the setup step fetches `nvngx_dlssg.dll` itself into `{data}/ngx`; `start` =
@@ -237,21 +243,17 @@ unpacks every AppImage and starts `AppRun` from a plain folder: never rely on `A
 1.3 (add `linux` with the first published Linux build). Write only under `{install}` and `{data}`. Spec: https://recomplauncher.com/sdk (local copy `refs/RecompLauncher/docs/DEVELOPERS.md`).
 Bump `packaging/prepare-version.txt` only when players must rebuild. It is the source for the SDK manifest,
 staged engine and compiler launch check. A UI-only update keeps the previously built game playable.
-**RecompLauncher 0.90 beta 68** (tagged 2026-11-22, `refs/RecompLauncher` 57228b0) changed the format: an input may
-carry `check` (`nup_build_id`: the picked file is checked by RecompLauncher), the setup step has no `timeout` and no
-`version` (its schema refuses both keys, its launcher reads past them) and runs again by itself after every new release
-(ours ends in about ten seconds on a finished build of the same engine). Beta 67 and older drop a whole profile for an
-input field they do not know and stop a step without `timeout` after five minutes, so the manifest stays in the form
-both read: `timeout` + `version`, no `check`; `.github/workflows/recomplauncher.yml` validates it without the two keys.
-When beta 68 or newer is what players have (`https://recomplauncher.com/launcher/version.json` names the newest
-release; RecompLauncher offers its update at every start): take the two keys out, add
-`"check": {"nup_build_id": BUILD_ID}` to the `nup` input, drop the workflow's `jq` step, and run the check at both
-revisions again (the tool uses the commit `refs/RecompLauncher` is at).
+**RecompLauncher 0.90 beta 68** (released 2026-11-23, tag at 023e313; what `https://recomplauncher.com/launcher/version.json`
+offers players since then) changed the format, and the manifest follows it: the `nup` input carries
+`"check": {"nup_build_id": BUILD_ID}` (RecompLauncher refuses a copy without update 1.0.3 when it is picked), and the
+setup step has no `timeout` and no `version` (its schema refuses both) and runs again by itself after every new release
+(ours ends in about ten seconds on a finished build of the same engine). Beta 67 and older would drop the profile for
+the `check` field: players are offered beta 68 at every start. `.github/workflows/recomplauncher.yml` validates the file
+as it is against the schema of RecompLauncher's main.
 Validate before every release with RecompLauncher's own Developer-tab checks, nothing installed:
 `py tools/recomplauncher_check.py [--release <folder>] [--nup <dump>]` (scratch worktree of `refs/RecompLauncher` +
 `tools/recomplauncher_check.rs`, target `.cache/rlt`; Windows needs VS C++ tools). Expected: level 3, 0 errors; the
-only warnings are "no copy set up yet" and "saves isn't there yet" on an unbuilt folder and, with beta 68's code,
-`Ignored: "prepare.version"`. RecompLauncher writes
+only warnings are "no copy set up yet" and "saves isn't there yet" on an unbuilt folder. RecompLauncher writes
 `hwaoi.ini` as soon as a setting changes, even before setup, and puts a backup or the cloud's saves into
 `{install}/game/work/saves` before the first build too (a reinstall, another PC): the engine only builds into an
 empty folder, so `prepare.rs set_aside_early_files` moves the settings into the pending settings
@@ -264,7 +266,9 @@ only `game.dumps` (known dumps by size + CRC32) or `game.check.ids` (`profile_co
 still so in beta 68: an input's `check` is not counted): it needs the deprecated `game` section and a list of good
 `.nup` files that nobody has (two good dumps of the same game are different files: on 2026-11-22 a base + update dump
 and a dump with the 1.0.3 update record alone passed every check and built the same game); our check stays in
-`prepare`. "Mods" needs a Thunderstore or GameBanana section with one of RecompLauncher's loaders (`nrm`,
+`prepare`. `looks` (RecompLauncher's Shader tab, ReShade filters added to the game's process) is
+`{"graphics": "vulkan"}` since 2026-11-23, for a first test: the start program is the launcher's window, so
+RecompLauncher cannot work the API out by itself; with a look that fails here, go back to `allowed: false` + a reason. "Mods" needs a Thunderstore or GameBanana section with one of RecompLauncher's loaders (`nrm`,
 `otr`, `hmm`), and the game has no mod loader. Add neither just to get the tick.
 
 ## Controllers
@@ -310,7 +314,11 @@ for text. Everything reachable with a controller (D-pad/A/B/LB/RB/Start) and the
 - Release: run `pnpm build` in `apps/launcher` and
   `cargo build --locked --release --bins --features tauri/custom-protocol` in `src-tauri`.
   Then run `py tools/release.py windows [--zip]` → `out/release/`. The packager takes the Cargo
-  `age-of-decomp.exe` and names it `AgeOfDecomp.exe` in the ZIP.
+  `age-of-decomp.exe` and names it `AgeOfDecomp.exe` in the ZIP. **It deletes
+  `out/release/AgeOfDecomp-v<ver>-Windows-x64` first.** When that folder is the local build the user plays from
+  RecompLauncher, it also holds their built game and saves (`game/`) and RecompLauncher's data (`recompdata/`): with
+  the game and RecompLauncher closed, move both out, package, move them back, then rebuild the game there with the
+  package's own `aod-cli.exe cli prepare --game <nup> --out <folder>/game` (`RECOMPLAUNCHER_DATA=<folder>/recompdata`).
 - Never leave game-derived files outside gitignored folders. Close the game with its window, not by killing it, so
   logs flush.
 - A start of the built game for a check, without touching a save: `py -I tools/smoke_game.py <name> [--frames N]

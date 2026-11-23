@@ -3,6 +3,10 @@
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // RecompLauncher's setup step (`cli prepare …`) and the other commands: the same program players start.
+    if args.first().is_some_and(|a| a == "cli") {
+        std::process::exit(aod_launcher_lib::cli::run(args));
+    }
     if args.iter().any(|a| a == "--play") {
         // RecompLauncher's `start`: play directly, no launcher window.
         let game_dir = args.iter().position(|a| a == "--game-dir").and_then(|i| args.get(i + 1)).map(std::path::PathBuf::from);

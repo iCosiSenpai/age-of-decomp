@@ -43,6 +43,7 @@ typedef struct {   // an image in VK_IMAGE_LAYOUT_GENERAL, level 0 and layer 0 o
 
 typedef struct {
     VkDlssImage color, depth, mv, out;   // depth: the R32F copy of the scene depth (reversed Z); mv: R16G16F
+    VkDlssImage bias;                    // R8, 1 where the history is another surface's; no image: no mask
     float jx, jy;                        // this frame's jitter, render pixels (window x right, y down)
     const double *vp, *prev_vp;          // view-projections (row major, row vectors); NULL when unknown
     int reset;                           // a new history

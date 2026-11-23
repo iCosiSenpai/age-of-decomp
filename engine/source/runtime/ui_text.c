@@ -47,6 +47,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_VERSION] = RT_GAME_TITLE " %s",
     [UI_MENU_FULLSCREEN] = "Fullscreen", [UI_MENU_WINDOWED] = "Windowed", [UI_MENU_FULLSCREEN_MODE] = "Fullscreen", [UI_MENU_FULLSCREEN_DESC] = "Fills the screen with the game; F11 toggles it.",
     [UI_MENU_WINDOW_SIZE] = "Window size", [UI_MENU_WINDOW_SIZE_DESC] = "Size of the game window when not fullscreen.",
+    [UI_MENU_WINDOW_SIZE_WINDOWED_ONLY] = "Applies in a window. Choose Windowed in Fullscreen first.",
     [UI_MENU_PRESENT] = "Screen sync", [UI_MENU_PRESENT_DESC] = "How finished frames reach the screen. Fast shows the newest frame without tearing. V-Sync waits "
         "for the screen. Off has the least delay and can tear.",
     [UI_MENU_PRESENT_MAILBOX] = "Fast", [UI_MENU_PRESENT_VSYNC] = "V-Sync", [UI_MENU_PRESENT_IMMEDIATE] = "Off",
@@ -144,6 +145,8 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_PEAK] = "HDR peak brightness", [UI_MENU_HDR_PEAK_DESC] = "The display's peak brightness in nits.",
     [UI_MENU_HDR_GAME] = "HDR picture brightness", [UI_MENU_HDR_GAME_DESC] = "Brightness of white in the game picture, in nits.",
     [UI_MENU_HDR_UI] = "HDR interface brightness", [UI_MENU_HDR_UI_DESC] = "Brightness of white in this menu and the performance overlay, in nits.",
+    [UI_MENU_HDR_NO_SCREEN] = "Turn on HDR for this screen in the system's display settings first.",
+    [UI_MENU_NEEDS_HDR] = "Turn on HDR output first.",
     [UI_MENU_FPS_LIMIT] = "Target frame rate",
 #if RT_TARGET_HWAOI
     [UI_MENU_FPS_LIMIT_DESC] = "60 FPS is the game's normal speed. 30 FPS saves power.",
@@ -185,15 +188,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_RUMBLE_CURVE_DESC] = "Lower values make weak vibration stronger.",
     [UI_MENU_RUMBLE_TRIGGERS] = "Trigger vibration (Xbox)",
     [UI_MENU_RUMBLE_TRIGGERS_DESC] = "Vibrates the triggers of an Xbox controller too.",
-    [UI_MENU_PAD_LAYOUT] = "Button layout",
-    [UI_MENU_PAD_LAYOUT_DESC] = "Which button is A. Nintendo: the right one, as on a Switch. Xbox: the bottom one, as "
-                                "labelled on an Xbox controller (cross on a PlayStation controller). Automatic picks "
-                                "Nintendo for controllers with Nintendo labels and Xbox for the others. Xbox prompts: "
-                                "A is the right one as with Nintendo, and the game shows the Xbox labels (B for A, A "
-                                "for B, Y for X, X for Y); the prompts change after a restart. The letters are part of the "
-                                 "game's files, so a button you remap in Controls keeps the old letter on screen.",
-    [UI_MENU_PAD_LAYOUT_AUTO] = "Automatic", [UI_MENU_PAD_LAYOUT_NINTENDO] = "Nintendo (A right)",
-    [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox (A bottom)", [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Xbox prompts (A right)",
+    [UI_MENU_PAD_LAYOUT_AUTO] = "Automatic",
     [UI_MENU_BUTTON_PROMPTS] = "Buttons shown in the game",
     [UI_MENU_BUTTON_PROMPTS_DESC] = "The buttons the game shows in its HUD and hints. Automatic: those of the "
         "controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. "
@@ -201,9 +196,6 @@ static const char *const text_en[UI_TEXT_COUNT] = {
         "game draws them.",
     [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Game's own",
-    [UI_MENU_PAD_LAYOUT_IN_USE] = "in use: %s",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "prompt files missing: run the setup again",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_RESTART] = "prompts change after restart",
     [UI_MENU_STICK_DEADZONE] = "Stick dead zone",
     [UI_MENU_STICK_DEADZONE_DESC] = "How far a gamepad stick moves before the game sees it. Raise it if the character or the camera moves on its own.",
     [UI_MENU_MOUSE_SENS] = "Mouse camera sensitivity",
@@ -234,7 +226,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
                                      "the mouse turns the camera.",
     [UI_MENU_DEVICE_UNUSED] = "Not in use", [UI_MENU_DEVICE_WIRED] = "Cable", [UI_MENU_DEVICE_WIRELESS] = "Wireless",
     [UI_MENU_DEVICE_GENERIC] = "Generic",
-    [UI_MENU_DEVICE_DESC] = "%s controller. It has: %s. Buttons: %s.",
+    [UI_MENU_DEVICE_DESC] = "%s controller. It has: %s.",
     [UI_MENU_DEVICE_IDENTIFY] = "Press A or click to make it rumble, to tell which one it is.",
     [UI_MENU_CAP_RUMBLE] = "rumble", [UI_MENU_CAP_TRIGGER_RUMBLE] = "trigger rumble",
     [UI_MENU_CAP_MOTION] = "motion sensors", [UI_MENU_CAP_LIGHT] = "light", [UI_MENU_CAP_BACK_BUTTONS] = "back buttons",
@@ -386,10 +378,6 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_OV_FMT_FSR] = "AMD FSR 1, sharpness %d%%", [UI_MENU_OV_SCALE_NONE] = "none (1:1)",
     [UI_MENU_OV_SCALE_BILINEAR] = "bilinear",
     [UI_MENU_OV_UNMEASURED] = "Not measured",
-    // Added with the Upscaling, connected devices and controller rows of the menu.
-    [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "Which button is A. Nintendo: the right one, as on a Switch. Xbox: the bottom one, as labelled on "
-        "an Xbox controller (cross on a PlayStation controller). Automatic picks Nintendo for controllers "
-        "with Nintendo labels and Xbox for the others.",
 };
 
 static const char *const text_ru[UI_TEXT_COUNT] = {
@@ -418,6 +406,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_VERSION] = RT_GAME_TITLE " %s",
     [UI_MENU_FULLSCREEN] = "Полный экран", [UI_MENU_WINDOWED] = "В окне", [UI_MENU_FULLSCREEN_MODE] = "Полный экран", [UI_MENU_FULLSCREEN_DESC] = "Игра на весь экран; F11 переключает режим.",
     [UI_MENU_WINDOW_SIZE] = "Размер окна", [UI_MENU_WINDOW_SIZE_DESC] = "Размер окна игры вне полноэкранного режима.",
+    [UI_MENU_WINDOW_SIZE_WINDOWED_ONLY] = "Действует в оконном режиме. Сначала выберите «В окне» в пункте «Полный экран».",
     [UI_MENU_PRESENT] = "Синхронизация с экраном", [UI_MENU_PRESENT_DESC] = "Как готовые кадры попадают на экран. «Быстрая» показывает самый новый кадр без разрывов. V-Sync "
         "ждёт экран. «Выкл.» даёт наименьшую задержку, но возможны разрывы.",
     [UI_MENU_PRESENT_MAILBOX] = "Быстрая", [UI_MENU_PRESENT_VSYNC] = "V-Sync",
@@ -493,6 +482,8 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_PEAK] = "Пиковая яркость HDR", [UI_MENU_HDR_PEAK_DESC] = "Пиковая яркость дисплея в нитах.",
     [UI_MENU_HDR_GAME] = "Яркость картинки HDR", [UI_MENU_HDR_GAME_DESC] = "Яркость белого в картинке игры, в нитах.",
     [UI_MENU_HDR_UI] = "Яркость интерфейса HDR", [UI_MENU_HDR_UI_DESC] = "Яркость белого в этом меню и индикаторе производительности, в нитах.",
+    [UI_MENU_HDR_NO_SCREEN] = "Сначала включите HDR для этого экрана в настройках дисплея системы.",
+    [UI_MENU_NEEDS_HDR] = "Сначала включите «Вывод HDR».",
     [UI_MENU_FPS_LIMIT] = "Ограничение частоты кадров",
 #if RT_TARGET_HWAOI
     [UI_MENU_FPS_LIMIT_DESC] = "60 FPS — обычная скорость игры. 30 FPS экономит энергию.",
@@ -533,16 +524,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_RUMBLE_CURVE_DESC] = "Чем ниже значение, тем сильнее слабая вибрация.",
     [UI_MENU_RUMBLE_TRIGGERS] = "Вибрация триггеров (Xbox)",
     [UI_MENU_RUMBLE_TRIGGERS_DESC] = "Вибрация и в триггерах контроллера Xbox.",
-    [UI_MENU_PAD_LAYOUT] = "Раскладка кнопок",
-    [UI_MENU_PAD_LAYOUT_DESC] = "Какая кнопка работает как A. Nintendo: правая, как на Switch. Xbox: нижняя, как "
-                                "подписано на контроллере Xbox (крест на контроллере PlayStation). Автоматически: "
-                                "Nintendo для контроллеров с подписями Nintendo, Xbox для остальных. Подсказки Xbox: "
-                                "A справа, как в Nintendo, а игра показывает надписи Xbox (B вместо A, A вместо B, Y "
-                                "вместо X, X вместо Y); подсказки меняются после перезапуска. Буквы записаны в файлах "
-                                 "игры, поэтому у кнопки, переназначенной на вкладке управления, на экране остаётся "
-                                 "прежняя буква.",
-    [UI_MENU_PAD_LAYOUT_AUTO] = "Автоматически", [UI_MENU_PAD_LAYOUT_NINTENDO] = "Nintendo (A справа)",
-    [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox (A снизу)", [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Подсказки Xbox (A справа)",
+    [UI_MENU_PAD_LAYOUT_AUTO] = "Автоматически",
     [UI_MENU_BUTTON_PROMPTS] = "Кнопки, которые показывает игра",
     [UI_MENU_BUTTON_PROMPTS_DESC] = "Кнопки, которые игра показывает в HUD и подсказках. Автоматически: кнопки "
         "контроллера, которым вы играете, с вашими назначениями, и клавиши, когда вы играете с клавиатурой и "
@@ -550,9 +532,6 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
         "кнопки такими, какими их рисует игра.",
     [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Как в игре",
-    [UI_MENU_PAD_LAYOUT_IN_USE] = "сейчас: %s",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "нет файлов подсказок: запустите установку снова",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_RESTART] = "подсказки сменятся после перезапуска",
     [UI_MENU_STICK_DEADZONE] = "Мёртвая зона стиков",
     [UI_MENU_STICK_DEADZONE_DESC] = "Насколько нужно отклонить стик геймпада, чтобы игра это заметила. Увеличьте, если персонаж или камера двигаются сами.",
     [UI_MENU_MOUSE_SENS] = "Чувствительность мыши",
@@ -726,9 +705,6 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_OV_SCALE_BILINEAR] = "билинейное",
     [UI_MENU_OV_UNMEASURED] = "Нет замера",
     // Added with the Upscaling, connected devices and controller rows of the menu.
-    [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "Какая кнопка работает как A. Nintendo: правая, как на Switch. Xbox: нижняя, как подписано на "
-        "контроллере Xbox (крест на контроллере PlayStation). Автоматически: Nintendo для контроллеров с "
-        "подписями Nintendo, Xbox для остальных.",
     [UI_MENU_OUTPUT_RES_AUTO] = "Автоматически (%u × %u)",
     [UI_MENU_TEMPORAL] = "Апскейлинг",
     [UI_MENU_TEMPORAL_DESC] = "Собирает 3D-картинку из нескольких кадров: края чище, а при желании 3D-сцена рисуется в меньшем "
@@ -755,7 +731,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_WIRED] = "Кабель",
     [UI_MENU_DEVICE_WIRELESS] = "Без провода",
     [UI_MENU_DEVICE_GENERIC] = "Обычный",
-    [UI_MENU_DEVICE_DESC] = "Контроллер: %s. Есть: %s. Кнопки: %s.",
+    [UI_MENU_DEVICE_DESC] = "Контроллер: %s. Есть: %s.",
     [UI_MENU_DEVICE_IDENTIFY] = "Нажмите A или щёлкните, чтобы он завибрировал: так видно, какой это контроллер.",
     [UI_MENU_CAP_RUMBLE] = "вибрация",
     [UI_MENU_CAP_TRIGGER_RUMBLE] = "вибрация курков",
@@ -789,6 +765,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_FULLSCREEN_DESC] = "让游戏占满屏幕。按 F11 切换。",
     [UI_MENU_WINDOW_SIZE] = "窗口大小",
     [UI_MENU_WINDOW_SIZE_DESC] = "设置窗口模式下的游戏窗口大小。",
+    [UI_MENU_WINDOW_SIZE_WINDOWED_ONLY] = "仅用于窗口模式。请先在“显示模式”中选择“窗口”。",
     [UI_MENU_PRESENT] = "屏幕同步",
     [UI_MENU_PRESENT_DESC] = "设置渲染完成的帧如何送到屏幕。“快速”显示最新的一帧且不撕裂；“垂直同步”等待屏幕刷新；“关闭”延迟最低，但可能出现撕裂。",
     [UI_MENU_PRESENT_MAILBOX] = "快速",
@@ -870,6 +847,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_GAME_DESC] = "游戏画面中白色的亮度，单位为尼特。",
     [UI_MENU_HDR_UI] = "HDR 界面亮度",
     [UI_MENU_HDR_UI_DESC] = "此菜单和性能面板中白色的亮度，单位为尼特。",
+    [UI_MENU_HDR_NO_SCREEN] = "请先在系统的显示设置中为此屏幕开启 HDR。",
+    [UI_MENU_NEEDS_HDR] = "请先开启“HDR 输出”。",
     [UI_MENU_FPS_LIMIT] = "目标帧率",
 #if RT_TARGET_HWAOI
     [UI_MENU_FPS_LIMIT_DESC] = "90 和 120 FPS 会将游戏速度提高到 1.5 倍和 2 倍，因为游戏每帧推进固定步长。正常速度请选 60 FPS。要让画面更流畅，可以在 60 FPS 基础上使用插帧。",
@@ -910,21 +889,14 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_RUMBLE_CURVE_DESC] = "调低数值可加强较弱的振动。",
     [UI_MENU_RUMBLE_TRIGGERS] = "扳机振动（Xbox）",
     [UI_MENU_RUMBLE_TRIGGERS_DESC] = "为 Xbox 手柄的扳机启用振动。",
-    [UI_MENU_PAD_LAYOUT] = "手柄按键布局",
-    [UI_MENU_PAD_LAYOUT_DESC] = "任天堂布局的 A 键在右侧，Xbox 布局的 A 键在下方，对应 PlayStation 手柄的叉键。自动会按手柄类型选择。Xbox 键位提示保留右侧 A 键，并以 B、A、Y、X 分别提示 A、B、X、Y，重启后生效。更改按键绑定后，游戏原有的提示字母会保留。",
     [UI_MENU_PAD_LAYOUT_AUTO] = "自动",
-    [UI_MENU_PAD_LAYOUT_NINTENDO] = "任天堂（A 在右）",
-    [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox（A 在下）",
+
     [UI_MENU_BUTTON_PROMPTS] = "游戏中显示的按键",
     [UI_MENU_BUTTON_PROMPTS_DESC] = "游戏在 HUD 和提示中显示的按键。自动：显示当前所用手柄的按键，并按你的按键绑定显示；使用键盘和鼠标时显示键位。手柄被识别成其他品牌时，可手动选择品牌；选择“游戏原样”则保持游戏原本绘制的按键。",
     [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox",
     [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch",
     [UI_MENU_BUTTON_PROMPTS_GAME] = "游戏原样",
-    [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Xbox 提示（A 在右）",
-    [UI_MENU_PAD_LAYOUT_IN_USE] = "当前使用 %s",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "缺少按键提示文件，请重新运行安装程序",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_RESTART] = "按键提示在重启后更改",
     [UI_MENU_STICK_DEADZONE] = "摇杆死区",
     [UI_MENU_STICK_DEADZONE_DESC] = "摇杆偏移超过死区才会产生输入。角色或镜头自行移动时，可以调高这个值。",
     [UI_MENU_MOUSE_SENS] = "鼠标镜头灵敏度",
@@ -1195,7 +1167,6 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_OV_SCALE_BILINEAR] = "双线性",
     [UI_MENU_OV_UNMEASURED] = "暂无测量数据",
     // Added with the Upscaling, connected devices and controller rows of the menu.
-    [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "任天堂布局的 A 键在右侧，Xbox 布局的 A 键在下方，对应 PlayStation 手柄的叉键。自动会按手柄类型选择。",
     [UI_MENU_OUTPUT_RES_AUTO] = "自动（%u × %u）",
     [UI_MENU_TEMPORAL] = "超分辨率",
     [UI_MENU_TEMPORAL_DESC] = "用多帧画面重建 3D 画面：边缘更干净；也可以用较低的 3D 分辨率渲染再放大，换取更高的速度。AMD FSR 适用于大多数显卡。NVIDIA DLSS 需要 RTX 显卡。",
@@ -1215,7 +1186,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_WIRED] = "有线",
     [UI_MENU_DEVICE_WIRELESS] = "无线",
     [UI_MENU_DEVICE_GENERIC] = "通用",
-    [UI_MENU_DEVICE_DESC] = "%s 手柄。支持：%s。按键：%s。",
+    [UI_MENU_DEVICE_DESC] = "%s 手柄。支持：%s。",
     [UI_MENU_DEVICE_IDENTIFY] = "按 A 或点击让它震动，以确认是哪一个。",
     [UI_MENU_CAP_RUMBLE] = "震动",
     [UI_MENU_CAP_TRIGGER_RUMBLE] = "扳机震动",
@@ -1281,6 +1252,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_FULLSCREEN_DESC] = "Riempie lo schermo con il gioco. F11 cambia modalità.",
     [UI_MENU_WINDOW_SIZE] = "Dimensione finestra",
     [UI_MENU_WINDOW_SIZE_DESC] = "Dimensione della finestra quando il gioco non è a schermo intero.",
+    [UI_MENU_WINDOW_SIZE_WINDOWED_ONLY] = "Vale in finestra. Scegli prima Finestra in Schermo intero.",
     [UI_MENU_PRESENT] = "Sincronizzazione schermo",
     [UI_MENU_PRESENT_DESC] = "Come i fotogrammi finiti arrivano allo schermo. Veloce mostra il più recente senza strappi. "
         "V-Sync aspetta lo schermo. Disattivata ha il ritardo minore e può dare strappi.",
@@ -1378,15 +1350,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_RUMBLE_CURVE_DESC] = "Valori bassi rendono più forte la vibrazione leggera.",
     [UI_MENU_RUMBLE_TRIGGERS] = "Vibrazione dei grilletti (Xbox)",
     [UI_MENU_RUMBLE_TRIGGERS_DESC] = "Fa vibrare anche i grilletti di un controller Xbox.",
-    [UI_MENU_PAD_LAYOUT] = "Disposizione dei pulsanti",
-    [UI_MENU_PAD_LAYOUT_DESC] = "Quale pulsante è A. Nintendo: quello a destra, come su Switch. Xbox: quello in basso, "
-                                "come indicato su un controller Xbox (croce su PlayStation). Automatico sceglie Nintendo "
-                                "per i controller con etichette Nintendo e Xbox per gli altri. Etichette Xbox usa A a "
-                                "destra come Nintendo e mostra le etichette Xbox nel gioco (B per A, A per B, Y per X, "
-                                "X per Y); cambiano dopo il riavvio. Le lettere fanno parte dei file del gioco: un "
-                                "pulsante riassegnato in Comandi mantiene la vecchia lettera sullo schermo.",
-    [UI_MENU_PAD_LAYOUT_AUTO] = "Automatico", [UI_MENU_PAD_LAYOUT_NINTENDO] = "Nintendo (A a destra)",
-    [UI_MENU_PAD_LAYOUT_XBOX] = "Xbox (A in basso)", [UI_MENU_PAD_LAYOUT_XBOX_PROMPTS] = "Etichette Xbox (A a destra)",
+    [UI_MENU_PAD_LAYOUT_AUTO] = "Automatico",
     [UI_MENU_BUTTON_PROMPTS] = "Pulsanti mostrati nel gioco",
     [UI_MENU_BUTTON_PROMPTS_DESC] = "I pulsanti che il gioco mostra nell'HUD e nei suggerimenti. Automatico: quelli "
         "del controller che stai usando, con le tue assegnazioni, e i tasti quando usi tastiera e mouse. "
@@ -1394,9 +1358,6 @@ static const char *const text_it[UI_TEXT_COUNT] = {
         "pulsanti come li disegna il gioco.",
     [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Originale",
-    [UI_MENU_PAD_LAYOUT_IN_USE] = "in uso: %s",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_MISSING] = "file delle etichette mancanti: ripeti la configurazione",
-    [UI_MENU_PAD_LAYOUT_PROMPTS_RESTART] = "le etichette cambiano dopo il riavvio",
     [UI_MENU_STICK_DEADZONE] = "Zona morta dello stick",
     [UI_MENU_STICK_DEADZONE_DESC] = "Quanto si muove lo stick prima che il gioco lo rilevi. Aumentala se il personaggio "
                                     "o la telecamera si muovono da soli.",
@@ -1590,9 +1551,6 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_OV_SCALE_NONE] = "nessuno (1:1)", [UI_MENU_OV_SCALE_BILINEAR] = "bilineare",
     [UI_MENU_OV_UNMEASURED] = "Non misurato",
     // Added with the Upscaling, connected devices and controller rows of the menu.
-    [UI_MENU_PAD_LAYOUT_DESC_PLAIN] = "Quale pulsante è A. Nintendo: quello a destra, come su Switch. Xbox: quello in basso, come "
-        "indicato su un controller Xbox (croce su PlayStation). Automatico sceglie Nintendo per i "
-        "controller con etichette Nintendo e Xbox per gli altri.",
     [UI_MENU_OUTPUT_RES_AUTO] = "Automatica (%u × %u)",
     [UI_MENU_SCENE_SHARP] = "Nitidezza propria del gioco (FSR 4)",
     [UI_MENU_SCENE_SHARP_DESC] = "Se la nitidezza propria del gioco resta attiva mentre lavora FSR 4. Automatico la spegne (ci "
@@ -1643,6 +1601,8 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_HDR_GAME_DESC] = "Luminosità del bianco nell'immagine del gioco, in nit.",
     [UI_MENU_HDR_UI] = "Luminosità dell'interfaccia HDR",
     [UI_MENU_HDR_UI_DESC] = "Luminosità del bianco in questo menu e nell'overlay prestazioni, in nit.",
+    [UI_MENU_HDR_NO_SCREEN] = "Attiva prima l'HDR per questo schermo nelle impostazioni dello schermo del sistema.",
+    [UI_MENU_NEEDS_HDR] = "Attiva prima Uscita HDR.",
     [UI_MENU_DEVICES] = "Dispositivi collegati",
     [UI_MENU_DEVICES_NONE] = "Nessun controller collegato. Collegane uno via cavo o Bluetooth: compare qui con le sue opzioni.",
     [UI_MENU_DEVICE_KEYBOARD_DESC] = "La tastiera e il mouse. La tabella qui sotto elenca i tasti di ogni pulsante; il mouse gira la "
@@ -1651,7 +1611,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_WIRED] = "Cavo",
     [UI_MENU_DEVICE_WIRELESS] = "Wireless",
     [UI_MENU_DEVICE_GENERIC] = "Generico",
-    [UI_MENU_DEVICE_DESC] = "Controller %s. Ha: %s. Pulsanti: %s.",
+    [UI_MENU_DEVICE_DESC] = "Controller %s. Ha: %s.",
     [UI_MENU_DEVICE_IDENTIFY] = "Premi A o fai clic per farlo vibrare e capire qual è.",
     [UI_MENU_CAP_RUMBLE] = "vibrazione",
     [UI_MENU_CAP_TRIGGER_RUMBLE] = "vibrazione dei grilletti",

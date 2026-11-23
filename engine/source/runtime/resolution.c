@@ -322,6 +322,15 @@ void res_init(void) {
                    R.ow, R.oh, R.sw, R.sh);
             return;
         }
+        // Set hwaoi_ui_canvas reads the canvas and its scale from the page whatever the 3D resolution is: at the game's
+        // own 1920x1080 picture the canvas is the output and a canvas unit a pixel, as in the original code.
+        uint8_t *own_page = rt_patch_page();
+        if (own_page) {
+            uint64_t canvas = pack(1920, 1080);
+            float canvas_scale = 1.0f;
+            memcpy(own_page + 0xa8, &canvas, sizeof canvas);
+            memcpy(own_page + 0xb8, &canvas_scale, sizeof canvas_scale);
+        }
         int native = rt_patch_set("hwaoi_native1080");
         const char *requested = cfg_get("TOTK_NATIVE_1080");
         if (native < 0 && requested && !strcmp(requested, "1"))

@@ -48,8 +48,6 @@ void res_sizes(unsigned out[2], unsigned scene[2]) {
 }
 void res_auto_size(unsigned out[2]) { out[0] = 2560, out[1] = 1440; }   // as on the preview's 2560x1440 monitor
 double frame_step_limit_hz(void) { return 60; }
-int romfs_xbox_prompts_ready(void) { return 0; }
-int romfs_xbox_prompts_active(void) { return 0; }
 void gfx_window_apply_settings(void) {}
 void gfx_window_request_close(void) { preview_quit = true; }
 // The Restart button shows only when the launcher restarts the game (AOD_RESTART_EXIT), as gfx_present.c.
@@ -65,6 +63,8 @@ int vk_dlss_failed(void) { const char *v = getenv("MENU_PREVIEW_DLSS_OFF"); retu
 // MENU_PREVIEW_FG=<n> makes the preview a run started with FRAME_GEN=<n> on a card that reaches 4x.
 static int preview_fg(void) { const char *v = getenv("MENU_PREVIEW_FG"); return v ? atoi(v) : 0; }
 int vk_fg_offered(void) { return preview_fg() != 0; }
+// A screen that shows HDR; MENU_PREVIEW_NO_HDR=1 makes it one without (HDR off in the system): the HDR rows greyed.
+int vk_hdr_offered(void) { const char *v = getenv("MENU_PREVIEW_NO_HDR"); return v && *v == '1' ? 0 : 1; }
 int vk_fg_wanted(void) { return preview_fg(); }
 int vk_fg_failed(void) { return 0; }
 int vk_fg_max(void) { return preview_fg() ? 4 : 0; }
@@ -111,13 +111,13 @@ int input_pads(InputPadInfo *out, int max) {
         if (len == 4 && !strncmp(s, "xbox", 4)) {
             snprintf(p.name, sizeof p.name, "Xbox Wireless Controller");
             p.type = 3, p.family = PAD_FAMILY_XBOX, p.wired = 1, p.battery = -1, p.rumble = p.trigger_rumble = 1;
-            p.layout = PAD_LAYOUT_XBOX;
+            p.layout = PAD_LAYOUT_NINTENDO;   // the default on every pad (input_pad_layout_pick)
             const int labels[4] = {PAD_LABEL_A, PAD_LABEL_B, PAD_LABEL_X, PAD_LABEL_Y};
             memcpy(p.labels, labels, sizeof labels);
         } else if (len == 3 && !strncmp(s, "ps5", 3)) {
             snprintf(p.name, sizeof p.name, "DualSense Wireless Controller");
             p.type = 6, p.family = PAD_FAMILY_PLAYSTATION, p.wired = 0, p.battery = 70, p.rumble = p.motion = p.light = 1;
-            p.layout = PAD_LAYOUT_XBOX;
+            p.layout = PAD_LAYOUT_NINTENDO;
             const int labels[4] = {PAD_LABEL_CROSS, PAD_LABEL_CIRCLE, PAD_LABEL_SQUARE, PAD_LABEL_TRIANGLE};
             memcpy(p.labels, labels, sizeof labels);
         } else if (len == 4 && !strncmp(s, "pro2", 4)) {
