@@ -28,6 +28,9 @@
 // (the terrain decals draw one pass each into the G-buffer and would use up both caps).
 // TOTK_DUMP_TRIGGER=<file>: instead of a fixed frame, wait for a strictly increasing decimal token in that file,
 // then capture the next complete frame once. The startup token is a baseline, never a replayed capture command.
+// TOTK_DUMP_ON_TARGET=<w>x<h>[:<vkformat>][+<frames>]: instead of a fixed frame or a token, capture once the frame
+// <frames> (default 1) after the first render pass of that size with a colour target (of that Vulkan format) ends, for a
+// short scene with its own targets (the Sync Strike close-up draws into its own RGBA16F (97) colour + depth pair).
 #include <ctype.h>
 #include <math.h>
 #include <stdarg.h>
@@ -52,7 +55,9 @@
 
 int vk_dump_armed;
 int vk_dump_polling;
+int vk_dump_watching;                   // TOTK_DUMP_ON_TARGET: waiting for a render pass of that size
 static uint64_t dump_frame, log_from;   // log_from: TOTK_DUMP_LOG, first frame logged to passes.txt without images
+static uint32_t watch_w, watch_h, watch_fmt, watch_delay;
 static const char *trigger_file;
 static uint64_t trigger_sequence, trigger_next_ns;
 static char dir[400];
@@ -639,7 +644,8 @@ static void describe_bindings(Str *b, const VkExec *ex, const VkPipeInfo *info) 
         int st = nvn_stage(bd->stage), img = bd->kind == GFX_RES_IMG;
         char dt[24], fn[16];
         if (bd->type == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER || bd->type == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER) {
-            sp(b, "    %s %s slot %d: buffer texture (zero view bound)\n", stn[st], img ? "img" : "tex", r->slot);
+            // bound as a texel buffer view of its storage, or the zero view when it has none (vk_exec_draw.c texel_view)
+            sp(b, "    %s %s slot %d: buffer texture\n", stn[st], img ? "img" : "tex", r->slot);
             continue;
         }
         for (uint32_t k = 0; k < (bd->count ? bd->count : 1u); k++) {
@@ -1014,16 +1020,63 @@ static void dump_trigger_poll(uint64_t frame) {
            (unsigned long long)dump_frame, dir);
 }
 
+// TOTK_DUMP_ON_TARGET's value: <w>x<h>[:<vkformat>][+<frames>], frames 1 when left out. 0 for anything else.
+static int watch_parse(const char *s, uint32_t *w, uint32_t *h, uint32_t *fmt, uint32_t *delay) {
+    char *q;
+    if (*s < '1' || *s > '9') return 0;
+    *w = (uint32_t)strtoul(s, &q, 10);
+    if (*q != 'x' || q[1] < '1' || q[1] > '9') return 0;
+    *h = (uint32_t)strtoul(q + 1, &q, 10);
+    *fmt = 0;
+    if (*q == ':') {
+        if (q[1] < '1' || q[1] > '9') return 0;
+        *fmt = (uint32_t)strtoul(q + 1, &q, 10);
+    }
+    *delay = 1;
+    if (*q == '+') {
+        if (q[1] < '1' || q[1] > '9') return 0;
+        *delay = (uint32_t)strtoul(q + 1, &q, 10);
+    }
+    return !*q && *w && *h && *delay;
+}
+
+// The watched pass: its area and, when one was given, its first colour target's format.
+static int watch_match(uint32_t w, uint32_t h, uint32_t ncolor, int has_color0, uint32_t format0) {
+    return w == watch_w && h == watch_h && ncolor && (!watch_fmt || (has_color0 && format0 == watch_fmt));
+}
+
+void vk_dump_watch_pass(const VkExec *ex) {
+    if (!watch_match(ex->pass_w, ex->pass_h, ex->pass_ncolor, ex->color[0].image != VK_NULL_HANDLE,
+                     (uint32_t)ex->color[0].format))
+        return;
+    plat_mutex_lock(&rec_lock);
+    if (vk_dump_watching) {
+        dump_frame = frame_now() + watch_delay;
+        vk_dump_watching = 0;
+        vk_dump_armed = 1;
+        rt_log("vk_dump: a %ux%u pass ended in frame %llu: frame %llu goes to %s", watch_w, watch_h,
+               (unsigned long long)frame_now(), (unsigned long long)dump_frame, dir);
+    }
+    plat_mutex_unlock(&rec_lock);
+}
+
 void vk_dump_init(void) {
     const char *e = cfg_get("TOTK_DUMP");
     trigger_file = cfg_get("TOTK_DUMP_TRIGGER");
+    const char *on_target = cfg_get("TOTK_DUMP_ON_TARGET");
     if (e && *e) dump_frame = strtoull(e, NULL, 10);
-    if (!dump_frame && (!trigger_file || !*trigger_file)) return;
+    if (on_target && *on_target) {
+        if (!watch_parse(on_target, &watch_w, &watch_h, &watch_fmt, &watch_delay))
+            rt_fatal("vk_dump: DUMP_ON_TARGET is <w>x<h>[:<vkformat>][+<frames>]");
+        if (dump_frame || (trigger_file && *trigger_file))
+            rt_fatal("vk_dump: DUMP_ON_TARGET excludes DUMP and DUMP_TRIGGER");
+    }
+    if (!dump_frame && (!trigger_file || !*trigger_file) && !watch_w) return;
     if (dump_frame && trigger_file && *trigger_file)
         rt_fatal("vk_dump: DUMP and DUMP_TRIGGER are mutually exclusive");
     const char *lf = cfg_get("TOTK_DUMP_LOG");
     if (lf && *lf) log_from = strtoull(lf, NULL, 10);
-    if (trigger_file && *trigger_file && log_from)
+    if (((trigger_file && *trigger_file) || watch_w) && log_from)
         rt_fatal("vk_dump: DUMP_LOG requires a fixed DUMP frame");
     const char *sr = cfg_get("TOTK_DUMP_SKIP_RUNS");
     skip_runs = sr && *sr && *sr != '0';
@@ -1061,7 +1114,10 @@ void vk_dump_init(void) {
         snprintf(path, sizeof path, "%s/bufs.txt", dir);
         if (bd_size && !(bufs_f = fopen(path, "w"))) bd_size = 0;
     }
-    if (trigger_file && *trigger_file) {
+    if (watch_w) {
+        vk_dump_watching = 1;
+        rt_log("vk_dump: waiting for a %ux%u render pass, then frame +%u goes to %s", watch_w, watch_h, watch_delay, dir);
+    } else if (trigger_file && *trigger_file) {
         dump_trigger_read(trigger_file, &trigger_sequence);
         vk_dump_polling = 1;
         rt_log("vk_dump: waiting for a new token in %s (baseline %llu)", trigger_file,

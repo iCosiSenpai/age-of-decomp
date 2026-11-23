@@ -25,7 +25,7 @@ typedef struct { const char *lang; const char *const *text; } Row;
     [UI_SWKBD_CANCEL] = cancel, [UI_SWKBD_PAD_HINT] = hint, LANG_NAMES
 
 static const char *const text_en[UI_TEXT_COUNT] = {
-    SWKBD("Text entry", "Enter a name", "Horse", "OK", "Cancel", "Controller: A = OK, B = Cancel"),
+    SWKBD("Text entry", "Enter a name", "Horse", "OK", "Cancel", "Controller: confirm = OK, back = Cancel"),
     [UI_MENU_TITLE] = "Settings",
     [UI_MENU_PAGE_SCREEN] = "Window, resolution and picture. Changes show at once unless marked restart.",
     [UI_MENU_PAGE_GAME] = "Frame rate, game speed fixes, language and console mode.",
@@ -198,6 +198,10 @@ static const char *const text_en[UI_TEXT_COUNT] = {
         "game draws them.",
     [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Game's own",
+    [UI_MENU_CONFIRM_BUTTON] = "Confirm button in menus",
+    [UI_MENU_CONFIRM_BUTTON_DESC] = "The button that confirms in the game's menus; the other one goes back. Automatic: "
+        "the bottom button on Xbox, PlayStation and other controllers, the right one on a Switch controller, as the "
+        "game has it. Battle keeps every button, and the keyboard its keys.",
     [UI_MENU_STICK_DEADZONE] = "Stick dead zone",
     [UI_MENU_STICK_DEADZONE_DESC] = "How far a gamepad stick moves before the game sees it. Raise it if the character or the camera moves on its own.",
     [UI_MENU_MOUSE_SENS] = "Mouse camera sensitivity",
@@ -229,16 +233,16 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_UNUSED] = "Not in use", [UI_MENU_DEVICE_WIRED] = "Cable", [UI_MENU_DEVICE_WIRELESS] = "Wireless",
     [UI_MENU_DEVICE_GENERIC] = "Generic",
     [UI_MENU_DEVICE_DESC] = "%s controller. It has: %s.",
-    [UI_MENU_DEVICE_IDENTIFY] = "Press A or click to make it rumble, to tell which one it is.",
+    [UI_MENU_DEVICE_IDENTIFY] = "Press the confirm button or click to make it rumble, to tell which one it is.",
     [UI_MENU_CAP_RUMBLE] = "rumble", [UI_MENU_CAP_TRIGGER_RUMBLE] = "trigger rumble",
     [UI_MENU_CAP_MOTION] = "motion sensors", [UI_MENU_CAP_LIGHT] = "light", [UI_MENU_CAP_BACK_BUTTONS] = "back buttons",
     [UI_MENU_CAP_NONE] = "buttons and sticks only",
     [UI_MENU_USED_BY] = "For: %s.",
     [UI_MENU_TYPE_PRO] = "Pro Controller", [UI_MENU_TYPE_DUAL] = "Joy-Con pair",
     [UI_MENU_PLAYER2_OFF_NOTE] = "not connected",
-    [UI_BINDS_HELP] = "Select a cell and press A or Enter, then the key, mouse button or controller button, or click "
-                      "Leave unbound to leave it empty. Delete or X also clears a cell. A key in use moves here; a "
-                      "controller button swaps with the one it replaces.",
+    [UI_BINDS_HELP] = "Select a cell and press the confirm button or Enter, then the key, mouse button or controller "
+                      "button, or click Leave unbound to leave it empty. Delete or X also clears a cell. A key in use "
+                      "moves here; a controller button swaps with the one it replaces.",
     [UI_BINDS_UNBIND] = "Leave unbound",
     [UI_BINDS_COL_KEY1] = "Key 1", [UI_BINDS_COL_KEY2] = "Key 2", [UI_BINDS_COL_PAD] = "Controller",
     [UI_BINDS_GROUP_BUTTONS] = "Buttons", [UI_BINDS_GROUP_MOVE] = "Movement", [UI_BINDS_GROUP_CAMERA] = "Camera",
@@ -383,7 +387,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
 };
 
 static const char *const text_ru[UI_TEXT_COUNT] = {
-    SWKBD("Ввод текста", "Введите имя", "Лошадь", "ОК", "Отмена", "Контроллер: A — ОК, B — отмена"),
+    SWKBD("Ввод текста", "Введите имя", "Лошадь", "ОК", "Отмена", "Контроллер: подтверждение — ОК, назад — отмена"),
     [UI_MENU_TITLE] = "Настройки",
     [UI_MENU_PAGE_SCREEN] = "Окно, разрешение и изображение. Изменения видны сразу, если не отмечены как требующие перезапуска.",
     [UI_MENU_PAGE_GAME] = "Частота кадров, исправления скорости игры, язык и режим консоли.",
@@ -537,6 +541,10 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
         "кнопки такими, какими их рисует игра.",
     [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Как в игре",
+    [UI_MENU_CONFIRM_BUTTON] = "Кнопка подтверждения в меню",
+    [UI_MENU_CONFIRM_BUTTON_DESC] = "Кнопка, которая подтверждает выбор в меню игры; другая возвращает назад. "
+        "Автоматически: нижняя кнопка на контроллерах Xbox, PlayStation и других производителей, правая — на "
+        "контроллере Switch, как в игре. В бою все кнопки остаются на своих местах, а клавиатура — со своими клавишами.",
     [UI_MENU_STICK_DEADZONE] = "Мёртвая зона стиков",
     [UI_MENU_STICK_DEADZONE_DESC] = "Насколько нужно отклонить стик геймпада, чтобы игра это заметила. Увеличьте, если персонаж или камера двигаются сами.",
     [UI_MENU_MOUSE_SENS] = "Чувствительность мыши",
@@ -560,7 +568,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_TYPE_PRO] = "Pro Controller", [UI_MENU_TYPE_DUAL] = "Пара Joy-Con",
     [UI_MENU_PLAYER2_OFF_NOTE] = "не подключён",
     [UI_BINDS_UNBIND] = "Оставить пустым",
-    [UI_BINDS_HELP] = "Выберите ячейку и нажмите A или Enter, затем клавишу, кнопку мыши или кнопку контроллера. "
+    [UI_BINDS_HELP] = "Выберите ячейку и нажмите кнопку подтверждения или Enter, затем клавишу, кнопку мыши или кнопку контроллера. "
                       "Delete или X очищает ячейку. Занятая клавиша переходит сюда; кнопка контроллера меняется "
                       "местами с той, которую заменяет.",
     [UI_BINDS_COL_KEY1] = "Клавиша 1", [UI_BINDS_COL_KEY2] = "Клавиша 2", [UI_BINDS_COL_PAD] = "Контроллер",
@@ -737,7 +745,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_WIRELESS] = "Без провода",
     [UI_MENU_DEVICE_GENERIC] = "Обычный",
     [UI_MENU_DEVICE_DESC] = "Контроллер: %s. Есть: %s.",
-    [UI_MENU_DEVICE_IDENTIFY] = "Нажмите A или щёлкните, чтобы он завибрировал: так видно, какой это контроллер.",
+    [UI_MENU_DEVICE_IDENTIFY] = "Нажмите кнопку подтверждения или щёлкните, чтобы он завибрировал: так видно, какой это контроллер.",
     [UI_MENU_CAP_RUMBLE] = "вибрация",
     [UI_MENU_CAP_TRIGGER_RUMBLE] = "вибрация курков",
     [UI_MENU_CAP_MOTION] = "датчики движения",
@@ -748,7 +756,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
 };
 
 static const char *const text_zh_hans[UI_TEXT_COUNT] = {
-    SWKBD("文字输入", "请输入名字", "马儿", "确定", "取消", "手柄：A 确定，B 取消"),
+    SWKBD("文字输入", "请输入名字", "马儿", "确定", "取消", "手柄：确认键确定，返回键取消"),
     [UI_MENU_TITLE] = "设置",
     [UI_MENU_TAB_SCREEN] = "画面",
     [UI_MENU_TAB_GAME] = "游戏",
@@ -904,6 +912,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch",
     [UI_MENU_BUTTON_PROMPTS_GAME] = "游戏原样",
+    [UI_MENU_CONFIRM_BUTTON] = "菜单确认键",
+    [UI_MENU_CONFIRM_BUTTON_DESC] = "在游戏菜单中用于确认的按键，另一个按键用于返回。自动：Xbox、PlayStation 及其他品牌的手柄使用下方按键，Switch 手柄使用右侧按键（与游戏原样相同）。战斗中的所有按键保持不变，键盘按键也不变。",
     [UI_MENU_STICK_DEADZONE] = "摇杆死区",
     [UI_MENU_STICK_DEADZONE_DESC] = "摇杆偏移超过死区才会产生输入。角色或镜头自行移动时，可以调高这个值。",
     [UI_MENU_MOUSE_SENS] = "鼠标镜头灵敏度",
@@ -930,7 +940,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_TYPE_PRO] = "Pro 手柄",
     [UI_MENU_TYPE_DUAL] = "一对 Joy-Con",
     [UI_MENU_PLAYER2_OFF_NOTE] = "未连接",
-    [UI_BINDS_HELP] = "选中一格并按 A 或 Enter，再按键盘、鼠标或手柄上的目标键。选择不绑定，或按 Delete 或 X，可清除该格。已占用的键盘键会移到新位置，已占用的手柄键会交换位置。",
+    [UI_BINDS_HELP] = "选中一格并按确认键或 Enter，再按键盘、鼠标或手柄上的目标键。选择不绑定，或按 Delete 或 X，可清除该格。已占用的键盘键会移到新位置，已占用的手柄键会交换位置。",
     [UI_BINDS_UNBIND] = "不绑定",
     [UI_BINDS_COL_KEY1] = "按键 1",
     [UI_BINDS_COL_KEY2] = "按键 2",
@@ -1194,7 +1204,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_WIRELESS] = "无线",
     [UI_MENU_DEVICE_GENERIC] = "通用",
     [UI_MENU_DEVICE_DESC] = "%s 手柄。支持：%s。",
-    [UI_MENU_DEVICE_IDENTIFY] = "按 A 或点击让它震动，以确认是哪一个。",
+    [UI_MENU_DEVICE_IDENTIFY] = "按确认键或点击让它震动，以确认是哪一个。",
     [UI_MENU_CAP_RUMBLE] = "震动",
     [UI_MENU_CAP_TRIGGER_RUMBLE] = "扳机震动",
     [UI_MENU_CAP_MOTION] = "体感传感器",
@@ -1233,7 +1243,7 @@ SWKBD_ONLY(text_ja, "文字入力", "名前を入力してください", "ウマ
 SWKBD_ONLY(text_fr, "Saisie de texte", "Entrez un nom", "Cheval", "OK", "Annuler", "Manette : A = OK, B = Annuler");
 SWKBD_ONLY(text_de, "Texteingabe", "Gib einen Namen ein", "Pferd", "OK", "Abbrechen", "Controller: A = OK, B = Abbrechen");
 static const char *const text_it[UI_TEXT_COUNT] = {
-    SWKBD("Inserimento testo", "Inserisci un nome", "Cavallo", "OK", "Annulla", "Controller: A = OK, B = Annulla"),
+    SWKBD("Inserimento testo", "Inserisci un nome", "Cavallo", "OK", "Annulla", "Controller: conferma = OK, indietro = Annulla"),
     [UI_MENU_TITLE] = "Impostazioni",
     [UI_MENU_PAGE_SCREEN] = "Finestra, risoluzione e immagine. Le modifiche si vedono subito, tranne quelle segnate riavvio.",
     [UI_MENU_PAGE_GAME] = "Frame rate, correzioni della velocità, lingua e modalità console.",
@@ -1368,6 +1378,10 @@ static const char *const text_it[UI_TEXT_COUNT] = {
         "pulsanti come li disegna il gioco.",
     [UI_MENU_BUTTON_PROMPTS_XBOX] = "Xbox", [UI_MENU_BUTTON_PROMPTS_PLAYSTATION] = "PlayStation",
     [UI_MENU_BUTTON_PROMPTS_SWITCH] = "Switch", [UI_MENU_BUTTON_PROMPTS_GAME] = "Originale",
+    [UI_MENU_CONFIRM_BUTTON] = "Pulsante di conferma nei menu",
+    [UI_MENU_CONFIRM_BUTTON_DESC] = "Il pulsante che conferma nei menu del gioco; l'altro torna indietro. Automatico: "
+        "il pulsante in basso sui controller Xbox, PlayStation e di altre marche, il pulsante destro su un "
+        "controller Switch, come nel gioco. In battaglia ogni pulsante resta dov'è, e la tastiera tiene i suoi tasti.",
     [UI_MENU_STICK_DEADZONE] = "Zona morta dello stick",
     [UI_MENU_STICK_DEADZONE_DESC] = "Quanto si muove lo stick prima che il gioco lo rilevi. Aumentala se il personaggio "
                                     "o la telecamera si muovono da soli.",
@@ -1392,9 +1406,9 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_NONE] = "Nessuno", [UI_MENU_DEVICE_MISSING] = "Controller non collegato",
     [UI_MENU_TYPE_PRO] = "Pro Controller", [UI_MENU_TYPE_DUAL] = "Coppia di Joy-Con",
     [UI_MENU_PLAYER2_OFF_NOTE] = "non collegato",
-    [UI_BINDS_HELP] = "Seleziona una cella e premi A o Invio, poi il tasto, il pulsante del mouse o del controller, "
-                      "oppure scegli Lascia vuoto. Canc o X svuota la cella. Un tasto già usato viene spostato qui; "
-                      "un pulsante del controller viene scambiato con quello che sostituisce.",
+    [UI_BINDS_HELP] = "Seleziona una cella e premi il pulsante di conferma o Invio, poi il tasto, il pulsante del "
+                      "mouse o del controller, oppure scegli Lascia vuoto. Canc o X svuota la cella. Un tasto già "
+                      "usato viene spostato qui; un pulsante del controller viene scambiato con quello che sostituisce.",
     [UI_BINDS_UNBIND] = "Lascia vuoto",
     [UI_BINDS_COL_KEY1] = "Tasto 1", [UI_BINDS_COL_KEY2] = "Tasto 2", [UI_BINDS_COL_PAD] = "Controller",
     [UI_BINDS_GROUP_BUTTONS] = "Pulsanti", [UI_BINDS_GROUP_MOVE] = "Movimento", [UI_BINDS_GROUP_CAMERA] = "Telecamera",
@@ -1622,7 +1636,7 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_DEVICE_WIRELESS] = "Wireless",
     [UI_MENU_DEVICE_GENERIC] = "Generico",
     [UI_MENU_DEVICE_DESC] = "Controller %s. Ha: %s.",
-    [UI_MENU_DEVICE_IDENTIFY] = "Premi A o fai clic per farlo vibrare e capire qual è.",
+    [UI_MENU_DEVICE_IDENTIFY] = "Premi il pulsante di conferma o fai clic per farlo vibrare e capire qual è.",
     [UI_MENU_CAP_RUMBLE] = "vibrazione",
     [UI_MENU_CAP_TRIGGER_RUMBLE] = "vibrazione dei grilletti",
     [UI_MENU_CAP_MOTION] = "sensori di movimento",

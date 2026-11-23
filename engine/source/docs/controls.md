@@ -10,6 +10,8 @@ Every face button is where a Switch controller has it (the table below), on ever
 
 The log names the layout in effect (`input: "<pad>" layout ...`).
 
+In Age of Decomp the game's menus confirm with the bottom button and go back with the right one on pads of other makers than Nintendo: `TOTK_CONFIRM_BUTTON` (`confirm_button` = `auto`, `bottom` or `right`, live). The game asks for confirm and back as actions 9 and 10 of its button table, apart from the battle's; the generated patch set `hwaoi_confirm` (`recomp/patches-hwaoi196608-display.txt`) makes its button check answer 9 with 10's button and 10 with 9's, and its button guide show the two icons the other way round (except under the guide's battle labels, dodge and special attack). `runtime/input.c` `input_confirm_bottom` switches the set at every controller read, after the device in use; Age of Decomp's own menu follows it too.
+
 In Age of Decomp (Hyrule Warriors: Age of Imprisonment) the game's button pictures follow the device in use: `TOTK_BUTTON_PROMPTS` (`button_prompts` = `auto`, `xbox`, `playstation`, `nintendo` or `game`, live). `runtime/hud_prompts.c` draws the buttons the player presses into the game's three textures with button pictures as they are uploaded (`runtime/vk_texture.c` `upload`), for the gamepad used last with its bindings or for the keyboard and mouse; the log says `prompts: the game's button pictures are for ... now`. The repository's `docs/CONTROLLERS.md` has the rules.
 
 | Switch | Gamepad (by position, Nintendo layout) | Keyboard and mouse | Action in the world |

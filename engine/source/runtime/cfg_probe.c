@@ -151,6 +151,9 @@ int probe_cfg(void) {
     CHECK(m && EQ(m->def, "130") && EQ(m->values, "0..300"), "meta: rumble strength 130 in 0..300");
     m = cfg_meta("PERF_OVERLAY");
     CHECK(m && EQ(m->def, "off") && EQ(m->values, "off|fps|full") && m->live, "meta: perf_overlay is live, off by default");
+    m = cfg_meta("CONFIRM_BUTTON");
+    CHECK(m && EQ(m->def, "auto") && EQ(m->values, "auto|bottom|right") && m->live,
+          "meta: confirm_button is live, auto by default, the menu's three values in order");
     CHECK(cfg_meta("BIND_A") == NULL && cfg_meta("FPS_COUNTER") == NULL && cfg_meta("NO_SUCH") == NULL,
           "meta: keys the menu does not show are NULL");
 
@@ -288,6 +291,11 @@ int probe_cfg(void) {
           "pad stick: a square gate's corner stays on the unit circle");
     input_pad_stick(0, 32767 / 2 + 1, 0.2f, st);
     CHECK(abs(st[1] - 32767 * 3 / 8) <= 3, "pad stick: half deflection past a 20% zone is (0.5 - 0.2) / 0.8 of full");
+    // The menus' confirm button (input.c input_confirm_bottom): with no gamepad in use, the game's own, whatever the value
+    cfg_set("TOTK_CONFIRM_BUTTON", "bottom");
+    CHECK(!input_confirm_bottom(), "confirm button: without a gamepad the menus keep the game's confirm, even on bottom");
+    cfg_set("TOTK_CONFIRM_BUTTON", "auto");
+    CHECK(!input_confirm_bottom(), "confirm button: without a gamepad automatic keeps the game's confirm");
     // Gamepad layouts (input_map.c)
     CHECK(input_pad_layout_pick("auto") == PAD_LAYOUT_NINTENDO && input_pad_layout_pick(NULL) == PAD_LAYOUT_NINTENDO &&
               input_pad_layout_pick("") == PAD_LAYOUT_NINTENDO,

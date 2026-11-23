@@ -82,6 +82,7 @@ static int pad_focus_gate(int slot, uint64_t *buttons, int32_t left[2], int32_t 
 static volatile int32_t pad_labels[4];           // player 1's gamepad's face labels, for the menu (any thread)
 static volatile int32_t pad_type_shown;
 static volatile int32_t pad_layout_shown = -1;   // player 1's gamepad's layout for the menu (any thread), -1 without one
+static volatile int32_t pad_family_shown = -1;   // its PAD_FAMILY_* (input_confirm_bottom; any thread), -1 without one
 static int motion_thread;            // 0 not started, 1 running, -1 off (TOTK_MOTION=0, no SDL)
 
 // SDL buttons of the gamepad inputs (input_map.h PAD_*), by position; PAD_ZL and PAD_ZR are the triggers (axes).
@@ -492,6 +493,8 @@ static void assign(void) {
     shown_seen = ~0u;   // the gamepad the menu shows is picked again (shown_update)
 }
 
+static int pad_family(const Pad *p);
+
 // Under lock: the gamepad whose labels and layout the menu shows: the one used last, else player 1's first; and
 // whether the keyboard or the mouse was used after every gamepad.
 static void shown_update(void) {
@@ -506,7 +509,15 @@ static void shown_update(void) {
     shown_pad = last, shown_seen = ver;
     plat_xchg32(&pad_layout_shown, last < 0 ? -1 : pad_layout_get(&pads[last]));
     plat_xchg32(&pad_type_shown, last < 0 ? 0 : pads[last].type);
+    plat_xchg32(&pad_family_shown, last < 0 ? -1 : pad_family(&pads[last]));
     for (int k = 0; k < 4; k++) plat_xchg32(&pad_labels[k], last < 0 ? PAD_LABEL_NONE : pads[last].labels[k]);
+}
+
+int input_confirm_bottom(void) {
+    const char *v = cfg_value("TOTK_CONFIRM_BUTTON");
+    if (!v || !strcmp(v, "right") || plat_cas32(&kb_active, 0, 0)) return 0;
+    int family = (int)plat_cas32(&pad_family_shown, 0, 0);
+    return family >= 0 && (!strcmp(v, "bottom") || family != PAD_FAMILY_NINTENDO);
 }
 
 // The TOTK_BIND_* values last applied, one per line; the tables are built again when one changes (the menu's remapping rows write

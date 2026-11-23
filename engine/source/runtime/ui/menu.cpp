@@ -164,7 +164,8 @@ static void drain_events(ImGuiIO &io) {
 }
 
 // ---- gamepad navigation: the Switch buttons of our SDL3 gamepad to ImGui's gamepad keys. Nintendo layout: A (east)
-// activates, B (south) cancels.
+// activates, B (south) cancels; the other way round while the game's menus confirm with B (input_confirm_bottom), so
+// this menu confirms with the button the game's menus confirm with.
 static const struct { int bit; ImGuiKey key; } pad_keys[] = {
     {B_A, ImGuiKey_GamepadFaceDown}, {B_B, ImGuiKey_GamepadFaceRight}, {B_X, ImGuiKey_GamepadFaceUp},
     {B_Y, ImGuiKey_GamepadFaceLeft}, {B_L, ImGuiKey_GamepadL1}, {B_R, ImGuiKey_GamepadR1},
@@ -193,6 +194,10 @@ static void pad_events(ImGuiIO &io, int reset) {
     else io.BackendFlags &= ~ImGuiBackendFlags_HasGamepad;
     stick_dir = stick_to_dpad(lx, ly);
     if (stick_dir >= 0) b |= 1ull << stick_dir;
+    if (input_confirm_bottom()) {   // A and B change places (a change while one is held reads as a release and a press)
+        uint64_t a = b >> B_A & 1, bb = b >> B_B & 1;
+        b = (b & ~(1ull << B_A | 1ull << B_B)) | a << B_B | bb << B_A;
+    }
     if (reset) {
         pad_prev = b;
         return;
@@ -1033,6 +1038,11 @@ static void tab_controls(float scale) {
                                            UI_MENU_BUTTON_PROMPTS_GAME};
         opt_choice("TOTK_BUTTON_PROMPTS", UI_MENU_BUTTON_PROMPTS, prompts, 5, UI_MENU_BUTTON_PROMPTS_DESC);
     }
+    if (any[FOR_ALL]) {   // The button the game's menus confirm with (input_confirm_bottom): gamepads only.
+        static const UiTextId confirm[] = {UI_MENU_PAD_LAYOUT_AUTO, UI_PAD_SOUTH, UI_PAD_EAST};   // cfg.c's values
+        opt_describe_next(used[FOR_ALL]);
+        opt_choice("TOTK_CONFIRM_BUTTON", UI_MENU_CONFIRM_BUTTON, confirm, 3, UI_MENU_CONFIRM_BUTTON_DESC);
+    }
     // Motion stays in sight, greyed with the reason, while no connected gamepad has a gyro and an accelerometer SDL can
     // read (an Xbox controller, and a controller that works as one, sends none): players look for this row.
     if (any[FOR_MOTION]) opt_describe_next(used[FOR_MOTION]);
@@ -1451,8 +1461,10 @@ static void layout_menu(uint32_t w, uint32_t h, float scale) {
     const char *labels[] = {menu_text(UI_MENU_HINT_MOVE), menu_text(UI_MENU_HINT_CHANGE),
                             menu_text(UI_MENU_HINT_CLOSE), menu_text(UI_MENU_HINT_PAGES)};
     int face_labels[2] = {};
-    const char *keys[] = {pad ? "" : "↑↓", pad ? binds_pad_hint(B_A, "A", &face_labels[0]) : menu_text(UI_KEY_ENTER),
-                          pad ? binds_pad_hint(B_B, "B", &face_labels[1]) : "Esc", prev, next};
+    bool bottom = pad && input_confirm_bottom();   // the game's B confirms (pad_events)
+    const char *keys[] = {pad ? "" : "↑↓",
+                          pad ? binds_pad_hint(bottom ? B_B : B_A, bottom ? "B" : "A", &face_labels[0]) : menu_text(UI_KEY_ENTER),
+                          pad ? binds_pad_hint(bottom ? B_A : B_B, bottom ? "A" : "B", &face_labels[1]) : "Esc", prev, next};
     float gap = 8 * scale, group_gap = 18 * scale, glyph_h = 30 * scale, total = 0;
     for (int i = 0; i < 4; i++) {
         bool image = pad && (i == 0 || ((i == 1 || i == 2) && face_labels[i-1]));

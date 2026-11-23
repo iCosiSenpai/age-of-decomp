@@ -33,12 +33,23 @@ SDL's own HIDAPI drivers talk to the pads.
 - **In game**: every button is where a Switch controller has it, on every maker's pad: the game's A is the right
   button (B on an Xbox pad, circle on a PlayStation one) and its B the bottom one. The game shows the face buttons
   by position in many places (its combo list, the dots, the skill wheels), so this is the layout where the button it
-  draws is the one to press; the pictures show what the pad prints there. To confirm with the bottom button, move A
-  and B in the game menu's Controls page. `PAD_LAYOUT` and its Button layout row are gone in 0.2.0 (its *A at the
-  bottom* choice made the drawn button another than the one to press); an older settings file's value is ignored.
-  Up to 0.1.2 a pad that is not a Nintendo one had A at the bottom. Xbox, DualShock 4 and
+  draws is the one to press; the pictures show what the pad prints there. The menus confirm with the bottom button
+  (below). `PAD_LAYOUT` and its Button layout row are gone in 0.2.0 (its *A at the bottom* choice made the drawn
+  button another than the one to press); an older settings file's value is ignored. Up to 0.1.2 a pad that is not a
+  Nintendo one had A at the bottom. Xbox, DualShock 4 and
   DualSense button images and each maker's button names (LB, L1, ZL) appear in the launcher and in Age of Decomp's
   own menu. That menu is moved with the game's own A and B, so it confirms with the button the game confirms with.
+- **Confirm and back in the game's menus**: `CONFIRM_BUTTON`, *Confirm button in menus*. `auto` (default): on an
+  Xbox, PlayStation or other pad the menus confirm with the bottom button (the game's B) and go back with the right
+  one (its A), as most PC games do; a Switch controller and the keyboard and mouse keep the game's way. `bottom`: so
+  on every pad. `right`: the game's way everywhere. It follows the device in use, at once. Battle keeps every button
+  where a Switch controller has it: the game asks for confirm and back as actions of their own (9 and 10 of its button
+  table), apart from the battle's, and only those two change places (engine: the generated patch set
+  `hwaoi_confirm`, switched by `runtime/input.c` `input_confirm_bottom`). The menus' button guide follows: its
+  confirm and back icons change places (the guide's battle entries, dodge and special attack, keep theirs), and the
+  pictures then show the buttons that do it. Texts that name a battle button (tutorials, the controls list) keep the
+  game's icons, which are the battle buttons. Age of Decomp's own menu confirms with the same button. A guide already
+  on screen when the device changes keeps its icons until the screen is opened again.
 - **The game's own button pictures** (its hints, tutorials and HUD) follow the device in use: `BUTTON_PROMPTS`,
   *Buttons shown in the game*, engine `runtime/hud_prompts.c`. The game keeps them in three textures: its glyph set,
   a white mask it tints, for hints, tutorials and most of the HUD; the battle HUD's own sheet, with copies of the

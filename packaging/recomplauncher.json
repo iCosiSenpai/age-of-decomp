@@ -1189,6 +1189,35 @@
       }
     },
     {
+      "id": "confirm_button",
+      "label": "Confirm button in menus",
+      "help": "The button that confirms in the game's menus; the other one goes back. Automatic: the bottom button on Xbox, PlayStation and other controllers, the right one on a Switch controller, as the game has it. Battle keeps every button, and the keyboard its keys.",
+      "group": "Controls",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "confirm_button": "auto"
+          }
+        },
+        {
+          "label": "Bottom button",
+          "set": {
+            "confirm_button": "bottom"
+          }
+        },
+        {
+          "label": "Right button",
+          "set": {
+            "confirm_button": "right"
+          }
+        }
+      ],
+      "defaults": {
+        "confirm_button": "auto"
+      }
+    },
+    {
       "id": "stick_deadzone",
       "label": "Stick dead zone",
       "help": "Raise it if the camera or the character moves on its own.",
@@ -1395,6 +1424,35 @@
       ],
       "defaults": {
         "vk_recorder": "auto"
+      }
+    },
+    {
+      "id": "memory",
+      "label": "Memory for the game's graphics data",
+      "help": "Where the game's 4.6 GB block of graphics data (vertices, constants, buffers) is kept. Video memory is much faster on a dedicated graphics card, but on Windows it also counts against the memory that RAM and the page file share. Automatic uses video memory when Windows has room for it. If the game runs at only a few frames per second on a PC with 16 GB of RAM, choose Video memory.",
+      "group": "Performance",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "memory": "auto"
+          }
+        },
+        {
+          "label": "Video memory",
+          "set": {
+            "memory": "mirror"
+          }
+        },
+        {
+          "label": "System memory",
+          "set": {
+            "memory": "import"
+          }
+        }
+      ],
+      "defaults": {
+        "memory": "auto"
       }
     },
     {

@@ -148,6 +148,9 @@ int input_pad_identify(int) { return 1; }
 int input_rumble_preview(void) { return 1; }
 // AOD_PREVIEW_KEYBOARD=1: as when the keyboard or the mouse was used last (the hints show keys).
 int input_keyboard_active(void) { const char *v = getenv("AOD_PREVIEW_KEYBOARD"); return v && *v == '1'; }
+// AOD_PREVIEW_CONFIRM_BOTTOM=1: as when the game's menus confirm with the bottom button (input.c input_confirm_bottom:
+// confirm_button = auto with this Xbox pad in use); unset: the game's own A confirms, as the pad scenarios press.
+int input_confirm_bottom(void) { const char *v = getenv("AOD_PREVIEW_CONFIRM_BOTTOM"); return v && *v == '1'; }
 void input_note_keyboard(void) {}
 int input_player_connected(int player) {
     InputPadInfo pad;

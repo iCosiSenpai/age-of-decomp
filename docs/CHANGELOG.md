@@ -3,14 +3,40 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
-## 0.2.1 (not released yet)
+## 0.2.1 (2026-11-24)
+
+Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
+keeps your settings and saves.
+
+### Picture
+- A Sync Strike's close-up of the two characters' hands shows them lit by the strike's warm light, as on the console,
+  no longer dark grey or black. The close-up drew at the console's 1600x900 while the rest of the game draws at your
+  resolution, so the game measured its exposure and toned only its top-left corner; it now draws at your resolution
+  too. Every pair's Sync Strike had it.
+
+### Controllers
+- On Xbox, PlayStation and other controllers the game's menus confirm with the bottom button (A, cross) and go back
+  with the right one (B, circle), and their button guide shows them so. Battle keeps every button where a Switch
+  controller has it, so the bottom button still dodges. A Switch controller and the keyboard keep the game's way.
+  Change it in Controls: Confirm button in menus.
+- A mouse cursor on the map, which 0.2.0 listed as being worked on, is not coming: the game never turns on the mouse
+  support its engine has, it does not read a Joy-Con 2 used as a mouse, and its map cursor moves with the left stick.
+  With the keyboard and mouse, the mouse still turns the camera and its buttons are game buttons you can change in
+  Controls.
 
 ### Performance
 - On a PC with 16 GB of RAM the game no longer drops to 5-10 frames per second in battle when little of Windows'
   memory is free as it starts. The game copies its 4.6 GB block of graphics data into the graphics card's own memory
   only when Windows has room for it (on Windows that copy counts against the same memory limit as RAM); it now also
   counts the room Windows can still give by enlarging a page file it manages itself. Without the copy the card reads
-  that data over PCIe on every draw. Thanks to @seeep1337 (#15), who sent the log.
+  that data over PCIe on every draw. New: Performance → Memory for the game's graphics data, among the advanced
+  settings: Video memory keeps the copy whatever Windows has free, System memory never makes it. Thanks to
+  @seeep1337 (#15), who sent the log and found that Video memory brings the game back to 30 fps and more.
+
+### Stability
+- A battle no longer ends with code 70 ("GPU QUADS indirect validation failed") when the graphics card leaves one
+  of the game's quad draws unconverted: that draw is skipped and the log says so. Thanks to @benkra66 (#16), whose
+  Radeon RX 9070 XT stopped there while fighting Beta Elite Constructs.
 
 ## 0.2.0 (2026-11-23)
 

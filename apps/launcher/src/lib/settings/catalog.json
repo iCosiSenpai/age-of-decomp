@@ -337,6 +337,16 @@
       ]
     },
     {
+      "key": "confirm_button", "section": "input", "group": "controls", "kind": "choice",
+      "label": "Confirm button in menus", "default": "auto",
+      "help": "The button that confirms in the game's menus; the other one goes back. Automatic: the bottom button on Xbox, PlayStation and other controllers, the right one on a Switch controller, as the game has it. Battle keeps every button, and the keyboard its keys.",
+      "choices": [
+        { "value": "auto", "label": "Automatic" },
+        { "value": "bottom", "label": "Bottom button" },
+        { "value": "right", "label": "Right button" }
+      ]
+    },
+    {
       "key": "stick_deadzone", "section": "input", "group": "controls", "kind": "slider",
       "label": "Stick dead zone", "default": "8", "min": 0, "max": 50, "step": 1, "format": "%.0f", "unit": "%",
       "help": "Raise it if the camera or the character moves on its own."
@@ -389,6 +399,16 @@
         { "value": "auto", "label": "Automatic" },
         { "value": "0", "label": "Off" },
         { "value": "1", "label": "On" }
+      ]
+    },
+    {
+      "key": "memory", "section": "performance", "group": "performance", "kind": "choice", "restart": true,
+      "label": "Memory for the game's graphics data", "default": "auto",
+      "help": "Where the game's 4.6 GB block of graphics data (vertices, constants, buffers) is kept. Video memory is much faster on a dedicated graphics card, but on Windows it also counts against the memory that RAM and the page file share. Automatic uses video memory when Windows has room for it. If the game runs at only a few frames per second on a PC with 16 GB of RAM, choose Video memory.",
+      "choices": [
+        { "value": "auto", "label": "Automatic" },
+        { "value": "mirror", "label": "Video memory" },
+        { "value": "import", "label": "System memory" }
       ]
     },
     {

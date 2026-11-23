@@ -77,6 +77,11 @@ typedef struct {
     uint8_t pad[16], key[24]; // input_map.h PAD_* and KEY_* ids; 0 (PAD_NONE, KEY_NONE): nothing bound
 } InputPromptState;
 void input_prompt_state(InputPromptState *out);
+// 1 while the game's menus confirm with Switch B, the bottom button, and go back with Switch A, the right one (the
+// generated patch set hwaoi_confirm, which ov_input.c switches at every controller read; battle keeps every button).
+// TOTK_CONFIRM_BUTTON: auto with a gamepad of another maker than Nintendo in use (the one the pictures follow), bottom
+// with any gamepad in use, right never (the game's own way). The keyboard and the mouse keep the game's keys. Any thread.
+int input_confirm_bottom(void);
 // The menu's remapping rows (Controls tab). input_map_snapshot copies the tables in effect (after any changed TOTK_BIND_* line).
 // input_capture polls the keys, the mouse buttons and the gamepad for a press: reset 1 takes what is held now as the
 // start (a held key counts once released and pressed again) and returns NONE; then it returns KEY or PAD with *id the

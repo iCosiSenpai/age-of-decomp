@@ -182,6 +182,54 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual([fmul(w) for w in words[2:7]], [(r, r, 16) for r in (12, 11, 10, 9, 8)])
         self.assertEqual(words[7], 0xf94202a8)
 
+    def test_confirm_swap_asks_for_the_other_action(self):
+        """hwaoi_confirm: the game's button check (main+141debc) reads the row of action 10 (back) when the game asks
+        for 9 (confirm) and the row of 9 for 10; every other action keeps its own row."""
+        from capstone import Cs, CS_ARCH_ARM64, CS_MODE_ARM
+        table = self.table()
+        index = [name for name, _, _ in table.sets].index("hwaoi_confirm")
+        self.assertEqual(table.sets[index], ("hwaoi_confirm", "TOTK_CONFIRM_SWAP", 0))
+        k, words, original = table.sites["main"][0x141ded4]
+        self.assertEqual((k, original), (index, 0x51000428))   # sub w8, w1, #1 after the prologue
+        self.assertEqual(words[-1], original)                  # the original instruction runs last
+        dis = Cs(CS_ARCH_ARM64, CS_MODE_ARM)
+        text = [f"{i.mnemonic} {i.op_str}" for w in words for i in dis.disasm(struct.pack("<I", w), 0x700141ded4)]
+        self.assertEqual(text, ["and w8, w1, #0xff", "sub w8, w8, #9", "lsr w8, w8, #1", "clz w8, w8",
+                                "lsr w8, w8, #5", "orr w8, w8, w8, lsl #1", "eor w1, w1, w8", "sub w8, w1, #1"])
+
+        def asked(action):   # those instructions on the action in w1
+            t = (((action & 0xff) - 9) & 0xffffffff) >> 1
+            one = (32 if t == 0 else 32 - t.bit_length()) >> 5
+            return action ^ (one | one << 1)
+        self.assertEqual([asked(a) for a in (9, 10)], [10, 9])
+        self.assertEqual(asked(0x109) & 0xff, 10)   # the check reads the action as a byte (uxtb)
+        self.assertEqual([asked(a) for a in (0, 1, 8, 11, 17, 18, 19, 26, 99)], [0, 1, 8, 11, 17, 18, 19, 26, 99])
+
+    def test_confirm_swap_turns_the_guide_icons(self):
+        """hwaoi_confirm in the button guide (main+15d52c0): the icon code read at main+15d641c becomes ^01 for ^00
+        and ^00 for ^01, except under the battle labels 16 (dodge) and 62 (special attack); other icons stay."""
+        from capstone import Cs, CS_ARCH_ARM64, CS_MODE_ARM
+        table = self.table()
+        index = [name for name, _, _ in table.sets].index("hwaoi_confirm")
+        k, words, original = table.sites["main"][0x15d641c]
+        self.assertEqual((k, original), (index, 0x39400108))   # ldrb w8, [x8]: the icon row's code
+        self.assertEqual(words[0], original)                   # the load runs first
+        dis = Cs(CS_ARCH_ARM64, CS_MODE_ARM)
+        text = [f"{i.mnemonic} {i.op_str}" for w in words for i in dis.disasm(struct.pack("<I", w), 0x70015d641c)]
+        self.assertEqual(text, ["ldrb w8, [x8]", "lsr w9, w8, #1", "clz w9, w9", "lsr w9, w9, #5",
+                                "eor w10, w28, #0x10", "clz w10, w10", "lsr w10, w10, #5", "eor w11, w28, #0x3e",
+                                "clz w11, w11", "lsr w11, w11, #5", "orr w10, w10, w11", "bic w9, w9, w10",
+                                "eor w8, w8, w9"])
+
+        def zero(v):   # clz(v) >> 5
+            return (32 if v == 0 else 32 - v.bit_length()) >> 5
+
+        def shown(code, label):   # those instructions on the code (w8) under the label (w28)
+            return code ^ (zero(code >> 1) & ~(zero(label ^ 16) | zero(label ^ 62)) & 1)
+        self.assertEqual([shown(0, 18), shown(1, 2), shown(0, 4), shown(1, 3)], [1, 0, 1, 0])   # Choose, Back, Next, Cancel
+        self.assertEqual([shown(1, 16), shown(0, 62)], [1, 0])                                   # Dodge, Special attack
+        self.assertEqual([shown(c, 18) for c in (2, 3, 0x0a, 0x3a, 0xff)], [2, 3, 0x0a, 0x3a, 0xff])
+
     def test_native_presets_and_invalid_forms(self):
         cc = compiler()
         if not cc:
