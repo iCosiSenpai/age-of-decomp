@@ -179,6 +179,10 @@ we do not have.
   its new shaders at most a quarter of a second a frame, instead of stopping for seconds: the effect's remaining parts
   are drawn as soon as they are ready, a few frames later. Effects drawn once and kept (lighting tables, shadows) still
   wait until they are complete. Not yet tried with a Sync Strike here: the log says when it happens.
+- Setup now prepares, before it ends, every shader your game has already met: it translates them for your graphics
+  card and has its driver compile them. The first start after an update, a new build or a moved game folder then
+  does not do that work while you play. A new copy of the game has met none yet: the game prepares each shader the
+  first time it needs it, as before, and remembers it for the next setup.
 - When the game stops showing new frames for 20 seconds, its log says where every thread is. The game is left as it
   is; the report is for the next bug report of a freeze.
 

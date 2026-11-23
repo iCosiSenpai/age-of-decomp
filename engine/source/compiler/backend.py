@@ -192,6 +192,51 @@ def clean_environment(bundle):
     return env
 
 
+SHADER_LINES = ("gfx_shader: prepare", "gfx_shader: prepared", "preparation done", "prepare-shaders:")
+
+
+def prepare_shaders(bundle, game):
+    """Prepares, before the game starts, the shader variants it met in earlier play: hwaoi --prepare-shaders
+    (runtime/vk_pipeline.c) translates each one into the build's shader cache and builds its stage library into the
+    graphics driver's own disk cache, so the first start after a build, an update or a move does not do it while the
+    player plays. The game records what it meets in shader-answers.bin and shader-programs.bin next to it, kept across
+    builds; they are the seed (seed-*.bin, removed afterwards). A first build has none yet. A failure leaves the build
+    as it is: the game then prepares them at its start, as before."""
+    recorded = [(game / f"shader-{kind}.bin", game / f"seed-{kind}.bin") for kind in ("answers", "programs")]
+    if not all(source.is_file() and source.stat().st_size > 16 for source, _ in recorded):
+        print("  No shaders met in play yet: the game prepares each one when it first needs it.", flush=True)
+        return
+    translator = game / "xlate-managed-irbanks" / ("totk_xlate.exe" if WINDOWS else "totk_xlate")
+    env = clean_environment(bundle)
+    env.update(HWAOI_GPU="vulkan", HWAOI_IR_BANKS="1", HWAOI_XLATE=str(translator))
+    if WINDOWS:
+        env["HWAOI_ZLIB_DLL"] = str(game / "zlib1.dll")
+    began = time.perf_counter()
+    try:
+        for source, seed in recorded:
+            shutil.copyfile(source, seed)
+        completed = subprocess.run([str(game / hwaoi.GAME_EXE), "--prepare-shaders"], cwd=game, env=env,
+                                   stdin=subprocess.DEVNULL, capture_output=True, timeout=3600,
+                                   creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0)
+        said = set()   # the runtime says some lines on both of its outputs
+        for line in (completed.stdout + completed.stderr).decode("utf-8", "replace").splitlines():
+            line = line.removeprefix("[host] ")
+            if any(key in line for key in SHADER_LINES) and line not in said:
+                said.add(line)
+                print("  " + line[:240], flush=True)
+        if completed.returncode:
+            print(f"  The shaders could not be prepared now (exit code {completed.returncode}): the game prepares "
+                  "them at its start.", flush=True)
+        else:
+            print(f"  Shaders met in play prepared in {time.perf_counter() - began:.1f}s.", flush=True)
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"  The shaders could not be prepared now ({error}): the game prepares them at its start.", flush=True)
+    finally:
+        for _, seed in recorded:
+            with contextlib.suppress(OSError):
+                seed.unlink()
+
+
 def run_tool(bundle, output, *arguments):
     command = [str(bundle_python(bundle)), "-E", "-s", str(output / "tools/hwaoi.py"), *map(str, arguments)]
     print("+ " + subprocess.list2cmdline(command), flush=True)
@@ -377,7 +422,7 @@ def build_stages(bundle, nup, output, jobs, resolution, unlock, state, manifest,
         game = output / "work/build/hwaoi196608"
         require((game / hwaoi.GAME_EXE).is_file(), "The linker did not produce the game executable")
         done("compile_link", began)
-        print("[6/6] Installing the shader translator and launch settings...", flush=True)
+        print("[6/6] Installing the shader translator and launch settings, preparing shaders...", flush=True)
         game = output / "work/build/hwaoi196608"
         delivery = {p: sha for p, sha in manifest["files"].items() if p.startswith("translator/") or p == "bin/zlib1.dll"}
         def destination(relative):
@@ -400,6 +445,7 @@ def build_stages(bundle, nup, output, jobs, resolution, unlock, state, manifest,
             if not found:
                 lines.append(f"\n[display]\noutput_res={resolution}\n")
             cache.write_changed(game / "hwaoi.ini", "".join(lines).encode("utf-8"))
+        prepare_shaders(bundle, game)
         after = nup.stat()
         require((before.st_size, before.st_mtime_ns) == (after.st_size, after.st_mtime_ns), "Source NUP changed during build")
         state.update(status="complete", executable_sha256=hwaoi.sha256(game / hwaoi.GAME_EXE))

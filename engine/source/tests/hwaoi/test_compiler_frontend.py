@@ -160,5 +160,33 @@ class CompilerFrontendTests(unittest.TestCase):
             self.assertNotIn("F:/Python", env["PATH"])
 
 
+class ShaderPreparationTests(unittest.TestCase):
+    """compiler/backend.py prepare_shaders: the shaders met in play are prepared at the end of a build; neither a first
+    build without them nor a game program that cannot run stops the build, and no seed file is left behind."""
+
+    def run_prepare(self, game, bundle):
+        import contextlib, io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            backend.prepare_shaders(bundle, game)
+        return out.getvalue()
+
+    def test_a_first_build_has_no_shaders_met_in_play(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            game = Path(tmp)
+            said = self.run_prepare(game, game)
+            self.assertIn("No shaders met in play yet", said)
+            self.assertEqual(sorted(p.name for p in game.iterdir()), [])
+
+    def test_a_game_program_that_cannot_run_leaves_the_build_as_it_is(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            game = Path(tmp)
+            for kind in ("answers", "programs"):   # recorded files with a header and one byte more
+                (game / f"shader-{kind}.bin").write_bytes(b"TOTKSANS" + bytes(9))
+            said = self.run_prepare(game, game)   # no hwaoi program in this folder
+            self.assertIn("could not be prepared now", said)
+            self.assertEqual(sorted(p.name for p in game.iterdir()), ["shader-answers.bin", "shader-programs.bin"])
+
+
 if __name__ == "__main__":
     unittest.main()

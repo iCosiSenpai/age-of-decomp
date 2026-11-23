@@ -133,7 +133,7 @@ What we added to the engine before and after the import, with the switches a dev
 embedded) in English, Italian, Russian and Simplified Chinese (`MENU_LANG`); Age of Decomp's name in everything a player
 reads; the integrated Windows Bluetooth input (`runtime/aod_nintendo.c` + `apps/nintendo-bridge`); controller button
 images and each maker's button names; foreground-only input; volume up to 300 %, mute in the background, audio latency,
-the silent sample clock without an audio device; 30 and 60 FPS only for players; colour profiles chosen outside the
+the silent sample clock without an audio device; 30 and 60 FPS only for players; the setup step's shader preparation (`compiler/backend.py prepare_shaders`: `hwaoi --prepare-shaders` on the shader-answers.bin / shader-programs.bin the game recorded in play, kept across builds; a first build has none); colour profiles chosen outside the
 game (`runtime/color_presets.h`, with OLED); the menu's Restart (exit code from `AOD_RESTART_EXIT`,
 `TOTK_MENU_TEST_SET=<frame>:RESTART=1` in tests); `RENDER_SCALE=game` = the game's own 1600x900 path; NVIDIA DLSS and
 DLAA through Streamline on the temporal path (`TEMPORAL=dlss`, `DLSS_QUALITY`; `runtime/vk_dlss.c`, `aod_dlss.cpp`, MIT
