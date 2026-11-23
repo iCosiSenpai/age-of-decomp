@@ -379,7 +379,19 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Elsewhere than on Windows a picked file is refused at once (DLSS runs only there), before any check.
     #[test]
+    #[cfg(not(windows))]
+    fn a_picked_file_is_refused_off_windows() {
+        let dir = temp("pick-off");
+        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None, portable: false };
+        assert_eq!(pick(&paths, Kind::Dlss, &dir.join("nvngx_dlss.dll")).unwrap_err(), "NVIDIA DLSS is only used on Windows");
+        assert!(!dir.join("data").exists());
+    }
+
+    /// The name and signature checks of a picked file: Windows only, as the signature check is.
+    #[test]
+    #[cfg(windows)]
     fn a_picked_unsigned_file_is_refused() {
         let dir = temp("pick");
         std::fs::create_dir_all(&dir).unwrap();
