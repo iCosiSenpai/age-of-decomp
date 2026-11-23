@@ -201,6 +201,9 @@ and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the 
   `nvngx_dlssg.dll` from NVIDIA into `<data>/ngx` before the build; a failed download does not stop it) → stdout `progress <0..1> <text>` (RecompLauncher protocol), engine output on
   stderr; on success writes the versioned `<dir>/aod-ready-v<prepare.version>.json` and the launcher config. Exit: 0 ok, 2 arguments, 3 wrong game
   file, 4 build failed, 5 cancelled. The GUI runs the same code (`src-tauri/src/prepare.rs`, Tauri event `prepare`).
+  `AgeOfDecomp.exe` has no console: PowerShell neither pipes nor waits for it (`$LASTEXITCODE` stays the last
+  command's), so test `AgeOfDecomp.exe cli …` from bash or with Python's subprocess and pipes, as RecompLauncher's
+  `run_prepare` starts it (stdout and stderr piped, CREATE_NO_WINDOW), or run `aod-cli.exe` in a console.
 - Play: `AgeOfDecomp --play [--game-dir <dir>] [--game=<nup>]` / `aod-cli play [--out <dir>] [--game <nup>]` start
   `hwaoi.exe --play-experimental` with the env in `src-tauri/src/game.rs` (upstream's launch env + `HWAOI_RUMBLE=1`;
   log `<dir>/logs/game-*.log`) and return its exit code (64 = not built, 65 = NUP missing or another file).
