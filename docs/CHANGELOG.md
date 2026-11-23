@@ -7,6 +7,11 @@ report names who reported it: thank you all for testing and writing in.
 
 Build the game again once after installing this version. Setup keeps your settings and saves.
 
+Playing on an AMD Radeon card? Turn on Diagnostics → Draw call markers before you play: it is among the advanced
+settings, in the launcher and in RecompLauncher. If the game stops with code 70, send the report with its log: with
+the markers on, the log says what the card was drawing when it stopped, which is what is needed to fix it on cards
+we do not have.
+
 ### RecompLauncher
 - Made for RecompLauncher 0.90 beta 68: RecompLauncher checks the .nup you pick and refuses one without update 1.0.3
   right away, and it runs the setup again by itself after every Age of Decomp update: when the game needs no new
@@ -55,9 +60,9 @@ Build the game again once after installing this version. Setup keeps your settin
   screen, while DLSS mixed the ground behind it into it, and in the dark, where the two look alike, the character
   faded away. The game marks its characters in the picture, and now each of them gets its own movement, and where the
   picture of the frame before belongs to something else (the ground a character has just left, a rock that now hides
-  it) DLSS starts again from the new frame there. A companion in a long robe can still leave a faint trail when the
-  camera turns. Thanks to the player on RecompLauncher who reported the blur behind Zelda on 2026-11-21 and checked
-  that it goes with DLAA off.
+  it) DLSS starts again from the new frame there. A faint trail can still show, only in the very few scenes where
+  Zelda holds a torch before a fight. Thanks to the player on RecompLauncher who reported the blur behind Zelda on
+  2026-11-21 and checked that it goes with DLAA off.
 - Fullscreen's description says what it is: a borderless window that fills the screen, as it has been since 0.1.2.
   Thanks to the same player, who asked for borderless fullscreen.
 - HDR output and its brightness values are greyed out in the launcher while no screen of the PC has HDR turned on:
