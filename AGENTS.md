@@ -16,7 +16,7 @@ C/C++ runtime (Horizon services, NVN2 on Vulkan, Ampere shaders → SPIR-V).
 | Launcher | `apps/launcher/` | Tauri 2 app: Rust backend (`src-tauri/`) + Svelte 5 / TypeScript UI (`src/`). Setup wizard with steps and progress bar, Play, full Graphics / Controls / Audio / System settings, controller-navigable UI. Also the headless commands `AgeOfDecomp cli …` (RecompLauncher's `prepare`; `src/cli.rs`), and `aod-cli` with the same commands for a console and the launcher's own updates. |
 | NUP crate | `crates/aod-nup/` | Rust reader of the NUP container (spec: `refs/nup/SPEC.md`): superblock, TOC, meta TLVs, zstd extraction, build ID, profile verification. |
 | Packaging | `packaging/` | `recomplauncher.json`, Windows zip layout, Linux AppImage AppDir. |
-| Tools | `tools/` | `engine.py` (toolchain/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check), `fetch_refs.py`, `check_content.py`, `catalog_fmt.py` (the settings catalogue's layout), `menu_texts.py` (game menu texts missing a language or unused), `make_game_icon.py`, `smoke_game.py` (a start of the built game for a check). Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
+| Tools | `tools/` | `engine.py` (toolchain/translator/stage/game/status), `release.py` (manifest/docs/windows/linux/check/notes), `fetch_refs.py`, `check_content.py`, `catalog_fmt.py` (the settings catalogue's layout), `menu_texts.py` (game menu texts missing a language or unused), `make_game_icon.py`, `smoke_game.py` (a start of the built game for a check). Python 3.12+ stdlib only; run with `py -I` (Windows) / `python3` (Linux). |
 
 ## ⚠️ The notebook: `plan&activity/` (gitignored) — mandatory
 

@@ -8,6 +8,8 @@
                                           stage the AppDir AgeOfDecomp-v<ver>-Linux-x64.AppDir (+ .AppImage and
                                           .tar.xz of the same folder, SHA256SUMS-Linux.txt)
   py tools/release.py check <folder>      refuse any game material in a folder (also run by `windows` and `linux`)
+  py tools/release.py notes [--out F]     the GitHub release notes of VERSION: its docs/CHANGELOG.md section with the
+                                          wrapped lines joined (GitHub keeps a Markdown file's line breaks)
 
 The release holds the launcher, aod-cli, the engine bundle (out/engine/<os>: engine sources, shader translator,
 Python and the whole compiler) and recomplauncher.json. It never holds anything from the game: the game is built on the
@@ -441,6 +443,39 @@ def cmd_linux(a) -> None:
               f"({tarball.stat().st_size / 2**20:.0f} MiB), {sums.name}")
 
 
+def release_notes(changelog: str, ver: str) -> str:
+    """The section `## <ver> (…)` of the changelog, its lines joined the way GitHub's release page needs them: a list
+    item or a paragraph on one line (the changelog wraps them at 120 columns; GitHub keeps those breaks)."""
+    lines = changelog.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith(f"## {ver} ")), None)
+    if start is None:
+        sys.exit(f"docs/CHANGELOG.md has no section for {ver}")
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    out: list[str] = []
+    for line in lines[start + 1:end]:
+        joinable = out and out[-1] and not out[-1].startswith("#")
+        if line.startswith("  ") and line.strip() and joinable:   # a wrapped list item goes on
+            out[-1] += " " + line.strip()
+        elif line and not line.startswith(("#", "- ", "  ")) and joinable and not out[-1].startswith("- "):
+            out[-1] += " " + line.strip()                             # a wrapped paragraph goes on
+        else:
+            out.append(line.rstrip())
+    while out and not out[0]:
+        out.pop(0)
+    while out and not out[-1]:
+        out.pop()
+    return "\n".join(out) + "\n"
+
+
+def cmd_notes(a) -> None:
+    text = release_notes((ROOT / "docs/CHANGELOG.md").read_text(encoding="utf-8"), version())
+    if a.out:
+        Path(a.out).write_text(text, encoding="utf-8", newline="\n")
+        print(f"wrote {a.out}")
+    else:
+        sys.stdout.write(text)
+
+
 def elf_info(path: Path) -> tuple[list[str], list[str], tuple[int, ...]]:
     """An ELF file's DT_NEEDED libraries, its RUNPATH/RPATH folders and the newest GLIBC_ symbol version it asks for
     (binutils' readelf)."""
@@ -531,6 +566,8 @@ def main() -> None:
     li.add_argument("--dest", help="output folder (default out/release; under WSL use the Linux file system)")
     c = sub.add_parser("check")
     c.add_argument("folder", type=Path)
+    n = sub.add_parser("notes")
+    n.add_argument("--out", help="write the notes to this file instead of standard output")
     a = ap.parse_args()
     if a.cmd == "manifest":
         cmd_manifest(a)
@@ -540,6 +577,8 @@ def main() -> None:
         cmd_windows(a)
     elif a.cmd == "linux":
         cmd_linux(a)
+    elif a.cmd == "notes":
+        cmd_notes(a)
     else:
         if not a.folder.is_dir():
             sys.exit(f"{a.folder} is not a folder")

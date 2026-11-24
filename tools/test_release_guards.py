@@ -120,6 +120,14 @@ class ReleaseGuardTests(unittest.TestCase):
                                                         "linux": {"glibc": "2.34", "graphics": {"vulkan": "1.3"}}})
         self.assertEqual(release.LINUX_GLIBC, (2, 34))
 
+    def test_release_notes_join_the_changelogs_wrapped_lines(self):
+        # GitHub keeps a release body's line breaks: `release.py notes` puts each list item and paragraph on one line.
+        log = ("# Changelog\n\n## 9.9.9 (2026-01-01)\n\nBuild again once. Setup\nkeeps your saves.\n\n### Fixes\n"
+               "- One fix that is long\n  and wraps.\n- Another.\n\n## 9.9.8 (2025-12-31)\n- Old.\n")
+        self.assertEqual(release.release_notes(log, "9.9.9"),
+                         "Build again once. Setup keeps your saves.\n\n### Fixes\n- One fix that is long and wraps.\n"
+                         "- Another.\n")
+
     def test_apprun_sends_the_headless_starts_to_aod_cli(self):
         # RecompLauncher's setup step (`cli prepare …`) and its start (`--play …`) must not need the launcher's window
         # (WebKitGTK): a Steam Deck has none. The AppRun hands both to aod-cli, which takes both (lib.rs headless).
