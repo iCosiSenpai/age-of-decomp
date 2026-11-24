@@ -195,7 +195,7 @@ mod tests {
     fn nvidias_file_is_fetched_only_with_the_licence_accepted() {
         let args = |values: &[&str]| values.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         let dir = std::env::temp_dir().join(format!("aod-cli-fg-{}", std::process::id()));
-        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None, portable: false };
+        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None };
         // without the option nothing happens; with it alone nothing is downloaded and the step stops
         assert_eq!(fetch_frame_gen(&args(&["prepare"]), &paths), Ok(()));
         assert!(fetch_frame_gen(&args(&["prepare", "--fetch-frame-gen"]), &paths).is_err());

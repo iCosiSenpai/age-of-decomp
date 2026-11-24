@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn an_old_settings_snapshot_cannot_reenable_diagnostics() {
         let root = std::env::temp_dir().join(format!("aod-consent-test-{}", std::process::id()));
-        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None, portable: true };
+        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None };
         assert_eq!(choice(&paths), None);
         save_choice(&paths, true).unwrap();
         let old_config = crate::config::Config::load(&paths);

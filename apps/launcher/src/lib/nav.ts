@@ -135,6 +135,19 @@ export function installKeyboardNav(h: NavHandlers) {
 
 function fireKey(key: string) {
   const target = (document.activeElement as HTMLElement | null) ?? document.body;
+  // A slider moves only on a real key press (a made-up event has no default action): the controller's left and right
+  // step it here, as the arrow keys do, with the same input and change events.
+  if (target instanceof HTMLInputElement && target.type === 'range' && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+    if (target.disabled) return;
+    const before = target.value;
+    if (key === 'ArrowLeft') target.stepDown();
+    else target.stepUp();
+    if (target.value !== before) {
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    return;
+  }
   target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
 }
 

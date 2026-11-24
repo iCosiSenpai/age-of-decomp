@@ -14,8 +14,11 @@
   import Pads from './lib/pages/Pads.svelte';
   import System from './lib/pages/System.svelte';
   import Updates from './lib/components/Updates.svelte';
+  import Icon from './lib/components/Icon.svelte';
 
   let ready = $state(false);
+  // The first read of the launcher's state failed: shown with a way to try again, instead of loading for ever.
+  let initError = $state<string | null>(null);
   let sdlNav = $state(false);
   let main: HTMLElement | undefined = $state();
 
@@ -43,8 +46,13 @@
   };
 
   onMount(async () => {
-    await app.init();
-    ready = true;
+    try {
+      await app.init();
+      ready = true;
+    } catch (e) {
+      initError = String(e);
+      requestAnimationFrame(() => moveFocus('down'));
+    }
     installKeyboardNav(handlers);
     installWebGamepadNav(handlers, () => {}, () => !sdlNav);
     if (isTauri) {
@@ -105,7 +113,16 @@
     </div>
     <HintBar />
   {:else}
-    <div class="loading"><span class="spinner"></span></div>
+    <div class="loading">
+      {#if initError !== null}
+        <div class="failed">
+          <p class="error" role="alert"><Icon name="warn" size={20} /> {tr('Age of Decomp could not start.')} <span class="faint">{tr(initError)}</span></p>
+          <button class="btn primary" data-autofocus onclick={() => location.reload()}>{tr('Try again')}</button>
+        </div>
+      {:else}
+        <span class="spinner"></span>
+      {/if}
+    </div>
   {/if}
   <Toasts />
 </div>
@@ -157,6 +174,18 @@
     flex: 1;
     display: grid;
     place-items: center;
+  }
+  .failed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .error {
+    color: var(--err);
+    max-width: 680px;
+    overflow-wrap: anywhere;
+    text-align: center;
   }
   .spinner {
     width: 34px;

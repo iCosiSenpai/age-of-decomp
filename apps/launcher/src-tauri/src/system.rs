@@ -235,6 +235,11 @@ pub fn find_nups(extra: &[PathBuf]) -> Vec<String> {
                 roots.push(root);
             }
         }
+    } else if let Some(user) = std::env::var_os("USER") {
+        // SD cards and other drives (a Steam Deck mounts its card in /run/media/<user>/<label>)
+        for base in ["/run/media", "/media"] {
+            roots.push(Path::new(base).join(&user));
+        }
     }
     let mut found = Vec::new();
     let mut visited = 0usize;
@@ -255,6 +260,9 @@ fn walk(dir: &Path, depth: u32, found: &mut Vec<String>, visited: &mut usize) {
     }
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     for e in rd.flatten() {
+        if *visited > 20_000 || found.len() >= 20 {
+            return;
+        }
         *visited += 1;
         let name = e.file_name().to_string_lossy().to_string();
         if name.starts_with('.') || name.starts_with('$') || name.eq_ignore_ascii_case("Windows") || name.eq_ignore_ascii_case("node_modules") {

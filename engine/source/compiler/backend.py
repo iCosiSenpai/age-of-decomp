@@ -1,8 +1,8 @@
-"""Local NUP-to-native build workflow used by the portable compiler window.
+"""Local NUP-to-native build workflow: the setup step of Age of Decomp's launcher (apps/launcher prepare.rs) runs it.
 
-Windows x64 builds with the bundle's own tools (Python, llvm-mingw, deps, Ninja). Linux x86-64 builds with the
-system's clang, lld, Ninja and libraries (docs/hwaoi/linux.md) and the bundle's Python (python/bin/python3) when it
-carries one, else the interpreter running this file."""
+Both systems build with the bundle's own tools: Windows x64 with Python, llvm-mingw, deps and Ninja; Linux x86-64 with
+Python, LLVM's clang and lld, the Steam Runtime sniper sysroot (glibc 2.31) in llvm/sysroot, deps (SDL3, Opus,
+libvpx, zstd, Vulkan) and Ninja, so the player's PC needs no development packages (docs/hwaoi/linux.md)."""
 from __future__ import annotations
 import argparse
 import contextlib
@@ -32,10 +32,11 @@ STATE = "hwaoi-compiler.json"
 RESOLUTIONS = ("auto", "1280x720", "1920x1080", "2560x1440", "3840x2160")
 WINDOWS = os.name == "nt"
 LINUX = sys.platform.startswith("linux")
-# What a bundle must hold besides the sources: Windows carries its whole compiler, Linux only the translator.
+# What a bundle must hold besides the sources: its whole compiler on both systems.
 REQUIRED = (("python/python.exe", "llvm/bin/clang.exe", "bin/ninja.exe", "bin/zlib1.dll", "translator/totk_xlate.exe",
              "translator/totk_xlate.id", "deps/include/vma/vk_mem_alloc.h") if WINDOWS else
-            ("translator/totk_xlate", "translator/totk_xlate.id"))
+            ("python/bin/python3", "llvm/bin/clang", "llvm/bin/ld.lld", "bin/ninja", "translator/totk_xlate",
+             "translator/totk_xlate.id", "deps/include/vma/vk_mem_alloc.h", "deps/lib/libSDL3.so.0"))
 
 
 def require(ok, message):
@@ -69,9 +70,8 @@ def bundle_check(bundle, *, defer_materialized=False):
 
 
 def bundle_python(bundle):
-    """The bundle's interpreter; a Linux bundle without one uses the interpreter running this file."""
-    python = Path(bundle) / ("python/python.exe" if WINDOWS else "python/bin/python3")
-    return python if WINDOWS or python.is_file() else Path(sys.executable)
+    """The bundle's interpreter."""
+    return Path(bundle) / ("python/python.exe" if WINDOWS else "python/bin/python3")
 
 
 def nup_profile():
@@ -186,7 +186,7 @@ def clean_environment(bundle):
         env["PATH"] = os.pathsep.join(str(p) for p in (
             bundle / "llvm/bin", bundle / "bin", Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32"))
     else:
-        # Linux: clang, lld and Ninja are the system's, found on the user's PATH after any the bundle carries.
+        # Linux: the bundle's tools first; the system's folders after them for /bin/sh, which Ninja runs commands with.
         env["PATH"] = os.pathsep.join([str(bundle / "llvm/bin"), str(bundle / "bin"),
                                        os.environ.get("PATH") or "/usr/local/bin:/usr/bin:/bin"])
     return env
@@ -238,7 +238,8 @@ def prepare_shaders(bundle, game):
 
 
 def run_tool(bundle, output, *arguments):
-    command = [str(bundle_python(bundle)), "-E", "-s", str(output / "tools/hwaoi.py"), *map(str, arguments)]
+    # -X utf8: -E leaves PYTHONUTF8 out, and this process reads the tool's output as UTF-8
+    command = [str(bundle_python(bundle)), "-E", "-s", "-X", "utf8", str(output / "tools/hwaoi.py"), *map(str, arguments)]
     print("+ " + subprocess.list2cmdline(command), flush=True)
     process = subprocess.Popen(command, cwd=output, env=clean_environment(bundle), stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
@@ -328,8 +329,7 @@ def build(bundle, nup, output, jobs=0, resolution="auto", unlock=False, update_n
         syncing = time.perf_counter()
         cache.synchronize(bundle, output, sources, lambda p: Path(p).relative_to("source"), backup, state.get("source_files"))
         state["source_files"] = sources
-        toolchain_stamp = (cache.prepare_tools(bundle, output, manifest, backup) if WINDOWS else
-                           cache.prepare_system_tools(output, clean_environment(bundle)["PATH"]))
+        toolchain_stamp = cache.prepare_tools(bundle, output, manifest, backup)
         print(f"  Source/tool synchronization: {time.perf_counter() - syncing:.2f}s", flush=True)
         state["setup_timings"] = {"preflight": round(checked - started, 3),
                                   "source_tools": round(time.perf_counter() - syncing, 3)}
@@ -410,13 +410,10 @@ def build_stages(bundle, nup, output, jobs, resolution, unlock, state, manifest,
                 print(f"  The game icon could not be prepared ({error}); building without it.", flush=True)
         if not has_icon and icon.is_file():
             icon.unlink()
-        if WINDOWS:
-            tools = ["--deps", output / "work/toolchain/deps", "--toolchain", output / "work/toolchain/llvm",
-                     "--ninja", output / "work/toolchain/ninja.exe"]
-        else:
-            ninja = shutil.which("ninja", path=clean_environment(bundle)["PATH"])
-            require(ninja, "ninja not found: install clang, lld and ninja (docs/hwaoi/linux.md)")
-            tools = ["--ninja", ninja]
+        tools = ["--deps", output / "work/toolchain/deps", "--toolchain", output / "work/toolchain/llvm",
+                 "--ninja", output / "work/toolchain" / ("ninja.exe" if WINDOWS else "ninja")]
+        if not WINDOWS:   # every compile and the link read the sniper sysroot: the game needs glibc 2.31, no more
+            tools += ["--sysroot", output / "work/toolchain/llvm/sysroot"]
         run_tool(bundle, output, *common, "build", "--romfs", "work/game/romfs", *tools,
                  "--toolchain-stamp", toolchain_stamp, "--jobs", jobs, *(["--icon", icon] if has_icon else []))
         game = output / "work/build/hwaoi196608"
@@ -452,7 +449,7 @@ def build_stages(bundle, nup, output, jobs, resolution, unlock, state, manifest,
         state["timings"]["stages_total"] = round(time.perf_counter() - started, 3)
         state["timings"]["total"] = round(time.perf_counter() - total_started, 3)
         save(output / STATE, state)
-        print("BUILD COMPLETE. Use Open compiled game in the compiler window.\n"
+        print("BUILD COMPLETE.\n"
               "Keep the NUP at its original location: the game reads resources from it.\n"
               "This local output contains game-derived files and is not for redistribution.", flush=True)
     except Exception:

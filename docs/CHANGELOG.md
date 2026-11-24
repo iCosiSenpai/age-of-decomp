@@ -3,6 +3,47 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
+## 0.3.0 (2026-11-24)
+
+Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
+keeps your settings and saves. Windows and Linux have the same version and the same game.
+
+### Linux and Steam Deck
+- Age of Decomp now runs natively on Linux: `AgeOfDecomp-v0.3.0-Linux-x64.AppImage`, and a `.tar.xz` of the same
+  folder. Like the Windows version it builds the game on your PC from your own .nup, with nothing to install: the
+  compiler and every library the game needs are inside. It runs on SteamOS 3 and on any distribution with glibc 2.34
+  or newer (Ubuntu 22.04, Debian 12, Fedora 36 or newer), with a Vulkan 1.3 driver.
+- On a Steam Deck or another handheld with SteamOS or Bazzite, set it up and play through RecompLauncher: its setup and
+  Play need no window from us. The launcher's own window needs WebKitGTK 4.1 from your system and says so when it is
+  missing.
+- Looking for your .nup, the launcher also searches the drives Linux mounts in /run/media and /media, such as a Steam
+  Deck's SD card.
+- The Linux build follows the model of DKB Recomp's self-contained Linux release (@Lucas-blip-png): LLVM's own
+  compiler and Valve's Steam Runtime 3 SDK, so the game it builds runs on SteamOS and on every distribution since.
+  Thanks to everyone who asked for an AppImage in Alano6678/hwaoi-recomp#14, among them @omegaxis64-pixel and
+  @alucardxs.
+
+### Controllers
+- In the launcher, the controller's left and right now move sliders (volumes, render scale and the others): they
+  only moved with the keyboard's arrow keys.
+- In the game's Controls menu, giving an action the key it already has in that place no longer drops its other key.
+
+### Display
+- On Linux, a window size you choose comes out at that size on a desktop scaled above 100 %: at 150 % a 1920x1080
+  window came out 1280x720.
+
+### Stability
+- The game no longer ends with code 70, "RomFS cache missing or truncated", when its folder was moved or renamed after
+  the build: Play now tells it where its resource cache is.
+- When the launcher cannot read its own settings as it starts, it says so with a Try again button instead of loading
+  for ever.
+- A Play pressed right after the game closes no longer leaves the controllers with the launcher, and a Cancel pressed
+  as Setup starts is no longer forgotten.
+- Two game starts in the same second no longer write into the same log, and on Linux a game that a crash or the system
+  ended shows its code instead of none.
+- Setup removes only empty folders when it puts saves back after a build, and a save copied from an earlier game
+  folder comes with its account or not at all.
+
 ## 0.2.1 (2026-11-24)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup

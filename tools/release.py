@@ -9,12 +9,12 @@
                                           .tar.xz of the same folder, SHA256SUMS-Linux.txt)
   py tools/release.py check <folder>      refuse any game material in a folder (also run by `windows` and `linux`)
 
-The release holds the launcher, aod-cli, the engine bundle (out/engine/<os>: engine sources + shader translator +
-Python, on Windows also the compiler) and recomplauncher.json. It never holds anything from the game: the game is built
-on the player's PC. Linux: the launcher binaries come from `cargo build --release --features tauri/custom-protocol`
-(frontend built first with `pnpm build`), the AppImage from mksquashfs (squashfs-tools) + the pinned AppImage type 2
-runtime (tools/engine.py PINS); on Linux the player needs clang, lld, Ninja and the SDL3/Opus/libvpx/zstd/Vulkan/zlib
-development packages.
+The release holds the launcher, aod-cli, the engine bundle (out/engine/<os>: engine sources, shader translator,
+Python and the whole compiler) and recomplauncher.json. It never holds anything from the game: the game is built on the
+player's PC, which needs nothing installed on either system. Linux: the launcher binaries come from
+packaging/linux/build-launcher.sh (Ubuntu 22.04, glibc 2.35; the frontend built first with `pnpm build`), the AppImage
+from mksquashfs (squashfs-tools) + the pinned AppImage type 2 runtime (tools/engine.py PINS). Every ELF file of the
+AppDir is checked: no glibc newer than LINUX_GLIBC, and no library that is neither in the folder nor on every PC.
 """
 from __future__ import annotations
 
@@ -38,6 +38,16 @@ BUILD_ID = "659cb288b5c5b2b49853add616c0d5bf4ea4e1ba"  # update NCM 196608 exefs
 GAME_DIR = "{install}/game"
 INI = GAME_DIR + "/work/build/hwaoi196608/hwaoi.ini"
 SAVES = GAME_DIR + "/work/saves/hwaoi196608"
+# Linux: the newest glibc any program or library of the AppImage may ask for (LLVM's release binaries and the
+# programs built on Ubuntu 22.04 need 2.34; the game the PC builds needs the sniper sysroot's 2.31), and the libraries
+# an ELF file may need from the PC: the C runtime, Vulkan's loader, and for the launcher's window GTK 3 and WebKitGTK
+# 4.1 (the AppRun checks those before it opens the window; aod-cli and the game need none of them).
+LINUX_GLIBC = (2, 34)
+LINUX_SYSTEM_LIBS = {"libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1", "libutil.so.1",
+                     "ld-linux-x86-64.so.2", "libgcc_s.so.1", "libstdc++.so.6", "libz.so.1", "libvulkan.so.1"}
+LINUX_WINDOW_LIBS = {"libgtk-3.so.0", "libgdk-3.so.0", "libgdk_pixbuf-2.0.so.0", "libcairo.so.2", "libgobject-2.0.so.0",
+                     "libglib-2.0.so.0", "libgio-2.0.so.0", "libdbus-1.so.3", "libwebkit2gtk-4.1.so.0",
+                     "libjavascriptcoregtk-4.1.so.0", "libsoup-3.0.so.0", "libssl.so.3", "libcrypto.so.3"}
 # Extensions that must never be in a release (game content, keys, dumps).
 FORBIDDEN = {".nup", ".nsp", ".nsz", ".xci", ".xcz", ".nca", ".ncz", ".nso", ".nro", ".npdm", ".keys", ".tik", ".bfres",
              ".sarc", ".zs", ".bntx", ".bfsha", ".g1t", ".g1m", ".ktf2", ".ktsl2stbin", ".rdb", ".fdata"}
@@ -77,10 +87,11 @@ def manifest() -> dict:
         "format": 1,
         "name": "Age of Decomp",
         "repo": "iCosiSenpai/age-of-decomp",
-        # What the PC needs, shown on the game's page (RecompLauncher warns on an older Windows and never stops the
-        # game). Only the systems a release ships a build for: add "linux" (glibc of the build system, Vulkan 1.3)
-        # with the first published Linux build.
-        "system": {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}}},
+        # What the PC needs, shown on the game's page (RecompLauncher warns on an older system and never stops the
+        # game): Linux's glibc is the newest any program of the AppImage asks for (LINUX_GLIBC, `release.py linux`
+        # checks it), set by LLVM's binaries and the programs built on Ubuntu 22.04.
+        "system": {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}},
+                   "linux": {"glibc": ".".join(map(str, LINUX_GLIBC)), "graphics": {"vulkan": "1.3"}}},
         # The player's copy is a named input: RecompLauncher's one way to ask for a file from 0.90 beta 68 on (its
         # top-level `game` section is deprecated there, and beta 65 and 66 refused it next to named inputs, player
         # report RL-1). Beta 68 is what players have (released 2026-11-23), so RecompLauncher looks at the picked
@@ -225,12 +236,15 @@ def verify_engine(engine: Path) -> int:
 
 def verify_zip(z: Path, folder: Path, top: str) -> None:
     """The archive holds exactly the release folder, and every member reads back with its CRC."""
-    want = {f"{top}/{p.relative_to(folder).as_posix()}" for p in folder.rglob("*") if p.is_file()}
+    want = {f"{top}/{p.relative_to(folder).as_posix()}": p.stat().st_size for p in folder.rglob("*") if p.is_file()}
     with zipfile.ZipFile(z) as zf:
-        names = {n for n in zf.namelist() if not n.endswith("/")}
+        infos = [i for i in zf.infolist() if not i.filename.endswith("/")]
         broken = zf.testzip()
-    if names != want or broken:
-        sys.exit(f"{z.name} does not match {folder.name}: {len(names ^ want)} differing entries, first bad member {broken}")
+    names = [i.filename for i in infos]
+    sizes = {i.filename: i.file_size for i in infos}
+    if len(names) != len(set(names)) or sizes != want or broken:
+        sys.exit(f"{z.name} does not match {folder.name}: {len(set(sizes.items()) ^ set(want.items()))} differing "
+                 f"entries, {len(names) - len(set(names))} repeated, first bad member {broken}")
 
 
 def stale_engine_files(engine: Path) -> list[str]:
@@ -240,8 +254,11 @@ def stale_engine_files(engine: Path) -> list[str]:
     import engine as engine_tool   # tools/engine.py: the same list of files and the same hash as its stage
 
     staged = json.loads((engine / "bundle.json").read_text(encoding="utf-8")).get("files", {})
-    return [name for name in engine_tool.source_files()
-            if name != "VERSION" and staged.get(f"source/{name}") != engine_tool.sha256(engine_tool.ENGINE / name)]
+    current = engine_tool.source_files()
+    # Both ways: a file the repository no longer has, still in the bundle, makes it stale as well
+    gone = sorted({p[len("source/"):] for p in staged if p.startswith("source/")} - {*current, "VERSION"})
+    return [name for name in current
+            if name != "VERSION" and staged.get(f"source/{name}") != engine_tool.sha256(engine_tool.ENGINE / name)] + gone
 
 
 def release_info(allow_dirty: bool, engine: Path) -> dict:
@@ -377,19 +394,21 @@ def cmd_linux(a) -> None:
         f"Age of Decomp {ver} (Linux x86-64 AppImage)\n\n"
         "A native PC build of your own Hyrule Warriors: Age of Imprisonment (Nintendo Switch 2). This package contains\n"
         "no game code or data: the game is built on this PC from your own .nup dump (the game with update 1.0.3).\n\n"
-        "Needs Linux 6.7 or later (older kernels work, slower), a Vulkan 1.3 driver with VK_EXT_external_memory_host,\n"
-        "WebKitGTK 4.1 for the launcher window, and to build the game: clang, lld, Ninja and the SDL3, Opus, libvpx,\n"
-        "zstd, Vulkan and zlib development packages. Debian/Ubuntu:\n"
-        "  sudo apt install clang lld ninja-build libsdl3-dev libopus-dev libvpx-dev libzstd-dev libvulkan-dev zlib1g-dev\n\n"
+        "Needs a 64-bit Linux with glibc 2.34 or newer (SteamOS 3, Ubuntu 22.04, Debian 12, Fedora 36 or newer) and a\n"
+        "Vulkan 1.3 driver (Mesa or NVIDIA); Linux 6.7 or later is faster. Nothing to install: the compiler that\n"
+        "builds the game on this PC is inside. Only the launcher's own window needs WebKitGTK 4.1 from the system\n"
+        "(Debian/Ubuntu libwebkit2gtk-4.1-0, Fedora webkit2gtk4.1, Arch webkit2gtk-4.1). On a Steam Deck, or without\n"
+        "it, set up and play with RecompLauncher, which runs the steps below without that window.\n\n"
         "1. Run the AppImage and follow Setup: pick your .nup, check it, choose a folder (25 GB free), Build.\n"
         "2. Press Play. Settings: in the launcher, or in game with Esc. F10 performance overlay, F11 fullscreen.\n\n"
-        "Command line: `AgeOfDecomp-…AppImage cli prepare|play|verify …` runs aod-cli (RecompLauncher uses it).\n"
-        "Licences: LICENSE.txt, licenses/ and engine/licenses/. Not affiliated with Nintendo or Koei Tecmo.\n",
+        "Command line: `AgeOfDecomp-…AppImage cli prepare|play|verify …` and `--play` run aod-cli (RecompLauncher\n"
+        "uses them). Licences: LICENSE.txt, licenses/ and engine/licenses/. Not affiliated with Nintendo or Koei Tecmo.\n",
         encoding="utf-8")
     (out / "build-info.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8", newline="\n")
     bad = check(out)
     if bad:
         sys.exit("release contains forbidden files:\n" + "\n".join(bad))
+    check_linux_programs(out)
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file() and not p.is_symlink())
     print(f"staged {out} ({size / 2**20:.0f} MiB)")
     if a.appimage:
@@ -420,6 +439,67 @@ def cmd_linux(a) -> None:
                         newline="\n")
         print(f"AppImage {image} ({image.stat().st_size / 2**20:.0f} MiB), {tarball.name} "
               f"({tarball.stat().st_size / 2**20:.0f} MiB), {sums.name}")
+
+
+def elf_info(path: Path) -> tuple[list[str], list[str], tuple[int, ...]]:
+    """An ELF file's DT_NEEDED libraries, its RUNPATH/RPATH folders and the newest GLIBC_ symbol version it asks for
+    (binutils' readelf)."""
+    import re
+    dyn = subprocess.run(["readelf", "-d", "-W", str(path)], capture_output=True, text=True, check=True).stdout
+    ver = subprocess.run(["readelf", "-V", "-W", str(path)], capture_output=True, text=True, check=True).stdout
+    needed = re.findall(r"\(NEEDED\)\s+Shared library: \[([^\]]+)\]", dyn)
+    runpath = [d for found in re.findall(r"\((?:RUNPATH|RPATH)\)\s+Library r(?:un)?path: \[([^\]]*)\]", dyn)
+               for d in found.split(":") if d]
+    newest = max((tuple(map(int, v.split("."))) for v in re.findall(r"GLIBC_(\d+(?:\.\d+)+)", ver)), default=(0,))
+    return needed, runpath, newest
+
+
+def check_linux_programs(out: Path) -> None:
+    """Every ELF file of the AppDir (the sysroot aside: glibc itself, which only the build's link reads) asks for no
+    glibc newer than LINUX_GLIBC, and each library it needs is one every PC has or one the loader finds in the folder
+    through the file's own RUNPATH ($ORIGIN), as the loader would; only the launcher's window may need GTK and
+    WebKitGTK. The two programs must be x86-64 Linux executables, and no link may lead outside the folder."""
+    if not shutil.which("readelf"):
+        sys.exit("readelf not found: install binutils")
+    for name in ("AgeOfDecomp", "aod-cli"):
+        head = (out / name).read_bytes()[:20]
+        if head[:4] != b"\x7fELF" or head[4] != 2 or int.from_bytes(head[18:20], "little") != 62:
+            sys.exit(f"{name} is not an x86-64 Linux program: build it with packaging/linux/build-launcher.sh")
+    sysroot = out / "engine" / "llvm" / "sysroot"
+    newest, by, problems, count = (0,), [], [], 0
+    for p in sorted(out.rglob("*")):
+        if p.is_symlink():
+            target = p.resolve()
+            if not target.exists() or not target.is_relative_to(out.resolve()):
+                problems.append(f"{p.relative_to(out)} links to {os.readlink(p)}, outside the folder or to nothing")
+            continue
+        if not p.is_file() or sysroot in p.parents:
+            continue
+        with p.open("rb") as f:
+            if f.read(4) != b"\x7fELF":
+                continue
+        count += 1
+        needed, runpath, need = elf_info(p)
+        dirs = [Path(d.replace("$ORIGIN", str(p.parent)).replace("${ORIGIN}", str(p.parent))) for d in runpath]
+        system = LINUX_SYSTEM_LIBS | (LINUX_WINDOW_LIBS if p.name == "AgeOfDecomp" else set())
+        for lib in needed:
+            if "/" in lib:   # a path the loader opens as it is, $ORIGIN expanded
+                found = Path(lib.replace("$ORIGIN", str(p.parent)).replace("${ORIGIN}", str(p.parent))).is_file()
+            else:
+                found = lib in system or any((d / lib).is_file() for d in dirs)
+            if not found:
+                problems.append(f"{p.relative_to(out)} needs {lib}, neither on every PC nor in its RUNPATH")
+        if need > newest:
+            newest, by = need, []
+        if need == newest:
+            by.append(p.relative_to(out).as_posix())
+    floor = ".".join(map(str, LINUX_GLIBC))
+    if newest > LINUX_GLIBC:
+        problems.append(f"{', '.join(by[:6])} need glibc {'.'.join(map(str, newest))}, above {floor}")
+    if problems:
+        sys.exit("the Linux programs need more than the PCs they are for:\n" + "\n".join(problems[:30]))
+    print(f"programs: {count} ELF files need glibc {'.'.join(map(str, newest))} at most (floor {floor}: "
+          f"{', '.join(by[:4])}{' and others' if len(by) > 4 else ''}) and no library a PC may lack")
 
 
 def pack_tarball(folder: Path, tarball: Path, top: str) -> None:
@@ -461,6 +541,8 @@ def main() -> None:
     elif a.cmd == "linux":
         cmd_linux(a)
     else:
+        if not a.folder.is_dir():
+            sys.exit(f"{a.folder} is not a folder")
         bad = check(a.folder)
         print("\n".join(bad) or "clean")
         sys.exit(1 if bad else 0)

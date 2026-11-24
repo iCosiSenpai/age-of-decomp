@@ -210,7 +210,7 @@ mod tests {
         let output = root.join("game");
         std::fs::create_dir_all(paths::game_bin_dir(&output)).unwrap();
         let cfg = Config { output: Some(output.to_string_lossy().into_owned()), ..Config::default() };
-        let paths = Paths { exe_dir: root.clone(), data: root.join("data"), engine: None, portable: false };
+        let paths = Paths { exe_dir: root.clone(), data: root.join("data"), engine: None };
         (root, cfg, paths)
     }
 

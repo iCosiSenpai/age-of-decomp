@@ -223,7 +223,8 @@ pub fn pick(paths: &Paths, kind: Kind, source: &Path) -> Result<(), String> {
     std::fs::create_dir_all(dest.parent().ok_or("no folder for the DLSS file")?).map_err(|e| e.to_string())?;
     // Our own copy is what gets checked, never the picked file a second time: the bytes Windows calls signed are
     // then the bytes that go into place, whatever happens to the picked file meanwhile.
-    let part = dest.with_extension(format!("{}.part.dll", std::process::id()));
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.subsec_nanos());
+    let part = dest.with_extension(format!("{}-{nanos}.part.dll", std::process::id()));
     std::fs::write(&part, &bytes).map_err(|e| e.to_string())?;
     let result = if pinned || signed_by_nvidia(&part) {
         std::fs::rename(&part, &dest).map_err(|e| e.to_string())
@@ -335,7 +336,7 @@ mod tests {
     #[ignore]
     fn real_download_from_nvidia() {
         let dir = temp("real-download");
-        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None, portable: false };
+        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None };
         for kind in [Kind::FrameGen, Kind::Dlss] {
             let mut last = 0.0;
             download(&paths, kind, |p| last = p).unwrap();
@@ -358,7 +359,7 @@ mod tests {
             assert_eq!(pin.sha256.len(), 64);
         }
         assert_ne!(a.sha256, b.sha256);
-        let paths = Paths { exe_dir: PathBuf::from("x"), data: PathBuf::from("data"), engine: None, portable: false };
+        let paths = Paths { exe_dir: PathBuf::from("x"), data: PathBuf::from("data"), engine: None };
         assert_eq!(file(&paths, Kind::FrameGen), PathBuf::from("data").join("ngx").join("nvngx_dlssg.dll"));
     }
 
@@ -368,7 +369,7 @@ mod tests {
     fn a_picked_nvidia_file_is_kept() {
         let source = PathBuf::from(std::env::var("AOD_TEST_NVNGX").expect("AOD_TEST_NVNGX"));
         let dir = temp("pick-real");
-        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None, portable: false };
+        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None };
         pick(&paths, Kind::Dlss, &source).unwrap();
         assert_eq!(std::fs::metadata(file(&paths, Kind::Dlss)).unwrap().len(), std::fs::metadata(&source).unwrap().len());
         // A signed NVIDIA DLL under another name is refused, and so is this one as the frame generation file.
@@ -384,7 +385,7 @@ mod tests {
     #[cfg(not(windows))]
     fn a_picked_file_is_refused_off_windows() {
         let dir = temp("pick-off");
-        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None, portable: false };
+        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None };
         assert_eq!(pick(&paths, Kind::Dlss, &dir.join("nvngx_dlss.dll")).unwrap_err(), "NVIDIA DLSS is only used on Windows");
         assert!(!dir.join("data").exists());
     }
@@ -397,7 +398,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let fake = dir.join("nvngx_dlss.dll");
         std::fs::write(&fake, b"MZ not signed").unwrap();
-        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None, portable: false };
+        let paths = Paths { exe_dir: dir.clone(), data: dir.join("data"), engine: None };
         assert!(pick(&paths, Kind::Dlss, &fake).is_err());
         assert!(!file(&paths, Kind::Dlss).exists());
         // The same for the frame generation file, under its own name and under the other one.

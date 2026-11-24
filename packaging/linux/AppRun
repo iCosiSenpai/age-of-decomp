@@ -1,10 +1,29 @@
 #!/bin/sh
-# Age of Decomp AppImage entry point (AppDir layout: tools/release.py linux).
-#   AgeOfDecomp-…AppImage cli <command> …   -> aod-cli <command> …  (RecompLauncher's prepare, scripts)
-#   AgeOfDecomp-…AppImage [arguments]       -> the launcher (Setup, Play, settings; --play starts the game)
+# Age of Decomp AppImage entry point (AppDir layout: tools/release.py linux). RecompLauncher never runs the AppImage:
+# it unpacks it and starts this file from a plain folder (APPIMAGE unset), so everything is found from here.
+#   AppRun cli <command> …   -> aod-cli cli <command> …  (RecompLauncher's setup step, scripts)
+#   AppRun … --play …        -> aod-cli … --play …       (RecompLauncher's start: the game, no window)
+#   AppRun [arguments]       -> the launcher's window (Setup, Play, settings), which needs WebKitGTK 4.1
+# aod-cli needs no WebKitGTK and no GTK: a Steam Deck sets up and plays through RecompLauncher with nothing installed.
 HERE=$(dirname "$(readlink -f "$0")")
 if [ "$1" = "cli" ]; then
-    shift
     exec "$HERE/aod-cli" "$@"
+fi
+for arg in "$@"; do
+    if [ "$arg" = "--play" ]; then
+        exec "$HERE/aod-cli" "$@"
+    fi
+done
+# The window's libraries come from the PC. Without them the loader would only print to a terminal nobody sees.
+missing=$(ldd "$HERE/AgeOfDecomp" 2>/dev/null | sed -n 's/^[[:space:]]*\([^[:space:]]*\) => not found$/\1/p' | tr '\n' ' ')
+if [ -n "$missing" ]; then
+    msg="Age of Decomp's window needs WebKitGTK 4.1, which this PC does not have (missing: $missing). Install it (Debian and Ubuntu: libwebkit2gtk-4.1-0; Fedora: webkit2gtk4.1; Arch: webkit2gtk-4.1), or set up and play the game with RecompLauncher, which needs nothing more."
+    echo "$msg" >&2
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --title="Age of Decomp" --width=480 --text="$msg" 2>/dev/null
+    elif command -v kdialog >/dev/null 2>&1; then
+        kdialog --title "Age of Decomp" --error "$msg" 2>/dev/null
+    fi
+    exit 127
 fi
 exec "$HERE/AgeOfDecomp" "$@"

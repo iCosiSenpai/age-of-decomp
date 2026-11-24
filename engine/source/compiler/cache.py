@@ -5,7 +5,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import time
 from functools import lru_cache
 
@@ -111,11 +110,15 @@ def synchronize(bundle, output, files, destination, backup, previous=None):
 
 
 def prepare_tools(bundle, output, manifest, backup):
-    files = {p: sha for p, sha in manifest["files"].items()
-             if p.startswith(("llvm/", "deps/")) or p == "bin/ninja.exe"}
-    require(files and "llvm/bin/clang.exe" in files and "bin/ninja.exe" in files, "Missing compiler inputs")
+    """The bundle's compiler (llvm/, deps/, Ninja) copied into work/toolchain: the build reads its own copy, so a newer
+    release unpacked over the bundle does not change the tools under a running build. The stamp is an input of every
+    compile: another compiler rebuilds the objects."""
+    exe = ".exe" if os.name == "nt" else ""
+    ninja = f"bin/ninja{exe}"
+    files = {p: sha for p, sha in manifest["files"].items() if p.startswith(("llvm/", "deps/")) or p == ninja}
+    require(files and f"llvm/bin/clang{exe}" in files and ninja in files, "Missing compiler inputs")
     def destination(relative):
-        return Path("work/toolchain") / ("ninja.exe" if relative == "bin/ninja.exe" else relative)
+        return Path("work/toolchain") / (f"ninja{exe}" if relative == ninja else relative)
     stamp = inside(output, "work/toolchain/identity.json")
     try:
         previous = json.loads(stamp.read_text(encoding="utf-8"))
@@ -124,47 +127,6 @@ def prepare_tools(bundle, output, manifest, backup):
     changed = synchronize(bundle, output, files, destination, backup, previous.get("files"))
     if changed or previous.get("identity") != key(files):
         write_changed(stamp, json.dumps({"identity": key(files), "installed": time.time_ns(), "files": files}).encode("ascii"))
-    return stamp
-
-
-# The headers and libraries the Linux link uses (tools/build_game.py LINK_LIBS), each checked by one compile and link.
-SYSTEM_LIBRARIES = {"SDL3": ("SDL3/SDL.h", "SDL3"), "Opus": ("opus/opus.h", "opus"), "libvpx": ("vpx/vpx_decoder.h", "vpx"),
-                    "zstd": ("zstd.h", "zstd"), "Vulkan": ("vulkan/vulkan.h", "vulkan"), "zlib": ("zlib.h", "z")}
-
-
-def check_system_libraries(clang, path):
-    """Before hours of work: every development package the link needs is installed."""
-    import tempfile
-    missing = []
-    with tempfile.TemporaryDirectory(prefix="hwaoi-probe-") as folder:
-        source = Path(folder) / "probe.c"
-        for name, (header, lib) in SYSTEM_LIBRARIES.items():
-            source.write_text(f"#include <{header}>\nint main(void) {{ return 0; }}\n", encoding="ascii")
-            probe = subprocess.run([clang, "-fuse-ld=lld", str(source), f"-l{lib}", "-o", str(Path(folder) / "probe")],
-                                   capture_output=True, env=dict(os.environ, PATH=path))
-            if probe.returncode:
-                missing.append(name)
-    require(not missing, "Missing development files for " + ", ".join(missing) +
-            ": install their -dev / -devel packages (docs/hwaoi/linux.md)")
-
-
-def prepare_system_tools(output, path):
-    """Linux: the system's clang, lld and Ninja build the game. Their versions are the toolchain identity, so another
-    compiler or linker rebuilds the objects (the stamp is an input of every compile)."""
-    tools = {}
-    for name in ("clang", "ld.lld", "ninja"):
-        exe = shutil.which(name, path=path)
-        require(exe, f"{name} not found: install clang, lld and ninja (docs/hwaoi/linux.md)")
-        version = subprocess.run([exe, "--version"], capture_output=True, text=True, check=True).stdout.strip()
-        tools[name] = {"path": str(Path(exe).resolve()), "version": (version.splitlines() or [""])[0]}
-    check_system_libraries(tools["clang"]["path"], path)
-    stamp = inside(output, "work/toolchain/identity.json")
-    try:
-        previous = json.loads(stamp.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        previous = {}
-    if previous.get("identity") != key(tools):
-        write_changed(stamp, json.dumps({"identity": key(tools), "installed": time.time_ns(), "tools": tools}).encode("ascii"))
     return stamp
 
 

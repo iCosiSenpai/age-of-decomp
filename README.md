@@ -28,8 +28,8 @@
   I am looking for you. Build the game, play for a while, then
   <a href="https://github.com/iCosiSenpai/age-of-decomp/issues/new/choose"><b>open an issue</b></a> with your device,
   what worked, what did not, and the newest <code>game-*.log</code>.<br>
-  Windows handhelds use the normal release. On Linux and SteamOS the game is built
-  <a href="#building-from-source">from source</a> for now.
+  Windows handhelds use the Windows release; Linux, SteamOS and Bazzite use the Linux AppImage, best through
+  RecompLauncher on a Steam Deck.
 </p>
 
 > [!IMPORTANT]
@@ -94,15 +94,17 @@ stops, and *Diagnostics → Draw call markers* makes the log name what the card 
 its log helps a lot. On Intel GPUs the first start could stop after two seconds; 0.1.2 fixes it (tested on an Intel
 Xe iGPU).
 
-Linux: the AppImage builds the game from your `.nup` and boots it to its first menu (tested under WSL with a software
-renderer); speed on real Linux PCs and on the Steam Deck is not tested yet.
+Linux: the AppImage builds the game from your `.nup` with nothing installed (tested in a bare Ubuntu 22.04 container)
+and plays it (tested under WSL with a software renderer); speed on real Linux PCs and on the Steam Deck is not tested
+yet: a report helps.
 
 ## Requirements
 
 Windows 10/11 x64 or Linux x86-64, a CPU with **AVX2**, a **Vulkan 1.3** GPU with `VK_EXT_external_memory_host`
 (recent NVIDIA, AMD, Intel drivers), 16 GB RAM (32 GB recommended), about **25 GB** free for the build.
-On Linux also: kernel 6.7 or later (older ones work, slower), glibc 2.39+ and WebKitGTK 4.1 for the launcher window,
-and to build the game clang, lld, Ninja and the SDL3, Opus, libvpx, zstd, Vulkan and zlib development packages.
+On Linux: glibc 2.34 or newer (SteamOS 3, Ubuntu 22.04, Debian 12, Fedora 36 or newer); kernel 6.7 or later is
+faster. Nothing to install to build the game: the compiler is inside the AppImage. Only the launcher's own window needs
+WebKitGTK 4.1 from the system; RecompLauncher needs no window from us.
 
 ## Quick start
 
@@ -110,12 +112,9 @@ and to build the game clang, lld, Ninja and the SDL3, Opus, libvpx, zstd, Vulkan
 2. Run **AgeOfDecomp.exe** and follow *Setup*. Keep your `.nup` where it is: the game reads its resources from it.
 3. Press **Play**. In game: **Esc** settings, **F10** performance overlay, **F11** fullscreen.
 
-The published preview currently ships Windows. Linux builds are experimental and can be built from source.
-On Debian/Ubuntu install the build packages first:
-
-```bash
-sudo apt install clang lld ninja-build libsdl3-dev libopus-dev libvpx-dev libzstd-dev libvulkan-dev zlib1g-dev
-```
+On Linux: download `AgeOfDecomp-v<version>-Linux-x64.AppImage`, make it executable (`chmod +x`) and run it; the same
+steps follow. A `.tar.xz` of the same folder is there for a PC that does not run AppImages: unpack it and start
+`AppRun`.
 
 With **RecompLauncher**: import the extracted folder through **Settings → Developers → Add a build**.
 Drop in your `.nup`, follow Setup, then press Play. The repository can be added through **Add a recomp**;
@@ -147,14 +146,15 @@ cd apps/launcher; pnpm install; pnpm tauri build --no-bundle
 py tools/release.py windows --zip
 ```
 
-Linux (the same steps with `python3`; `toolchain` checks the system packages and prints what is missing):
+Linux (the same steps with `python3`; `toolchain` fetches LLVM and the Steam Runtime 3 SDK and builds SDL in the SDK's
+own image, so it needs docker or podman, make and tar; the translator needs the .NET 10 SDK):
 
 ```bash
 python3 tools/engine.py toolchain
 python3 tools/engine.py translator && python3 tools/engine.py stage    # → out/engine/linux
 (cd apps/launcher && pnpm install && pnpm build)
-(cd apps/launcher/src-tauri && cargo build --release --locked --features tauri/custom-protocol)
-python3 tools/release.py linux --appimage
+docker run --rm -v "$PWD:/src" -w /src ubuntu:22.04 sh packaging/linux/build-launcher.sh   # the two programs
+python3 tools/release.py linux --appimage --bin-dir apps/launcher/src-tauri/target/release
 ```
 
 Details: [AGENTS.md](AGENTS.md) (also the rules for AI agents working on this repository).

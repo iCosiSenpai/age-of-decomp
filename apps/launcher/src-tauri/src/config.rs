@@ -204,7 +204,7 @@ mod tests {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
         ));
         std::fs::create_dir_all(&root).unwrap();
-        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None, portable: false };
+        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None };
         std::fs::write(paths.config_file(), b"{invalid").unwrap();
         let cfg = Config::load(&paths);
         assert!(cfg.nup.is_none() && cfg.output.is_none());
@@ -220,7 +220,7 @@ mod tests {
     fn save_refuses_to_overwrite_an_unpreserved_bad_config() {
         let root = std::env::temp_dir().join(format!("aod-config-save-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
-        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None, portable: false };
+        let paths = Paths { exe_dir: root.clone(), data: root.clone(), engine: None };
         std::fs::write(paths.config_file(), b"{invalid").unwrap();
         assert!(Config::default().save(&paths).is_err());
         assert_eq!(std::fs::read(paths.config_file()).unwrap(), b"{invalid");

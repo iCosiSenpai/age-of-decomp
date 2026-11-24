@@ -62,8 +62,12 @@ class Blobs:
         head = self.proc.stdout.read(min(size, HEAD_BYTES))
         rest = size - len(head)
         while rest > 0:  # skip the remainder without keeping it
-            rest -= len(self.proc.stdout.read(min(rest, 1 << 20)))
-        self.proc.stdout.read(1)  # the newline after the content
+            got = len(self.proc.stdout.read(min(rest, 1 << 20)))
+            if not got:   # git ended inside the blob: an error, not a check that waits for ever
+                raise RuntimeError(f"git cat-file stopped {rest} bytes before the end of {blob}")
+            rest -= got
+        if self.proc.stdout.read(1) != b"\n":  # the newline after the content
+            raise RuntimeError(f"git cat-file sent no end of record after {blob}")
         return size, head
 
     def close(self) -> None:

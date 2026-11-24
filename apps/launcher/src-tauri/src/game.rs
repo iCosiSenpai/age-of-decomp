@@ -88,6 +88,22 @@ pub struct Launched {
 /// the game again. The game shows Restart only when `launch` was told the caller does (`AOD_RESTART_EXIT`).
 pub const RESTART_EXIT: i32 = 75;
 
+/// A finished game's exit code. On Linux a game a signal ended (a crash its handler did not catch, the system out of
+/// memory) has none: it gets the shell's 128 + signal, so it is reported like any other code instead of as nothing.
+pub fn exit_code(status: std::process::ExitStatus) -> i32 {
+    if let Some(code) = status.code() {
+        return code;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return 128 + signal;
+        }
+    }
+    1
+}
+
 impl Launched {
     /// Exited with [`RESTART_EXIT`] after running a few seconds: start it again. A game that ends that way at once is
     /// not started again, so nothing can loop.
@@ -125,8 +141,7 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
         Err(e) => eprintln!("Age of Decomp: the save of an earlier game folder could not be copied ({e}); the game starts without it"),
     }
     crate::settings::retire_values(&paths::game_ini(&output)).map_err(LaunchError::Other)?;
-    let log_path = logs.join(format!("game-{}.log", paths::stamp()));
-    let log = std::fs::File::create(&log_path).map_err(|e| LaunchError::Other(e.to_string()))?;
+    let (log_path, log) = paths::new_log(&logs, "game").map_err(|e| LaunchError::Other(e.to_string()))?;
     let log2 = log.try_clone().map_err(|e| LaunchError::Other(e.to_string()))?;
     let state = config::engine_state(&output).unwrap_or_default();
     let unlock = state.get("rate_unlock").and_then(|v| v.as_bool()).unwrap_or(false);
@@ -146,6 +161,9 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
         ("HWAOI_RUMBLE", "1".into()),
         ("HWAOI_PROGRESS", "1".into()),
         ("HWAOI_EXEFS", p(&output.join("work").join("game").join("exefs"))),
+        // The resource cache where the game folder is now: the build bakes the folder it was made in, so without this
+        // a moved or renamed game folder (another library folder, a backup put back elsewhere) ends with code 70.
+        ("HWAOI_ROMFS", p(&output.join("work").join("game").join("romfs"))),
         ("HWAOI_PROFILE_DIR", p(&saves)),
         ("HWAOI_GSV_LOCAL_FRAME_POLICY", "1".into()),
         ("HWAOI_NATIVE_INFLATE", "1".into()),
@@ -169,7 +187,7 @@ pub fn launch(cfg: &Config, paths: &Paths, bigpicture: bool, handoff: Option<&cr
             Some(z) => env.push(("HWAOI_ZLIB_DLL", p(&z))),
             None => env.push(("HWAOI_NATIVE_INFLATE", "0".into())),
         }
-        // As upstream's tools/linux/play.sh: XWayland, since native Wayland on NVIDIA ended the game when the window
+        // XWayland, as upstream's Linux play script did: native Wayland on NVIDIA ended the game when the window
         // size changed. A value the player set wins.
         if std::env::var_os("SDL_VIDEODRIVER").is_none() && std::env::var_os("DISPLAY").is_some() {
             env.push(("SDL_VIDEODRIVER", "x11".into()));

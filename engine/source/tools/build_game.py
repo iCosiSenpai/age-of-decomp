@@ -6,7 +6,9 @@ recompiled only when it, a header it includes or its flags change.
 On Linux the same steps make build/<version>/totk with the clang, lld and ninja on PATH (or the clang and lld in --toolchain DIR/bin): the
 runtime's *_sdl.* and platform/linux.c take the place of its *_win.*, platform/win32.c and totk.rc, the libraries are
 the system's (Vulkan, SDL3, Opus, libvpx, zstd; libstdc++ static), and the executable finds a libSDL3.so.0 beside it
-first (rpath $ORIGIN). docs/building.md lists the packages.
+first (rpath $ORIGIN). docs/building.md lists the packages. A release (--toolchain, --sysroot and --deps from the
+bundle) needs none of them: Opus, libvpx and zstd go into the executable, and deps/lib's libSDL3.so.0 is copied
+beside it.
 
     .venv\\Scripts\\python tools\\build_game.py                     # generated/v121 -> build/v121/totk.exe
     .venv\\Scripts\\python tools\\build_game.py --modules subsdk0   # one module (links if it has no calls into others)
@@ -814,7 +816,7 @@ def main():
         WINDRES = TOOLCHAIN_BIN / 'llvm-windres.exe'
     if args.toolchain and WIN or args.deps and (args.toolchain or not WIN):   # Linux: --deps only, never deps-mingw
         DEPS = (args.deps or DEFAULT_DEPS).resolve()
-        dlls = sorted((DEPS / 'bin').glob('*.dll')) if WIN else []
+        dlls = sorted((DEPS / 'bin').glob('*.dll')) if WIN else sorted((DEPS / 'lib').glob('*.so.*'))
     if DEPS and not WIN:
         # A release (--deps): Opus, libvpx and zstd go into the executable, so it needs no more than libc, Vulkan and
         # the libSDL3.so.0 beside it
@@ -919,7 +921,7 @@ def main():
     if args.make_runtime_lib:
         print(f'{below_root(exe)}: {mib(exe.stat().st_size)}')
         return
-    for dll in dlls:   # dynamic SDL3 (zlib) and its libiconv (LGPL, unmodified DLL), found next to totk.exe
+    for dll in dlls:   # dynamic SDL3 (zlib) and its libiconv (LGPL, unmodified DLL), found next to totk.exe; Linux: libSDL3.so.0
         shutil.copy2(dll, exe.parent / dll.name)
     sections, image = pe_sections(exe) if WIN else elf_sections(exe)
     print(f'{below_root(exe)}: file {mib(exe.stat().st_size)}, '

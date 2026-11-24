@@ -10,9 +10,11 @@
 Every download is pinned by URL and SHA-256 (pins shared with iCosiSenpai/totk-pc-recomp tools/make_release.py, MIT).
 Nothing is installed system-wide. No game content is ever written outside ignored folders.
 
-Linux: clang, lld, ninja, the .NET SDK and the SDL3/Opus/libvpx/zstd/Vulkan/zlib headers come from the distribution
-(`toolchain` checks them and prints the packages to install); Python is a pinned relocatable CPython
-(python-build-standalone) with the generator's packages, so the staged bundle carries its own interpreter.
+Linux: the bundle carries its whole compiler too, so a player's PC (a Steam Deck too) needs no development packages:
+LLVM's official clang and lld, the files of the Steam Runtime 3 "sniper" SDK the build reads (glibc 2.31, GCC 14's
+libstdc++), SDL3, Opus, libvpx and the Vulkan loader's link library from the same SDK, zstd built static, Ninja, and a
+pinned relocatable CPython (python-build-standalone) with the generator's packages. Only the developer steps need the
+system's .NET 10 SDK and git (`translator`), make and tar (`toolchain`).
 The engine's sources are in this repository, engine/source (engine/ORIGIN.md says where they came from).
 AOD_CACHE_DIR moves .cache elsewhere, e.g. a toolchain of its own for WSL when the folder is shared with Windows.
 """
@@ -51,6 +53,9 @@ MSYS2 = "https://repo.msys2.org/mingw/ucrt64/"
 SDL_VERSION = "3.4.20"
 LLVM_VERSION = "20261020"
 PY_VERSION = "3.14.9"
+# Linux: LLVM's own release and the Steam Runtime 3 "sniper" SDK snapshot (toolchain_linux)
+LINUX_LLVM = "23.1.4"
+SNIPER = "3.0.20261021.266025"
 PINS = {  # name: (url, sha256)
     "python": (f"https://api.nuget.org/v3-flatcontainer/python/{PY_VERSION}/python.{PY_VERSION}.nupkg",
                "7cd9d07aec975212344dc6f7e45019378cf6775dd564181e269010a1eddaaec7"),
@@ -88,6 +93,25 @@ PINS = {  # name: (url, sha256)
     # Linux release packaging (tools/release.py linux --appimage): the AppImage type 2 runtime the squashfs follows
     "appimage-runtime": ("https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64",
                          "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d"),
+    # Linux toolchain (toolchain_linux): the pins of DKB Recomp's tools/make_release_linux.py. LLVM's binary release
+    # carries no licence text, hence its LICENSE.TXT from the same tag (the third field names files that would clash).
+    "llvm-linux": (f"https://github.com/llvm/llvm-project/releases/download/llvmorg-{LINUX_LLVM}/"
+                   f"LLVM-{LINUX_LLVM}-Linux-X64.tar.xz",
+                   "25d814fda50d5fb0084b42be09605d8b1595d49d5e2e03a3345d7e112ff6f9f3"),
+    "llvm-license": (f"https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-{LINUX_LLVM}/llvm/LICENSE.TXT",
+                     "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee", f"llvm-{LINUX_LLVM}-LICENSE.TXT"),
+    "sniper-sdk": ("https://repo.steampowered.com/steamrt-images-sniper/snapshots/"
+                   f"{SNIPER}/com.valvesoftware.SteamRuntime.Sdk-amd64%2Ci386-sniper-sysroot.tar.gz",
+                   "8f71947035f97925a311b2ed753f22efcf2f13d6f1631945b8e537f8903ce2cf"),
+    "ninja-linux": ("https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux.zip",
+                    "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"),
+    "zstd-src": ("https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz",
+                 "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3"),
+    "vulkan-headers-src": ("https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.4.363.tar.gz",
+                           "cbaf687d3c59b9666fe080e7f8396b6b4f4d344a768ee6b337c59852f4526b68",
+                           "Vulkan-Headers-1.4.363.tar.gz"),
+    "vma-header": ("https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/v3.4.0/include/"
+                   "vk_mem_alloc.h", "8487b7995ad3b263eb73bc5b9a77d71aa69b6bef5d58a715c02d2663afd81f1a"),
     # NVIDIA Streamline (MIT) for DLAA on Windows: only the three signed production DLLs below and license.txt are
     # taken from it. The SDK also carries nvngx_dlss*.dll (NVIDIA RTX SDK licence): never staged or shipped.
     "streamline-sdk": ("https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.14.16/streamline-sdk-v2.14.16.zip",
@@ -106,14 +130,31 @@ WINDOWS_LICENSES = ("SDL3-LICENSE.txt", "libusb-COPYING.txt", "llvm-mingw-LICENS
 PY_REQUIREMENTS = ROOT / "tools/requirements-engine.txt"
 # llvm-mingw: only the x86_64 Windows target is needed.
 LLVM_SKIP_TOP = {"aarch64-w64-mingw32", "armv7-w64-mingw32", "i686-w64-mingw32", "busybox", "python", "share"}
-# Linux build requirements, checked by `toolchain`: program -> Debian/Ubuntu package, and header + library -> package
-# (each one compiled and linked once with clang and lld). vk_mem_alloc.h is optional: build_game.py fetches its pinned
-# VMA header when the system has none.
-LINUX_TOOLS = {"clang": "clang", "ld.lld": "lld", "ninja": "ninja-build", "dotnet": "dotnet-sdk-10.0", "git": "git"}
-LINUX_LIBS = {"SDL3/SDL.h": ("SDL3", "libsdl3-dev"), "opus/opus.h": ("opus", "libopus-dev"),
-              "vpx/vpx_decoder.h": ("vpx", "libvpx-dev"), "zstd.h": ("zstd", "libzstd-dev"),
-              "vulkan/vulkan.h": ("vulkan", "libvulkan-dev"), "zlib.h": ("z", "zlib1g-dev")}
-LINUX_PACKAGES = sorted({*LINUX_TOOLS.values(), *(pkg for _, pkg in LINUX_LIBS.values())})
+# Linux: the release toolchain (toolchain_linux), the model of DKB Recomp's tools/make_release_linux.py
+# (Lucas-blip-png/dkb-pc-recomp, GPL-3.0-or-later), ported by hand. LLVM's official binaries (they need glibc 2.34)
+# compile and link against the files of the sniper SDK the build reads, taken by package from the SDK's own dpkg lists,
+# so the game runs on SteamOS and on any distribution at least as new as Debian 11 (glibc 2.31). The SDK keeps GCC 14
+# under /usr/lib/gcc-14: its runtime and libstdc++ go where clang looks for a GCC installation in a sysroot (the runtime
+# needs C++20's library; the SDK's default GCC 10 is left out).
+SYSROOT_PACKAGES = ("libc6", "libc6-dev", "linux-libc-dev", "libgcc-s1", "libgcc-14-dev", "libstdc++-14-dev")
+# The libraries the game links, from the same SDK, into deps/: Opus and libvpx static and the Vulkan loader's link
+# library (the PC's libvulkan.so.1 runs). zstd is built static; SDL 3.4.20 (the Windows bundle's version) is built in
+# the SDK's own image, so its X11, Wayland, audio, libdecor and libusb parts load only where the PC has them (the SDK's
+# libSDL3 needs all of them to start); libSDL3.so.0 goes beside the game (rpath $ORIGIN). The Vulkan headers and VMA
+# are the Windows bundle's versions.
+DEPS_PACKAGES = ("libopus-dev", "libvpx-dev", "libvulkan1", "libvulkan-dev")
+GCC14_MOVES = (("usr/lib/gcc-14/lib/gcc/x86_64-linux-gnu/14/", "usr/lib/gcc/x86_64-linux-gnu/14/"),
+               ("usr/lib/gcc-14/x86_64-linux-gnu/include/c++/14/", "usr/include/c++/14/"))
+# glibc's libraries a link reads (lib<name>.so.N and the scripts that name them), and the dynamic loader
+GLIBC_LIBS = ("libc", "libm", "libmvec", "libdl", "libpthread", "librt", "libutil")
+# The licence texts the Linux toolchain gathers for what the bundle redistributes (llvm/, deps/, bin/): `toolchain`
+# and `stage` both stop when one is missing.
+LINUX_LICENSES = ("llvm-LICENSE.txt", "glibc-copyright.txt", "linux-libc-dev-copyright.txt", "gcc-14-copyright.txt",
+                  "SDL3-LICENSE.txt", "opus-copyright.txt", "libvpx-copyright.txt", "libvpx-PATENTS.txt",
+                  "vulkan-loader-copyright.txt", "vulkan-headers-LICENSE.txt", "vma-LICENSE.txt", "zstd-LICENSE.txt",
+                  "ninja-LICENSE.txt", "python-LICENSE.txt")
+# Developer tools the Linux steps run (the player's PC needs none of them)
+LINUX_DEV_TOOLS = {"dotnet": "translator (.NET 10 SDK)", "git": "translator"}
 
 
 # ── small helpers ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -149,9 +190,9 @@ def sha256(path: Path) -> str:
 
 def fetch(name: str) -> Path:
     """Pinned download into .cache/downloads (resumable), verified against its SHA-256."""
-    url, want = PINS[name]
+    url, want, *named = PINS[name]
     DL.mkdir(parents=True, exist_ok=True)
-    path = DL / urllib.parse.unquote(url.rsplit("/", 1)[1])
+    path = DL / (named[0] if named else urllib.parse.unquote(url.rsplit("/", 1)[1]))
     if path.is_file() and sha256(path) == want:
         return path
     if path.is_file():
@@ -193,10 +234,28 @@ def unpack(name: str) -> Path:
         with zipfile.ZipFile(path) as z:
             z.extractall(dest)
     else:  # .tar.gz / .tar.zst (Python 3.14 reads zstd natively)
+        if path.name.endswith(".zst") and sys.version_info < (3, 14):
+            die(f"{path.name}: Python 3.14 or newer reads .tar.zst; this is {sys.version.split()[0]}")
         with tarfile.open(path, "r:*") as t:
             t.extractall(dest, filter="data")
     stamp.write_text(PINS[name][1])
     return dest
+
+
+def installed(stamp: Path, key: str) -> bool:
+    """Whether the part `stamp` belongs to was installed for `key` (its pins); toolchain parts are made again when a
+    pin changes, not only when a file is missing."""
+    return stamp.is_file() and stamp.read_text(encoding="utf-8") == key
+
+
+def python_packages(exe: Path, stamp: Path, install) -> None:
+    """The generator's packages into the toolchain's Python, again whenever requirements-engine.txt changes (a pin
+    moved): `install()` puts them there; the stamp then records the requirements it installed."""
+    key = sha256(PY_REQUIREMENTS)
+    ok = subprocess.run([exe, "-I", "-c", "import numpy, lz4.block, zstandard, capstone"], capture_output=True)
+    if ok.returncode or not installed(stamp, key):
+        install()
+        stamp.write_text(key, encoding="utf-8")
 
 
 def copy_tree(src: Path, dst: Path, skip=lambda rel: False) -> int:
@@ -222,9 +281,12 @@ def toolchain_windows() -> None:
     TC.mkdir(parents=True, exist_ok=True)
     # llvm-mingw (clang, lld, libc++, mingw-w64 headers/libs) for x86_64 only
     llvm = TC / "llvm"
-    if not (llvm / "bin" / "clang.exe").is_file():
+    llvm_stamp = TC / "llvm-mingw.installed"
+    if not (llvm / "bin" / "clang.exe").is_file() or not installed(llvm_stamp, PINS["llvm-mingw"][1]):
+        shutil.rmtree(llvm, ignore_errors=True)
         src = unpack("llvm-mingw") / f"llvm-mingw-{LLVM_VERSION}-ucrt-x86_64"
         n = copy_tree(src, llvm, lambda rel: rel.split("/")[0] in LLVM_SKIP_TOP or rel.startswith("include/ddk/"))
+        llvm_stamp.write_text(PINS["llvm-mingw"][1], encoding="utf-8")
         log(f"llvm-mingw {LLVM_VERSION}: {n} files")
     # ninja + zlib1.dll (the runtime loads zlib dynamically for native inflate: HWAOI_ZLIB_DLL)
     (TC / "bin").mkdir(exist_ok=True)
@@ -236,8 +298,9 @@ def toolchain_windows() -> None:
         (deps / sub).mkdir(parents=True, exist_ok=True)
     sdl = unpack("sdl3-devel") / f"SDL3-{SDL_VERSION}" / "x86_64-w64-mingw32"
     copy_tree(sdl / "include", deps / "include")
-    shutil.copy2(sdl / "lib" / "libSDL3.dll.a", deps / "lib")
-    shutil.copy2(sdl / "bin" / "SDL3.dll", deps / "bin")
+    if not installed(TC / "sdl3-libusb.installed", sdl_libusb_key()):
+        shutil.copy2(sdl / "lib" / "libSDL3.dll.a", deps / "lib")
+        shutil.copy2(sdl / "bin" / "SDL3.dll", deps / "bin")
     for pkg, incs, libs, dlls in (("opus", ["opus"], ["libopus.dll.a"], ["libopus-0.dll"]),
                                   ("libvpx", ["vpx"], ["libvpx.a"], []),
                                   ("vulkan-headers", ["vulkan", "vk_video"], [], []),
@@ -279,11 +342,13 @@ def toolchain_windows() -> None:
         die(f"licence files missing from {lic}: {', '.join(missing)}")
     # Python: the official NuGet layout (full stdlib, no ._pth) + the generator's packages
     py = TC / "python"
-    if not (py / "python.exe").is_file():
+    py_stamp = TC / "python.installed"
+    if not (py / "python.exe").is_file() or not installed(py_stamp, PINS["python"][1]):
+        shutil.rmtree(py, ignore_errors=True)
         copy_tree(unpack("python") / "tools", py)
-    have = subprocess.run([str(py / "python.exe"), "-I", "-c", "import numpy, lz4.block, zstandard, capstone"],
-                          capture_output=True)
-    if have.returncode:
+        py_stamp.write_text(PINS["python"][1], encoding="utf-8")
+
+    def install_windows_packages() -> None:
         site = py / "Lib" / "site-packages"
         uv = shutil.which("uv")
         if uv:
@@ -294,6 +359,7 @@ def toolchain_windows() -> None:
             run([py / "python.exe", "-m", "pip", "install", "--only-binary", ":all:", "--require-hashes",
                  "--target", site, "-r", PY_REQUIREMENTS])
         shutil.rmtree(site / "bin", ignore_errors=True)
+    python_packages(py / "python.exe", TC / "python-packages.installed", install_windows_packages)
     check = run([py / "python.exe", "-I", "-c", "import sys, numpy, lz4.block, zstandard, capstone; "
                  "print('python', sys.version.split()[0], 'numpy', numpy.__version__)"], capture=True)
     log(check.stdout.strip())
@@ -327,12 +393,18 @@ def find_cmake() -> Path | None:
     return Path(sorted(hits)[-1]) if hits else None
 
 
+def sdl_libusb_key() -> str:
+    """What our own SDL3.dll is built from: SDL's source, libusb and the compiler."""
+    return "+".join(PINS[name][1] for name in ("sdl3-src", "libusb", "llvm-mingw"))
+
+
 def build_sdl_libusb(llvm: Path, deps: Path, lic: Path) -> None:
     """SDL 3 from source with HIDAPI over libusb, loaded at run time (`libusb-1.0.dll` beside SDL3.dll). It replaces the
     official DLL, which lacks the Switch 2 driver: wired Switch 2 Pro Controller / Joy-Con 2 / GameCube pads need it on
     Windows. Same version and headers as the official package; only the HIDAPI libusb backend is added."""
     dll = deps / "bin" / "SDL3.dll"
-    if sdl_has_switch2(dll) and (deps / "bin" / "libusb-1.0.dll").is_file():
+    stamp = TC / "sdl3-libusb.installed"
+    if sdl_has_switch2(dll) and (deps / "bin" / "libusb-1.0.dll").is_file() and installed(stamp, sdl_libusb_key()):
         log("SDL3.dll already has the Switch 2 driver (libusb)")
         return
     cmake = find_cmake()
@@ -360,57 +432,387 @@ def build_sdl_libusb(llvm: Path, deps: Path, lic: Path) -> None:
     p = usb / "share" / "licenses" / "libusb" / "COPYING"
     if p.is_file():
         shutil.copy2(p, lic / "libusb-COPYING.txt")   # LGPL-2.1: shipped as the unmodified DLL
+    stamp.write_text(sdl_libusb_key(), encoding="utf-8")
     log(f"SDL {SDL_VERSION} with the Switch 2 driver (libusb) → {dll}")
 
 
-def linux_missing() -> list[str]:
-    """Debian/Ubuntu packages the Linux build still needs: each program on PATH, then each header and library through
-    one clang + lld compile and link."""
-    need = [pkg for tool, pkg in LINUX_TOOLS.items() if not shutil.which(tool)]
-    clang = shutil.which("clang")
-    if not clang:
-        return need + [pkg for _, pkg in LINUX_LIBS.values()]
-    linker = ["-fuse-ld=lld"] if shutil.which("ld.lld") else []   # without lld (already listed) the system linker
+def tar_members(name: str, dest: Path, members: list[str], strip: int = 0, from_list: Path | None = None) -> Path:
+    """Extract only `members` (archive paths; GNU tar wildcards) of a pinned tarball into dest, or the exact entries of
+    from_list (one per line, no recursion into directories). The system tar: tarfile reads the 2 GB LLVM .tar.xz far
+    slower."""
+    dest.mkdir(parents=True, exist_ok=True)
+    cmd = ["tar", "-xf", str(fetch(name)), "-C", str(dest), f"--strip-components={strip}"]
+    if from_list:
+        cmd += ["--no-recursion", "-T", str(from_list)]
+    else:
+        cmd += ["--wildcards", "--no-wildcards-match-slash", *members]
+    t0 = time.time()
+    run(cmd)
+    log(f"{name}: unpacked in {time.time() - t0:.0f} s")
+    return dest
+
+
+def materialize(root: Path, rel: str) -> Path | None:
+    """The file behind root/rel, following its symlinks inside root (an absolute target is read from root), or None
+    when it leads outside root or to nothing."""
+    p = root / rel
+    for _ in range(32):
+        if not p.is_symlink():
+            return p if p.is_file() else None
+        target = os.readlink(p)
+        p = Path(os.path.normpath(root / target.lstrip("/") if target.startswith("/") else p.parent / target))
+        if not p.is_relative_to(root):
+            return None
+    return None
+
+
+def dpkg_files(root: Path, package: str) -> list[str]:
+    """The paths (without the leading /) the SDK's dpkg list names for package (amd64, else architecture-free)."""
+    info = root / "var/lib/dpkg/info"
+    for name in (f"{package}:amd64.list", f"{package}.list"):
+        if (info / name).is_file():
+            return [line.strip().lstrip("/") for line in (info / name).read_text(encoding="utf-8").splitlines()
+                    if line.strip() and line.strip() != "/."]
+    die(f"the sniper SDK has no package {package}")
+
+
+def sysroot_keep(rel: str) -> str | None:
+    """Where an SDK file goes in llvm/sysroot (GCC 14 moved to the usual places), or None when the build never reads
+    it: documentation, gconv and the rest of glibc's runtime, static archives of the C library (the game links it
+    dynamically), GCC's own headers and plugins."""
+    if rel.startswith(("usr/share/", "etc/", "sbin/", "bin/", "usr/bin/", "usr/sbin/", "usr/libexec/")) or "/gconv/" in rel:
+        return None
+    for old, new in GCC14_MOVES:
+        if rel.startswith(old):
+            rest = rel[len(old):]
+            if rest.startswith(("include/", "include-fixed/", "plugin/", "install-tools/", "libgcov", "libasan",
+                                "libhwasan", "liblsan", "libtsan", "libubsan", "libgomp", "libitm", "libstdc++exp",
+                                "libstdc++fs")):
+                return None   # GCC's own headers, the sanitizers' and OpenMP's runtimes: the game uses none
+            return new + rest
+    if rel.startswith("usr/lib/gcc-14/"):
+        return None   # gcc-14's own programs and documentation
+    name = rel.rsplit("/", 1)[-1]
+    if rel.startswith(("lib/x86_64-linux-gnu/", "lib64/")):   # libc6, libgcc-s1: only what a link reads
+        return rel if name.startswith(GLIBC_LIBS + ("ld-linux", "libgcc_s")) and ".so" in name else None
+    if rel.startswith("usr/lib/x86_64-linux-gnu/") and name.endswith(".a") and not name.endswith("_nonshared.a"):
+        return None
+    return rel
+
+
+def deps_keep(rel: str) -> str | None:
+    """Where an SDK file of DEPS_PACKAGES goes in deps/ (headers in include/, link libraries in lib/), or None."""
+    for top in ("opus", "vpx"):
+        if rel.startswith(f"usr/include/{top}/"):
+            return "include/" + rel[len("usr/include/"):]
+    name = rel.rsplit("/", 1)[-1]
+    if rel.startswith("usr/lib/x86_64-linux-gnu/") and name in ("libopus.a", "libvpx.a", "libvulkan.so"):
+        return "lib/" + name
+    return None
+
+
+def linux_sdk(dest: Path) -> None:
+    """llvm/sysroot and deps/ from the sniper SDK: its dpkg lists first, then exactly the files of the packages, each
+    one written as a plain file (a link's target under the link's name: the bundle and RecompLauncher's unpacker
+    carry no links), the files that are only some link's target left out."""
+    work = UNPACK / "sniper"
+    stamp = work / ".unpacked"
+    if not (stamp.is_file() and stamp.read_text() == PINS["sniper-sdk"][1]):
+        shutil.rmtree(work, ignore_errors=True)
+        tar_members("sniper-sdk", work, ["var/lib/dpkg/info/*.list"])
+        docs = {f"usr/share/doc/{pkg}/copyright" for pkg in ("libc6", "linux-libc-dev", "gcc-14-base", "libopus0",
+                                                             "libvpx6", "libvulkan1")}
+        # The SDK image drops most documentation its dpkg lists still name: only what the archive holds is asked for
+        held = set(run(["tar", "-tf", fetch("sniper-sdk")], capture=True).stdout.splitlines())
+        wanted = sorted(rel for rel in {r for pkg in (*SYSROOT_PACKAGES, *DEPS_PACKAGES) for r in dpkg_files(work, pkg)
+                                        if not r.startswith("usr/share/")} | docs if rel in held)
+        listing = work / "members.txt"
+        listing.write_text("\n".join(wanted) + "\n", encoding="utf-8")
+        tar_members("sniper-sdk", work, [], from_list=listing)
+        stamp.write_text(PINS["sniper-sdk"][1])
+    sysroot, deps = dest / "llvm" / "sysroot", dest / "deps"
+    for old in (sysroot, deps / "include" / "opus", deps / "include" / "vpx"):
+        shutil.rmtree(old, ignore_errors=True)
+    for name in ("libopus.a", "libvpx.a", "libvulkan.so"):
+        (deps / "lib" / name).unlink(missing_ok=True)
+    plan: dict[Path, Path] = {}
+    targets: set[Path] = set()
+    for packages, keep, top in ((SYSROOT_PACKAGES, sysroot_keep, sysroot), (DEPS_PACKAGES, deps_keep, deps)):
+        for pkg in packages:
+            for rel in dpkg_files(work, pkg):
+                where = keep(rel)
+                p = work / rel
+                if where is None or not (p.is_file() or p.is_symlink()):
+                    continue
+                real = materialize(work, rel)
+                if real is None:
+                    continue   # a link to a file of a package we leave out
+                if p.is_symlink():
+                    targets.add(real)
+                plan[top / where] = real
+    n = 0
+    for out, real in sorted(plan.items()):
+        if real in targets and out.name == real.name:
+            continue   # libc-2.31.so, libSDL3.so.0.4.18: read only through their links' names
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(real, out)
+        n += 1
+    # The SDK's GCC 14 has no libgcc_s.so (its GCC 10 has the link): GCC's own link script, which clang's -lgcc_s reads
+    (sysroot / "usr/lib/gcc/x86_64-linux-gnu/14/libgcc_s.so").write_text(
+        "/* GNU ld script: the shared libgcc, and the static one for what only it has. */\n"
+        "GROUP ( libgcc_s.so.1 -lgcc )\n", encoding="ascii")
+    size = sum(p.stat().st_size for p in sysroot.rglob("*") if p.is_file())
+    log(f"sniper SDK {SNIPER}: {n} files into llvm/sysroot ({size / 2**20:.0f} MiB) and deps/")
+
+
+def linux_llvm(dest: Path) -> Path:
+    """llvm/: clang, ld.lld and clang's own headers of LLVM's release (stripped), and the archiver and objcopy the
+    toolchain step itself uses (tools/, never staged)."""
+    top = f"LLVM-{LINUX_LLVM}-Linux-X64"
+    major = LINUX_LLVM.split(".")[0]
+    work = UNPACK / "llvm-linux"
+    stamp = work / ".unpacked"
+    if not (stamp.is_file() and stamp.read_text() == PINS["llvm-linux"][1]):
+        shutil.rmtree(work, ignore_errors=True)
+        tar_members("llvm-linux", work, [f"{top}/bin/clang-{major}", f"{top}/bin/lld", f"{top}/bin/llvm-ar",
+                                         f"{top}/bin/llvm-objcopy", f"{top}/lib/clang/{major}/include"], strip=1)
+        stamp.write_text(PINS["llvm-linux"][1])
+    llvm = dest / "llvm"
+    tools = dest / "tools"
+    for d in (llvm / "bin", llvm / "lib", tools):
+        shutil.rmtree(d, ignore_errors=True)
+    tools.mkdir(parents=True)
+    for name in ("llvm-ar", "llvm-objcopy"):
+        shutil.copy2(work / "bin" / name, tools / name)
+    (llvm / "bin").mkdir(parents=True)
+    for src, name in ((f"clang-{major}", "clang"), ("lld", "ld.lld")):
+        out = llvm / "bin" / name
+        shutil.copy2(work / "bin" / src, out)
+        run([tools / "llvm-objcopy", "--strip-unneeded", out])   # the release keeps its symbols: clang 270 MB
+    shutil.copytree(work / "lib" / "clang" / major / "include", llvm / "lib" / "clang" / major / "include")
+    version = run([llvm / "bin" / "clang", "--version"], capture=True).stdout.splitlines()[0]
+    log(f"{version}, {sum(p.stat().st_size for p in llvm.rglob('*') if p.is_file()) / 2**20:.0f} MiB")
+    return llvm
+
+
+def linux_sdl(dest: Path) -> None:
+    """deps/: SDL 3.4.20 (the Windows bundle's source) built in the sniper SDK's own image, with docker or podman (the
+    image is the SDK tarball the sysroot comes from, imported once). glibc 2.31, and everything SDL can load at run
+    time is loaded so (SDL_DEPS_SHARED, SDL's default): the library starts on a PC without Wayland, PipeWire, PulseAudio
+    or libdecor, and HIDAPI uses libusb (wired Switch 2 pads) only where the PC has it."""
+    deps = dest / "deps"
+    work = UNPACK / "sdl3-linux"
+    stamp = work / ".built"
+    key = PINS["sdl3-src"][1] + PINS["sniper-sdk"][1]
+    if not (stamp.is_file() and stamp.read_text() == key):
+        tool = shutil.which("docker") or shutil.which("podman")
+        if not tool:
+            die("`toolchain` builds SDL in the Steam Runtime SDK's image: install docker or podman")
+        image = f"aod-sniper-sdk:{SNIPER}"
+        if subprocess.run([tool, "image", "inspect", image], capture_output=True).returncode:
+            log(f"importing the sniper SDK as the image {image}")
+            run([tool, "import", fetch("sniper-sdk"), image], capture=True)
+        src = unpack("sdl3-src") / f"SDL3-{SDL_VERSION}"
+        shutil.rmtree(work, ignore_errors=True)
+        work.mkdir(parents=True)
+        script = ("cmake -S /src -B /out/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=ON -DSDL_STATIC=OFF "
+                  "-DSDL_TEST_LIBRARY=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_INSTALL=OFF -DSDL_DEPS_SHARED=ON "
+                  "-DSDL_HIDAPI=ON -DSDL_HIDAPI_LIBUSB=ON -DSDL_HIDAPI_LIBUSB_SHARED=ON "
+                  "'-DSDL_VENDOR_INFO=Age of Decomp (Steam Runtime 3)' > /out/cmake.log && cmake --build /out/build "
+                  "> /out/build.log")
+        run([tool, "run", "--rm", "--network=none", "-u", f"{os.getuid()}:{os.getgid()}",
+             "-v", f"{src.resolve()}:/src:ro", "-v", f"{work.resolve()}:/out", image, "/bin/sh", "-c", script])
+        stamp.write_text(key)
+    built = materialize(work, "build/libSDL3.so.0")
+    if built is None or not sdl_has_switch2(built):
+        die(f"{work / 'build'}: no libSDL3.so.0 with the Switch 2 driver (libusb); see {work / 'cmake.log'}")
+    needed, newest = elf_needs(built)
+    hard = sorted(set(needed) - {"libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1",
+                                 "ld-linux-x86-64.so.2"})
+    if hard or newest > (2, 31):
+        die(f"{built.name} needs {', '.join(hard) or 'only the C library'} and glibc {'.'.join(map(str, newest))}")
+    (deps / "lib").mkdir(parents=True, exist_ok=True)
+    for name in ("libSDL3.so", "libSDL3.so.0"):   # the link's name, and the one the game loads beside it
+        shutil.copy2(built, deps / "lib" / name)
+    shutil.rmtree(deps / "include" / "SDL3", ignore_errors=True)
+    shutil.copytree(unpack("sdl3-src") / f"SDL3-{SDL_VERSION}" / "include" / "SDL3", deps / "include" / "SDL3")
+    log(f"SDL {SDL_VERSION}: {built.stat().st_size / 2**20:.1f} MiB, needs {', '.join(needed)}")
+
+
+def linux_deps(dest: Path) -> None:
+    """deps/: the Vulkan headers and VMA (the Windows bundle's versions), zstd built static with the toolchain itself;
+    bin/ninja."""
+    deps = dest / "deps"
+    for sub in ("include/vulkan", "include/vk_video", "include/vma"):
+        shutil.rmtree(deps / sub, ignore_errors=True)
+    vk = UNPACK / "vulkan-headers"
+    shutil.rmtree(vk, ignore_errors=True)
+    tar_members("vulkan-headers-src", vk, ["Vulkan-Headers-1.4.363/include", "Vulkan-Headers-1.4.363/LICENSE.md"],
+                strip=1)
+    for sub in ("vulkan", "vk_video"):
+        shutil.copytree(vk / "include" / sub, deps / "include" / sub)
+    (deps / "include" / "vma").mkdir(parents=True)
+    shutil.copy2(fetch("vma-header"), deps / "include" / "vma" / "vk_mem_alloc.h")
+    zs = UNPACK / "zstd"
+    shutil.rmtree(zs, ignore_errors=True)
+    tar_members("zstd-src", zs, ["zstd-1.5.7"], strip=1)
+    import shlex   # make hands CC and AR to a shell: a cache folder with a space in its name stays one word
+    cc = (f"{shlex.quote(str(dest / 'llvm/bin/clang'))} --target=x86_64-linux-gnu "
+          f"--sysroot={shlex.quote(str(dest / 'llvm/sysroot'))} -fuse-ld=lld")
+    lib = zs / "lib"
+    run(["make", "-C", lib, f"-j{os.cpu_count() or 4}", "libzstd.a", f"CC={cc}",
+         f"AR={shlex.quote(str(dest / 'tools/llvm-ar'))}", "ZSTD_LEGACY_SUPPORT=0", "MOREFLAGS=-O2"], capture=True)
+    (deps / "lib").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(lib / "libzstd.a", deps / "lib" / "libzstd.a")
+    for name in ("zstd.h", "zstd_errors.h"):
+        shutil.copy2(lib / name, deps / "include" / name)
+    (dest / "bin").mkdir(exist_ok=True)
+    with zipfile.ZipFile(fetch("ninja-linux")) as z:
+        (dest / "bin" / "ninja").write_bytes(z.read("ninja"))
+    os.chmod(dest / "bin" / "ninja", 0o755)
+
+
+def linux_licenses(dest: Path) -> None:
+    lic = dest / "licenses"
+    shutil.rmtree(lic, ignore_errors=True)
+    lic.mkdir()
+    doc = UNPACK / "sniper" / "usr/share/doc"
+    for src, name in ((fetch("llvm-license"), "llvm-LICENSE.txt"), (doc / "libc6/copyright", "glibc-copyright.txt"),
+                      (doc / "linux-libc-dev/copyright", "linux-libc-dev-copyright.txt"),
+                      (doc / "gcc-14-base/copyright", "gcc-14-copyright.txt"),
+                      (unpack("sdl3-src") / f"SDL3-{SDL_VERSION}" / "LICENSE.txt", "SDL3-LICENSE.txt"),
+                      (doc / "libopus0/copyright", "opus-copyright.txt"),
+                      (doc / "libvpx6/copyright", "libvpx-copyright.txt"),
+                      (doc / "libvulkan1/copyright", "vulkan-loader-copyright.txt"),
+                      (UNPACK / "vulkan-headers/LICENSE.md", "vulkan-headers-LICENSE.txt"),
+                      (UNPACK / "zstd/LICENSE", "zstd-LICENSE.txt"),
+                      (ROOT / "packaging/licenses/libvpx-PATENTS.txt", "libvpx-PATENTS.txt"),
+                      (ROOT / "packaging/licenses/ninja-LICENSE.txt", "ninja-LICENSE.txt")):
+        if src.is_file():
+            shutil.copy2(src, lic / name)
+    head = (dest / "deps/include/vma/vk_mem_alloc.h").read_text(encoding="utf-8").split("*/")[0]
+    (lic / "vma-LICENSE.txt").write_text(head.lstrip("/*").strip() + "\n", encoding="utf-8")
+    for py_lic in sorted((dest / "python" / "lib").glob("python3.*/LICENSE.txt"))[:1]:
+        shutil.copy2(py_lic, lic / "python-LICENSE.txt")
+    missing = [name for name in LINUX_LICENSES if not (lic / name).is_file()]
+    if missing:
+        die(f"the Linux toolchain has no licence text for {', '.join(missing)}")
+
+
+PROBE_C = r"""#include <SDL3/SDL.h>
+#include <vulkan/vulkan.h>
+#include <opus/opus.h>
+#include <vpx/vpx_decoder.h>
+#include <vpx/vp8dx.h>
+#include <zstd.h>
+#include <vk_mem_alloc.h>
+#include <pthread.h>
+#include <math.h>
+#include <linux/userfaultfd.h>
+#include <stdio.h>
+int cxx(void);
+int main(void) {
+    printf("SDL %d, zstd %u, %s, %s, C++ %d, %.3f\n", SDL_GetVersion(), ZSTD_versionNumber(), opus_get_version_string(),
+           vpx_codec_iface_name(vpx_codec_vp9_dx()), cxx(), sqrt(2.0));
+    return (void *)&vkGetInstanceProcAddr == NULL;
+}
+"""
+PROBE_CXX = r"""#include <bit>
+#include <span>
+#include <atomic>
+#include <unordered_map>
+#include <string>
+#include <mutex>
+#include <optional>
+static std::mutex m;
+extern "C" int cxx(void) {
+    std::lock_guard<std::mutex> g(m);
+    std::unordered_map<std::string, int> u{{"a", 1}};
+    int a[2] = {1, 2};
+    std::span<int> s(a);
+    std::optional<float> f = 1.0f;
+    std::atomic<int> n{std::bit_cast<int>(*f) != 0};
+    try { throw 1; } catch (int) { n++; }
+    return n + u["a"] + (int)s.size();
+}
+"""
+
+
+def elf_needs(path: Path) -> tuple[list[str], tuple[int, ...]]:
+    """An ELF file's DT_NEEDED libraries and the newest GLIBC_ symbol version it asks for (binutils' readelf)."""
+    import re
+    dyn = run(["readelf", "-d", "-W", path], capture=True).stdout
+    ver = run(["readelf", "-V", "-W", path], capture=True).stdout
+    needed = re.findall(r"\(NEEDED\)\s+Shared library: \[([^\]]+)\]", dyn)
+    newest = max((tuple(map(int, v.split("."))) for v in re.findall(r"GLIBC_(\d+(?:\.\d+)+)", ver)), default=(0,))
+    return needed, newest
+
+
+def linux_probe(dest: Path) -> None:
+    """One C and one C++20 program compiled and linked with the toolchain alone, the way build_game.py links the game:
+    it may name no glibc above the sysroot's 2.31 and no library besides SDL3 (beside it), Vulkan and the C runtime,
+    and it must run here."""
     import tempfile
+    llvm, deps = dest / "llvm", dest / "deps"
     with tempfile.TemporaryDirectory(prefix="aod-probe-") as tmp:
-        for header, (lib, pkg) in LINUX_LIBS.items():
-            src = Path(tmp) / "probe.c"
-            src.write_text(f"#include <{header}>\nint main(void) {{ return 0; }}\n", encoding="ascii")
-            r = subprocess.run([clang, *linker, str(src), f"-l{lib}", "-o", str(Path(tmp) / "probe")],
-                               capture_output=True, text=True)
-            if r.returncode:
-                need.append(pkg)
-    if shutil.which("dotnet") and "dotnet-sdk-10.0" not in need:
-        sdks = subprocess.run(["dotnet", "--list-sdks"], capture_output=True, text=True).stdout
-        if not any(line.startswith("10.") for line in sdks.splitlines()):
-            need.append("dotnet-sdk-10.0")
-    return need
+        t = Path(tmp)
+        (t / "c.c").write_text(PROBE_C, encoding="ascii")
+        (t / "x.cpp").write_text(PROBE_CXX, encoding="ascii")
+        cc = [llvm / "bin/clang", "--target=x86_64-linux-gnu", f"--sysroot={llvm / 'sysroot'}", "-O1",
+              "-march=x86-64-v3", "-I", deps / "include", "-I", deps / "include/vma"]
+        run([*cc, "-c", t / "c.c", "-o", t / "c.o"])
+        run([*cc, "-std=c++20", "-c", t / "x.cpp", "-o", t / "x.o"])
+        run([*cc, "-fuse-ld=lld", "-no-pie", "-Wl,-rpath,$ORIGIN", t / "c.o", t / "x.o", "-L", deps / "lib",
+             "-lvulkan", "-lSDL3", "-l:libopus.a", "-l:libvpx.a", "-l:libzstd.a", "-l:libstdc++.a", "-lm",
+             "-lpthread", "-ldl", "-o", t / "probe"])
+        shutil.copy2(deps / "lib/libSDL3.so.0", t / "libSDL3.so.0")
+        needed, newest = elf_needs(t / "probe")
+        unknown = sorted(set(needed) - {"libSDL3.so.0", "libvulkan.so.1", "libm.so.6", "libc.so.6", "libgcc_s.so.1",
+                                        "libpthread.so.0", "libdl.so.2", "ld-linux-x86-64.so.2"})
+        if unknown or newest > (2, 31):
+            die(f"toolchain probe: needs {', '.join(unknown) or 'only known libraries'}, "
+                f"glibc {'.'.join(map(str, newest))}")
+        out = run([t / "probe"], capture=True, check=False)
+        if out.returncode not in (0, 1):   # 1: no Vulkan loader on this PC, the program still ran
+            die(f"toolchain probe exit {out.returncode}: {out.stderr.strip()[-400:]}")
+        log(f"toolchain probe: {out.stdout.strip()} (needs {', '.join(needed)}; glibc {'.'.join(map(str, newest))})")
 
 
 def toolchain_linux() -> None:
+    for tool in ("tar", "make", "readelf"):
+        if not shutil.which(tool):
+            die(f"`toolchain` needs {tool} on PATH (GNU tar, make, binutils' readelf; and docker or podman)")
+    missing = [f"{tool} ({why})" for tool, why in LINUX_DEV_TOOLS.items() if not shutil.which(tool)]
     TC.mkdir(parents=True, exist_ok=True)
     # Python: relocatable CPython + the generator's packages (the staged bundle and the AppImage carry it)
     py = TC / "python"
     exe = py / "bin" / "python3"
-    if not exe.is_file():
+    py_stamp = TC / "python.installed"
+    if not exe.is_file() or not installed(py_stamp, PINS["python-linux"][1]):
         shutil.rmtree(py, ignore_errors=True)
         n = copy_tree(unpack("python-linux") / "python", py)
+        py_stamp.write_text(PINS["python-linux"][1], encoding="utf-8")
         log(f"python-build-standalone: {n} files")
-    if subprocess.run([exe, "-I", "-c", "import numpy, lz4.block, zstandard, capstone"], capture_output=True).returncode:
+
+    def install_linux_packages() -> None:
         if subprocess.run([exe, "-I", "-m", "pip", "--version"], capture_output=True).returncode:
             run([exe, "-I", "-m", "ensurepip"])
         run([exe, "-I", "-m", "pip", "install", "--disable-pip-version-check", "--no-warn-script-location",
              "--only-binary", ":all:", "--require-hashes", "-r", PY_REQUIREMENTS])
+    python_packages(exe, TC / "python-packages.installed", install_linux_packages)
     check = run([exe, "-I", "-c", "import sys, numpy, lz4.block, zstandard, capstone; "
                  "print('python', sys.version.split()[0], 'numpy', numpy.__version__)"], capture=True)
     log(check.stdout.strip())
-    # The compiler, Ninja, .NET and the libraries the game links come from the distribution
-    missing = linux_missing()
+    # The compiler and the libraries the game links: what the bundle carries to the player's PC
+    linux_llvm(TC)
+    linux_sdk(TC)
+    linux_sdl(TC)
+    linux_deps(TC)
+    linux_licenses(TC)
+    linux_probe(TC)
     if missing:
-        die("missing system packages: " + " ".join(missing) + "\n  Debian/Ubuntu: sudo apt install " +
-            " ".join(missing) + "\n  (Arch: see docs/hwaoi/linux.md of the engine)")
-    clang = run(["clang", "--version"], capture=True).stdout.splitlines()[0]
-    log(f"toolchain ready in {TC} ({clang}; system lld, ninja, SDL3, Vulkan, .NET)")
+        log("not on PATH, needed by the developer steps only: " + ", ".join(missing))
+    log(f"toolchain ready in {TC} (LLVM {LINUX_LLVM}, sniper {SNIPER} sysroot, SDL3, Vulkan, Ninja)")
 
 
 def cmd_toolchain(_args) -> None:
@@ -439,11 +841,12 @@ ENGINE_PARTS = ("compiler", "config", "recomp", "runtime", "tools")
 
 def source_files():
     """The engine files a bundle carries: what git tracks under engine/source (so nothing ignored or left over from
-    a build gets in), paths relative to it."""
+    a build gets in), paths relative to it. Not its tests and docs: the setup copies the bundle's sources into every
+    game folder, and CI runs the tests from the repository."""
     raw = git("ls-files", "-z", "--", ".").stdout
     for name in sorted(set(raw.split("\0")) - {""}):
         top = name.split("/", 1)[0]
-        if top in (*ENGINE_PARTS, "tests") or name in (
+        if top in ENGINE_PARTS or name in (
                 "LICENSE", "LICENSE-MIT", "THIRD_PARTY_NOTICES.md", "README.md", "VERSION"):
             yield name
 
@@ -479,20 +882,25 @@ def linux_python_skip(rel: str) -> bool:
 
 
 def cmd_stage(args) -> None:
-    """Windows: the full portable compiler (Python, llvm-mingw, deps, Ninja). Linux: sources, Python and the translator;
-    clang, lld, Ninja and the libraries are the system's (`toolchain` checks them)."""
+    """The full portable compiler: Python, the translator, LLVM (Windows: llvm-mingw; Linux: clang, lld and the sniper
+    sysroot), deps and Ninja."""
     dirty = bool(git("status", "--porcelain", "--", ".").stdout.strip())
     if dirty and not args.allow_dirty:
         die("engine/source has uncommitted changes; commit them or pass --allow-dirty")
     if dirty:
         log("staging engine/source with uncommitted changes (--allow-dirty)")
-    needs = [bundle_python(TC), XLATE_OUT / XLATE_EXE] + ([TC / "llvm" / "bin" / "clang.exe"] if WIN else [])
+    needs = [bundle_python(TC), XLATE_OUT / XLATE_EXE, TC / "llvm" / "bin" / ("clang.exe" if WIN else "clang")]
     for need in needs:
         if not need.is_file():
             die(f"missing {need}: run toolchain / translator first")
-    if STAGE.exists():
+    if STAGE.is_symlink():   # the stage kept on another drive (WSL: ext4 instead of the shared NTFS folder): emptied
+        if any(STAGE.iterdir()) and not (STAGE / "bundle.json").is_file() and not (STAGE / "source").is_dir():
+            die(f"{STAGE} links to {STAGE.resolve()}, which holds something that is not a staged bundle")
+        for child in STAGE.iterdir():
+            shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
+    elif STAGE.exists():
         shutil.rmtree(STAGE)
-    STAGE.mkdir(parents=True)
+    STAGE.mkdir(parents=True, exist_ok=True)
     n = 0
     for rel in source_files():
         dst = STAGE / "source" / rel
@@ -507,7 +915,10 @@ def cmd_stage(args) -> None:
     log(f"source: {n} files")
     copy_tree(TC / "python", STAGE / "python", lambda rel: "__pycache__" in rel or rel.endswith(".pyc") or
               (not WIN and linux_python_skip(rel)))
-    copy_tree(XLATE_OUT, STAGE / "translator", lambda rel: rel.endswith("build-report.json") or rel.endswith(".pdb"))
+    # Not the .NET runtime's LTTng tracing provider: coreclr loads it only where liblttng-ust is installed, and the
+    # translator is never traced
+    copy_tree(XLATE_OUT, STAGE / "translator", lambda rel: rel.endswith(("build-report.json", ".pdb")) or
+              rel == "libcoreclrtraceptprovider.so")
     if WIN:
         copy_tree(TC / "llvm", STAGE / "llvm")
         copy_tree(TC / "deps", STAGE / "deps")
@@ -547,9 +958,14 @@ def cmd_stage(args) -> None:
         if missing:
             die(f"the bundle would ship without {', '.join(missing)}: run `toolchain` again")
     else:
-        (STAGE / "licenses").mkdir()
-        for lic in sorted((TC / "python" / "lib").glob("python3.*/LICENSE.txt"))[:1]:
-            shutil.copy2(lic, STAGE / "licenses" / "python-LICENSE.txt")
+        copy_tree(TC / "llvm", STAGE / "llvm")
+        copy_tree(TC / "deps", STAGE / "deps")
+        (STAGE / "bin").mkdir()
+        shutil.copy2(TC / "bin" / "ninja", STAGE / "bin" / "ninja")
+        copy_tree(TC / "licenses", STAGE / "licenses")
+        missing = [name for name in LINUX_LICENSES if not (STAGE / "licenses" / name).is_file()]
+        if missing:
+            die(f"the bundle would ship without {', '.join(missing)}: run `toolchain` again")
     files = {p.relative_to(STAGE).as_posix(): sha256(p) for p in sorted(STAGE.rglob("*")) if p.is_file()}
     manifest = {"format": "hwaoi-compiler-v1", "version": version, "source_revision": engine_revision(files),
                 "aod_prepare_version": int((ROOT / "packaging/prepare-version.txt").read_text(encoding="ascii")),
@@ -559,9 +975,13 @@ def cmd_stage(args) -> None:
     (STAGE / "bundle.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     size = sum((STAGE / p).stat().st_size for p in files)
     log(f"staged {len(files)} files, {size / 2**20:.0f} MiB in {STAGE}")
-    # -B: the check writes no __pycache__ into the bundle it has just hashed (release.py also drops any)
-    run([bundle_python(STAGE), "-B", "-E", "-s", STAGE / "source" / "compiler" / "backend.py",
-         "check", "--bundle", STAGE], cwd=STAGE)
+    # -B: the check writes no __pycache__ into the bundle it has just hashed (release.py also drops any). A bundle the
+    # engine refuses keeps no bundle.json: `status` and release.py then see no bundle at all.
+    checked = run([bundle_python(STAGE), "-B", "-E", "-s", STAGE / "source" / "compiler" / "backend.py",
+                   "check", "--bundle", STAGE], cwd=STAGE, check=False)
+    if checked.returncode:
+        (STAGE / "bundle.json").unlink()
+        die("the engine's own check refused the staged bundle (above); bundle.json removed")
 
 
 # ── developer game build ─────────────────────────────────────────────────────────────────────────────────────────────

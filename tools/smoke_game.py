@@ -38,6 +38,26 @@ parser.add_argument("--shot", action="store_true", help="keep the latest present
 parser.add_argument("settings", nargs="*")
 a = parser.parse_args()
 
+if not a.name or Path(a.name).name != a.name or a.name in (".", ".."):
+    parser.error(f"NAME must be one plain folder name, not {a.name!r}")
+# Every scheduled input is read before the game starts: a mistyped button stops here, not with the game left running
+# (seconds, button mask, four axes, milliseconds held)
+presses = []
+for s in a.press:
+    names, at = s.split("@")
+    mask = 0
+    for b in names.split("+"):
+        if b not in BUTTONS:
+            parser.error(f"--press {s}: no button {b!r} (one of {', '.join(BUTTONS)})")
+        mask |= BUTTONS[b]
+    presses.append((float(at), mask, (0, 0, 0, 0), 150))
+for s in a.stick:
+    axes, at = s.split("@")
+    at, _, ms = at.partition(":")
+    axes = [int(v) for v in axes.split(",")]
+    presses.append((float(at), 0, tuple(axes + [0] * (4 - len(axes))), int(ms or 1000)))
+presses.sort()
+
 out = a.game.resolve()
 binary = out / "work" / "build" / "hwaoi196608"
 run = ROOT / "work" / "smoke" / a.name
@@ -54,7 +74,8 @@ for name in ("INPUT_SCRIPT", "INPUT_RECORD", "XLATE_ID", "PIPE_SYNC", "PIPE_SKIP
 env.update({
     # as apps/launcher/src-tauri/src/game.rs
     "HWAOI_GPU": "vulkan", "HWAOI_INPUT": "auto", "HWAOI_RUMBLE": "1", "HWAOI_PROGRESS": "1",
-    "HWAOI_EXEFS": str(out / "work" / "game" / "exefs"), "HWAOI_PROFILE_DIR": str(profile),
+    "HWAOI_EXEFS": str(out / "work" / "game" / "exefs"), "HWAOI_ROMFS": str(out / "work" / "game" / "romfs"),
+    "HWAOI_PROFILE_DIR": str(profile),
     "HWAOI_GSV_LOCAL_FRAME_POLICY": "1", "HWAOI_NATIVE_INFLATE": "1", "HWAOI_POOL_BACKPRESSURE": "1",
     "HWAOI_POOL_DIAG": "0", "HWAOI_IR_BANKS": "1",
     "HWAOI_XLATE": str(binary / "xlate-managed-irbanks" / "totk_xlate.exe"),
@@ -76,20 +97,6 @@ log_path = out / "logs" / f"game-smoke-{a.name}.log"
 log = open(log_path, "wb")
 p = subprocess.Popen([str(binary / "hwaoi.exe"), "--play-experimental"], cwd=binary, env=env, stdin=subprocess.DEVNULL,
                      stdout=log, stderr=subprocess.STDOUT, creationflags=0x08000000 | 0x00000200)
-# (seconds, button mask, four axes, milliseconds held)
-presses = []
-for s in a.press:
-    names, at = s.split("@")
-    mask = 0
-    for b in names.split("+"):
-        mask |= BUTTONS[b]
-    presses.append((float(at), mask, (0, 0, 0, 0), 150))
-for s in a.stick:
-    axes, at = s.split("@")
-    at, _, ms = at.partition(":")
-    axes = [int(v) for v in axes.split(",")]
-    presses.append((float(at), 0, tuple(axes + [0] * (4 - len(axes))), int(ms or 1000)))
-presses.sort()
 start = time.time()
 seq = 0
 frames = 0
@@ -134,4 +141,7 @@ if recs:
     waits = [float(r[4]) / max(1, int(r[3])) * 1000 for r in recs]
     print(f"  recorder: {len(recs)} windows, mean wait per drain {sum(waits) / len(waits):.2f} us, "
           f"parts on the recorder {recs[-1][0]} of {recs[-1][1]}")
-sys.exit(0 if p.returncode == 0 else 1)
+# A pass is a clean exit after the frames asked for: a game that closed early and cleanly did not run the test
+if frames < a.frames:
+    print(f"  {frames} of the {a.frames} frames asked for were presented")
+sys.exit(0 if p.returncode == 0 and frames >= a.frames else 1)

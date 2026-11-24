@@ -118,7 +118,19 @@ fn remove_empty(dir: &Path) -> io::Result<()> {
     if holds_a_file(dir) {
         return Err(io::Error::other(format!("{} is not empty", dir.display())));
     }
-    fs::remove_dir_all(dir)
+    remove_empty_tree(dir).map_err(|e| io::Error::other(format!("{} is not empty ({e})", dir.display())))
+}
+
+/// Removes `dir` and the folders below it when they hold nothing but folders: bottom up, each with remove_dir, so a
+/// file or a link that is there (holds_a_file looks at files alone) or turns up stops it and stays where it is.
+pub(crate) fn remove_empty_tree(dir: &Path) -> io::Result<()> {
+    for e in fs::read_dir(dir)? {
+        let e = e?;
+        if e.file_type()?.is_dir() {   // the entry's own type: a link to a folder is not walked into
+            remove_empty_tree(&e.path())?;
+        }
+    }
+    fs::remove_dir(dir)
 }
 
 fn same_folder(a: &Path, b: &Path) -> bool {
@@ -227,12 +239,19 @@ fn stage(source: &Path, from: Option<&Path>, ready: &[PathBuf], profile: &Path, 
     if let Some(from) = from {
         copy(from, &staging.join("save"))?;
     }
+    let mut waiting = 0;
     if profile.join("save-tx").read_dir().map_or(true, |mut d| d.next().is_none()) {
         for folder in ready {
             if let Some(leaf) = folder.file_name() {
                 copy(folder, &staging.join("tx").join(leaf))?;
+                waiting += 1;
             }
         }
+    }
+    if from.is_none() && waiting == 0 {
+        // Only finished saves to take, and this folder's save-tx holds something of its own: taking the account
+        // alone would make the game start a new save under it.
+        return Err(io::Error::other("the save waiting to be finished could not be taken: this folder has one of its own"));
     }
     let backups = source.join("save-backup");
     if backups.is_dir() && !profile.join("save-backup").exists() && copy(&backups, &staging.join("save-backup")).is_err() {

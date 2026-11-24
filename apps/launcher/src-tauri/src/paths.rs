@@ -12,7 +12,6 @@ pub struct Paths {
     pub exe_dir: PathBuf,
     pub data: PathBuf,
     pub engine: Option<PathBuf>,
-    pub portable: bool,
 }
 
 fn engine_ok(dir: &Path) -> bool {
@@ -25,7 +24,7 @@ impl Paths {
         let exe_dir = exe.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
         let portable = exe_dir.join("portable.txt").is_file();
         let data = data_dir(std::env::var_os("AOD_DATA_DIR"), std::env::var_os("RECOMPLAUNCHER_DATA"), portable, &exe_dir);
-        Paths { engine: find_engine(&exe_dir), exe_dir, data, portable }
+        Paths { engine: find_engine(&exe_dir), exe_dir, data }
     }
 
     pub fn config_file(&self) -> PathBuf {
@@ -127,6 +126,21 @@ pub fn game_logs_dir(output: &Path) -> PathBuf {
 pub fn stamp() -> String {
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     secs.to_string()
+}
+
+/// A new log file `<kind>-<stamp>.log` in `dir`, made for this run alone: two runs in the same second get
+/// `<kind>-<stamp>-2.log` and so on, never each other's file.
+pub fn new_log(dir: &Path, kind: &str) -> std::io::Result<(PathBuf, std::fs::File)> {
+    let stamp = stamp();
+    for n in 1u32.. {
+        let path = dir.join(if n == 1 { format!("{kind}-{stamp}.log") } else { format!("{kind}-{stamp}-{n}.log") });
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(file) => return Ok((path, file)),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && n < 1000 => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!()
 }
 
 #[cfg(test)]

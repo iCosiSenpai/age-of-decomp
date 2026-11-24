@@ -444,6 +444,8 @@ export const it: Record<string, string> = {
   "The language of the settings menu you open with Esc, and of the overlay. Automatic follows your system.": "La lingua del menu impostazioni che apri con Esc e dell'overlay. Automatico segue il sistema.",
 
   "Compiler updates": "Aggiornamenti del compilatore",
+  "Age of Decomp could not start.": "Age of Decomp non è riuscito ad avviarsi.",
+  "Try again": "Riprova",
   "GitHub could not access the releases. Check your GitHub credentials and try again.": "GitHub non riesce ad accedere alle release. Controlla le credenziali GitHub e riprova.",
   "Downloading update… {percent}%": "Download aggiornamento… {percent}%",
   "The compiler will restart when the update is ready.": "Il compilatore si riavvierà quando l’aggiornamento sarà pronto.",

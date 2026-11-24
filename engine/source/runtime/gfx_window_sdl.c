@@ -83,11 +83,13 @@ unsigned gfx_window_dpi(void) {
     return scale > 0 ? (unsigned)(scale * 96 + 0.5f) : 96;
 }
 
-// The window's size in its units for w x h pixels.
+// The window's size in its units for w x h pixels: pixels per window unit is the window's pixel density (the scale on
+// Wayland with high density, 1 on X11), not the desktop's display scale, which on X11 is above 1 on a scaled desktop
+// and made a 1920x1080 window 1280x720 at 150 %.
 static void set_pixel_size(int w, int h) {
-    float scale = SDL_GetWindowDisplayScale(g_win);
-    if (!(scale > 0)) scale = 1;
-    SDL_SetWindowSize(g_win, (int)(w / scale + 0.5f), (int)(h / scale + 0.5f));
+    float density = SDL_GetWindowPixelDensity(g_win);
+    if (!(density > 0)) density = 1;
+    SDL_SetWindowSize(g_win, (int)(w / density + 0.5f), (int)(h / density + 0.5f));
 }
 
 static void set_fullscreen(int on) {

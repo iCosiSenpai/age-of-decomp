@@ -8,7 +8,13 @@ use aod_nup::{Nup, profile};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<String> = match std::env::args_os().skip(1).map(|a| a.into_string()).collect() {
+        Ok(args) => args,
+        Err(bad) => {
+            eprintln!("aod-nup: an argument is not valid UTF-8 text: {}", bad.to_string_lossy());
+            return ExitCode::from(2);
+        }
+    };
     let run = || -> Result<bool, aod_nup::Error> {
         match args.first().map(String::as_str) {
             Some("info") if args.len() == 2 => {

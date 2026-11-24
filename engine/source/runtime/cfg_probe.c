@@ -358,6 +358,9 @@ int probe_cfg(void) {
     uint8_t ks[8];
     CHECK(input_map_keys_of(&mp, B_ZL, ks, 8) == 1 && ks[0] == KEY_LSHIFT, "edit: ZL keeps its first key only");
     mp = input_map;
+    CHECK(input_map_set_key(&mp, B_ZL, 0, KEY_LSHIFT) == -1 && input_map_keys_of(&mp, B_ZL, ks, 8) == 2,
+          "edit: a key put in the slot that has it already keeps the action's other keys");
+    mp = input_map;
     CHECK(input_map_set_pad(&mp, B_X, PAD_LAYOUT_XBOX, PAD_SOUTH) == B_A, "edit: south swaps X with A (Xbox layout)");
     uint8_t ps[8];
     CHECK(input_map_pads_of(&mp, B_A, PAD_LAYOUT_XBOX, ps, 8) == 1 && ps[0] == PAD_WEST, "edit: A takes X's west button");

@@ -1,7 +1,7 @@
 # RecompLauncher integration
 
-Age of Decomp publishes a Windows portable ZIP from its public GitHub repository. The preview is a prerelease,
-so RecompLauncher's team must enable its beta before catalog installation is available. Linux binaries are not published yet.
+Age of Decomp publishes, from its public GitHub repository, a Windows portable ZIP and a Linux AppImage with a
+`.tar.xz` of the same folder, both of one version.
 
 ## Install directly from the project
 
@@ -74,11 +74,15 @@ launcher's own files (`launcher.json`, pending settings, its logs) go to `RECOMP
 temp files it needs later, never asks anything, and neither it nor `--play` updates Age of Decomp: only the launcher
 window offers updates, and RecompLauncher starts the game with `--play`.
 
-The profile's `system` says what a Windows build needs (Windows 10, Vulkan 1.3); the game's page shows it and
-RecompLauncher warns on an older Windows without stopping the game. A `linux` part (glibc of the build system,
-Vulkan 1.3) is added with the first published Linux build.
+The profile's `system` says what each build needs: Windows 10 and Vulkan 1.3; on Linux glibc 2.34 (the newest any
+program of the AppImage asks for: LLVM's binaries and the two programs built on Ubuntu 22.04; `release.py linux` checks
+every ELF file against it) and Vulkan 1.3. The game's page shows it and RecompLauncher warns on an older system without
+stopping the game.
 
 On Linux RecompLauncher never runs an AppImage: it unpacks it and starts `AppRun` from a plain folder, with `APPDIR`
-set and `APPIMAGE` unset. Our `AppRun` finds its files from its own path, so it works the same both ways.
+set and `APPIMAGE` unset. Our `AppRun` finds its files from its own path, so it works the same both ways, and it hands
+`cli …` (the setup step) and `--play …` (Play) to aod-cli, which needs no GTK and no WebKitGTK: a Steam Deck sets up
+and plays with nothing installed, in RecompLauncher's Flatpak too. Only the launcher's own window needs WebKitGTK 4.1;
+`AppRun` says so when the PC lacks it.
 `python3 tools/release.py linux --appimage` packs the same AppDir as `AgeOfDecomp-v<ver>-Linux-x64.AppImage` and
 `AgeOfDecomp-v<ver>-Linux-x64.tar.xz` (installed when an AppImage will not unpack); publish both together.

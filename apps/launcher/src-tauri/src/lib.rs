@@ -172,8 +172,17 @@ async fn dlss_download(app: tauri::State<'_, App>, handle: tauri::AppHandle, kin
 /// Opens NVIDIA's DLSS licence page (a fixed address) in the browser, the way open_folder opens folders.
 #[tauri::command]
 fn dlss_license() -> Res<()> {
+    open_with_system(dlss::LICENSE_URL.as_ref())
+}
+
+/// Starts the system's opener (Explorer, xdg-open) on a folder or a web address. A thread waits for it, so on Linux
+/// an opener that has finished is not left behind as a zombie until the launcher closes.
+fn open_with_system(target: &std::ffi::OsStr) -> Res<()> {
     let opener = if cfg!(windows) { "explorer" } else { "xdg-open" };
-    std::process::Command::new(opener).arg(dlss::LICENSE_URL).spawn().map_err(|e| e.to_string())?;
+    let mut child = std::process::Command::new(opener).arg(target).spawn().map_err(|e| e.to_string())?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
     Ok(())
 }
 
@@ -216,12 +225,15 @@ async fn inspect_nup(path: String, update: Option<String>) -> Res<aod_nup::profi
 #[tauri::command]
 fn set_game(app: tauri::State<'_, App>, nup: String, update: Option<String>, dlc: Option<String>, output: String) -> Res<LauncherState> {
     {
+        // Saved first: a choice that could not be written does not become the live one either.
         let mut cfg = app.cfg.lock().unwrap();
-        cfg.nup = Some(nup);
-        cfg.update_nup = update;
-        cfg.dlc_nup = dlc;
-        cfg.set_output(output);
-        cfg.save(&app.paths)?;
+        let mut next = cfg.clone();
+        next.nup = Some(nup);
+        next.update_nup = update;
+        next.dlc_nup = dlc;
+        next.set_output(output);
+        next.save(&app.paths)?;
+        *cfg = next;
     }
     Ok(state_of(&app))
 }
@@ -244,6 +256,8 @@ fn start_prepare(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()
     }
     let paths = app.paths.clone();
     let control = app.prepare.clone();
+    // A Cancel pressed from here on stops this build: the flag is cleared here, never later in the worker.
+    control.cancel.store(false, std::sync::atomic::Ordering::SeqCst);
     std::thread::spawn(move || {
         let h = handle.clone();
         let mut terminal = None;
@@ -348,7 +362,7 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
     let close_on_play = cfg.ui.close_on_play;
     std::thread::spawn(move || {
         let mut launched = launched;
-        let mut code = launched.child.wait().ok().and_then(|s| s.code());
+        let mut code = launched.child.wait().ok().map(game::exit_code);
         // Restart from the in-game menu: the game again with the settings it just wrote, the controllers handed over
         // as on Play.
         while launched.wants_restart(code) {
@@ -360,7 +374,7 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
             match game::launch(&cfg, &app.paths, bigpicture, handoff.as_ref(), true, None, None) {
                 Ok(l) => {
                     launched = l;
-                    code = launched.child.wait().ok().and_then(|s| s.code());
+                    code = launched.child.wait().ok().map(game::exit_code);
                 }
                 Err(e) => {
                     write_last_error(&app.paths, &e.to_string());
@@ -376,11 +390,13 @@ fn play(handle: tauri::AppHandle, app: tauri::State<'_, App>) -> Res<()> {
         let _ = handle.emit("game", serde_json::json!({ "kind": "exited", "code": code }));
         if let Some(app) = handle.try_state::<App>() {
             if let Some(code) = code { diagnostics::game_finished(&app.paths, code, fps, &launched.log); }
-            *app.game_running.lock().unwrap() = false;
             if close_on_play { handle.exit(0); }
+            // The controllers come back to the launcher before Play is free again: a Play pressed right after must
+            // not hand them to a new game only to have this one take them back.
             else if let Some(p) = app.pads.lock().unwrap().as_ref() {
                 let _ = p.suspend(false);
             }
+            *app.game_running.lock().unwrap() = false;
         }
     });
     Ok(())
@@ -400,25 +416,7 @@ fn open_folder(app: tauri::State<'_, App>, kind: String) -> Res<()> {
         _ => return Err("unknown folder".into()),
     };
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let opener = if cfg!(windows) { "explorer" } else { "xdg-open" };
-    std::process::Command::new(opener).arg(&dir).spawn().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-fn log_tail(app: tauri::State<'_, App>, kind: String) -> String {
-    let cfg = app.cfg.lock().unwrap().clone();
-    let dir = if kind == "game" { paths::game_logs_dir(&cfg.output(&app.paths)) } else { app.paths.logs() };
-    let newest = std::fs::read_dir(&dir)
-        .ok()
-        .and_then(|rd| rd.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "log")).max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok()));
-    newest
-        .and_then(|e| game::log_end(&e.path(), 256 * 1024))
-        .map(|text| {
-            let lines: Vec<&str> = text.lines().collect();
-            lines[lines.len().saturating_sub(200)..].join("\n")
-        })
-        .unwrap_or_default()
+    open_with_system(dir.as_os_str())
 }
 
 #[tauri::command]
@@ -491,7 +489,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_state, set_ui, set_diagnostics, system_info, disk_info, find_nups, inspect_nup, set_game, start_prepare, cancel_prepare,
-            get_settings, set_setting, reset_settings, list_pads, pad_state, pad_rumble, play, open_folder, log_tail,
+            get_settings, set_setting, reset_settings, list_pads, pad_state, pad_rumble, play, open_folder,
             licenses, check_updates, install_update, dlss_status, dlss_download, dlss_pick, dlss_license
         ])
         .build(tauri::generate_context!())
@@ -508,6 +506,36 @@ pub fn run() {
 /// `AgeOfDecomp --play [--game-dir DIR] [--game=NUP] [--dlss=FILE]`: starts the built game without a window and returns
 /// its exit code. `--game`: where the player's copy is now (RecompLauncher's `{input:nup}`), when it has moved since the
 /// build. `--dlss`: the player's nvngx_dlss.dll (RecompLauncher's `{input:dlss}`) for NVIDIA DLSS.
+/// The program's arguments as text. One that is not UTF-8 (a Linux file name in another encoding) is refused with its
+/// readable part, instead of the panic `std::env::args` ends in; the caller exits with 2, the bad-arguments code.
+pub fn args() -> Result<Vec<String>, String> {
+    std::env::args_os().skip(1).map(|a| a.into_string().map_err(|bad| {
+        format!("An argument is not valid UTF-8 text: {} (rename the file, or move it to a folder whose name is \
+                 plain text)", bad.to_string_lossy())
+    })).collect()
+}
+
+/// The starts both programs run without the launcher's window: `cli …` (RecompLauncher's setup step and the other
+/// commands) and `--play` (RecompLauncher's `start`). Some(exit code), or None when the window is asked for. aod-cli
+/// takes them too, so the Linux AppImage's AppRun sends both to it: a PC without WebKitGTK still sets up and plays.
+pub fn headless(args: &[String]) -> Option<i32> {
+    if args.first().is_some_and(|a| a == "cli") {
+        return Some(cli::run(args.to_vec()));
+    }
+    if !args.iter().any(|a| a == "--play") {
+        return None;
+    }
+    // `--name=<value>` or `--name <value>`; an empty value (RecompLauncher's {input:…} without a file) is none.
+    let value = |name: &str| {
+        args.iter().find_map(|a| a.strip_prefix(&format!("{name}=")).map(str::to_string))
+            .or_else(|| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned())
+            .filter(|v| !v.is_empty()).map(PathBuf::from)
+    };
+    // The game folder, the player's copy (RecompLauncher's {input:nup}) and their NVIDIA DLSS file (its
+    // {input:dlss}, only on RTX PCs).
+    Some(play_headless(value("--game-dir"), value("--game"), value("--dlss")))
+}
+
 pub fn play_headless(game_dir: Option<PathBuf>, copy: Option<PathBuf>, dlss: Option<PathBuf>) -> i32 {
     let paths = Paths::detect();
     let mut cfg = Config::load(&paths);
@@ -518,13 +546,13 @@ pub fn play_headless(game_dir: Option<PathBuf>, copy: Option<PathBuf>, dlss: Opt
     match game::launch(&cfg, &paths, bigpicture, None, true, copy.as_deref(), dlss.as_deref()) {
         Ok(mut l) => {
             diagnostics::flush(&paths);
-            let mut code = l.child.wait().ok().and_then(|s| s.code());
+            let mut code = l.child.wait().ok().map(game::exit_code);
             // Restart from the in-game menu: one process for RecompLauncher, the game started again inside it.
             while l.wants_restart(code) {
                 match game::launch(&cfg, &paths, bigpicture, None, true, copy.as_deref(), dlss.as_deref()) {
                     Ok(next) => {
                         l = next;
-                        code = l.child.wait().ok().and_then(|s| s.code());
+                        code = l.child.wait().ok().map(game::exit_code);
                     }
                     Err(e) => {
                         play_failed(&paths, &cfg, &e.to_string());

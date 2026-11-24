@@ -183,19 +183,25 @@ pub fn stage(mut progress: impl FnMut(f64)) -> Result<(), String> {
     let asset = release.assets.iter().find(|a| a.name == asset_name(&release.tag_name)).unwrap();
     let stage = destination.join(format!(".aod-update-{}-{}", crate::paths::stamp(), std::process::id()));
     fs::create_dir(&stage).map_err(|e| format!("Cannot write the update beside the compiler ({e})"))?;
-    let package = stage.join("package.zip");
-    download(&client, asset, &package, &mut progress)?;
-    extract(&package, &stage.join("new"), &release.tag_name)?;
-    if installed_version(&stage.join("new"))? != version {
-        return Err("The update package version does not match its release tag".into());
+    let started = (|| -> Result<(), String> {
+        let package = stage.join("package.zip");
+        download(&client, asset, &package, &mut progress)?;
+        extract(&package, &stage.join("new"), &release.tag_name)?;
+        if installed_version(&stage.join("new"))? != version {
+            return Err("The update package version does not match its release tag".into());
+        }
+        fs::remove_file(package).map_err(|e| e.to_string())?;
+        fs::copy(destination.join("aod-cli.exe"), stage.join("update-helper.exe")).map_err(|e| e.to_string())?;
+        fs::write(stage.join("plan.json"), serde_json::to_vec(&Plan { destination: destination.clone(), parent: std::process::id() }).unwrap())
+            .map_err(|e| e.to_string())?;
+        hidden(Command::new(stage.join("update-helper.exe")).arg("--apply-update").arg(&stage))
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().map_err(|e| e.to_string())?;
+        Ok(())
+    })();
+    if started.is_err() {
+        let _ = fs::remove_dir_all(&stage);   // the download and whatever was unpacked, not left beside the launcher
     }
-    fs::remove_file(package).map_err(|e| e.to_string())?;
-    fs::copy(destination.join("aod-cli.exe"), stage.join("update-helper.exe")).map_err(|e| e.to_string())?;
-    fs::write(stage.join("plan.json"), serde_json::to_vec(&Plan { destination, parent: std::process::id() }).unwrap())
-        .map_err(|e| e.to_string())?;
-    hidden(Command::new(stage.join("update-helper.exe")).arg("--apply-update").arg(&stage))
-        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().map_err(|e| e.to_string())?;
-    Ok(())
+    started
 }
 
 #[cfg(windows)]
@@ -280,8 +286,8 @@ pub fn apply(stage: &Path) -> Result<(), String> {
         return Ok(());
     }
     let result = swap(&stage, &destination);
-    fs::write(stage.join("result.log"), match &result { Ok(()) => "Update installed".into(), Err(e) => e.clone() })
-        .map_err(|e| e.to_string())?;
+    // Only a record: the launcher must start again whether or not it can be written (a full drive).
+    let _ = fs::write(stage.join("result.log"), match &result { Ok(()) => "Update installed".into(), Err(e) => e.clone() });
     let mut restart = Command::new(destination.join("AgeOfDecomp.exe"));
     restart.current_dir(&destination).env_remove("AOD_UPDATE_ERROR");
     if let Err(error) = &result { restart.env("AOD_UPDATE_ERROR", error); }

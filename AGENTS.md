@@ -97,7 +97,8 @@ apps/launcher/     Tauri 2 launcher (pnpm). src/ = Svelte 5 UI (settings catalog
 crates/aod-nup/    NUP reader crate (+ `aod-nup info|check|build-id` CLI)
 engine/            source/ (the engine: compiler/ recomp/ runtime/ tools/ tests/ docs/ config/games/ = the game profile),
                    ORIGIN.md (where it came from, whose work, licence), tests/ (our own C tests)
-packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` → aod-cli, else launcher; .desktop),
+packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` and `--play …` → aod-cli, else the launcher's
+                   window after a WebKitGTK check; .desktop; build-launcher.sh: the two programs on Ubuntu 22.04),
                    licenses/ (licence texts of bundled parts whose package has none, libvpx and Ninja: `engine.py
                    toolchain` adds them to the bundle's licences and stops when one is missing)
 tools/             engine.py, release.py, fetch_refs.py, check_content.py, catalog_fmt.py, menu_texts.py,
@@ -183,13 +184,23 @@ devel, MSYS2 UCRT64 opus/libvpx/vulkan/VMA/zstd/zlib, all pinned by URL + SHA-25
 to the system .NET 10 SDK. Upstream scripts default to `F:\…` (`HWAOI_TOOLS`): always pass explicit paths.
 Full Windows sequence: `toolchain → translator → stage → game --nup <nup>` (the last one is a developer build
 into `work/game`: 6.6 min on the user's PC from nothing, under a minute after an engine change).
-Linux (`python3 tools/engine.py …`): `toolchain` installs the pinned python-build-standalone 3.14.10 + the packages into
-`.cache/toolchain/linux/python` and checks the system's clang, lld, Ninja, .NET 10 and the SDL3/Opus/libvpx/zstd/
-Vulkan/zlib dev packages (one compile + link each; prints the exact `apt install` line); then the same sequence
-(`game` defaults to `work/game-linux`). WSL on this PC: `AOD_CACHE_DIR=/mnt/f/dev/age-of-decomp/.cache/wsl`
-(`.cache/wsl/toolchain` and `unpacked` are symlinks into `~/aod-cache` on ext4, because NTFS is case-insensitive)
-and build outputs on ext4 (`~/aod-cache/work`); the engine sources are the repository's own `engine/source`, with
-one translator folder per OS under its `work/` (not run on Linux since the import: verify before a Linux release). Release: `python3 tools/release.py linux --appimage`.
+Linux (`python3 tools/engine.py …`): the bundle carries its whole compiler too, so a player's PC (a Steam Deck)
+installs nothing: `toolchain` puts into `.cache/toolchain/linux` python-build-standalone 3.14.10 + the packages, LLVM
+23.1.4's own clang and ld.lld (stripped), `llvm/sysroot` = the files of the Steam Runtime 3 "sniper" SDK 3.0.20261021
+the build reads, taken by package from its dpkg lists (glibc 2.31; GCC 14's runtime and libstdc++ moved from
+/usr/lib/gcc-14 to the usual places, a libgcc_s.so link script written), `deps/` (Opus 1.3.1 and libvpx 1.9.0 static and
+the Vulkan link library from the SDK, zstd 1.5.7 built static, Vulkan headers 1.4.363, VMA 3.4.0, SDL 3.4.20 built in
+the SDK's own image with docker or podman so libSDL3.so.0 needs only libc: the SDK's own SDL3 needs X11, Wayland,
+PulseAudio and libdecor to start), Ninja 1.13.2, licences, and runs a C + C++20 probe (glibc ≤ 2.31). The model is DKB
+Recomp's tools/make_release_linux.py. Developer tools: tar, make, readelf, docker/podman; `translator` the system's
+.NET 10 SDK and git. The game then needs libvulkan.so.1, libSDL3.so.0 beside it and glibc 2.29 (verified: a build in a
+bare `ubuntu:22.04` container). The two programs: `packaging/linux/build-launcher.sh` in `ubuntu:22.04` (glibc 2.35:
+aod-cli needs libc + libgcc_s, AgeOfDecomp GTK 3 + WebKitGTK 4.1); `release.py linux` checks every ELF of the AppDir
+against `LINUX_GLIBC` (2.34, LLVM's binaries set it) and the libraries every PC has (RUNPATH-aware). WSL on this PC:
+`AOD_CACHE_DIR=/mnt/f/dev/age-of-decomp/.cache/wsl` (`.cache/wsl/downloads`, `toolchain` and `unpacked` and
+`out/engine/linux` are symlinks into `~/aod-cache` on ext4: NTFS is case-insensitive and slow through WSL), docker
+works in WSL, and the NUP is `/mnt/d/…`. Release: `python3 tools/release.py linux --appimage --bin-dir <programs>`;
+CI's release.yml builds both systems on a tag.
 
 Pipeline (upstream `compiler/backend.py`, wrapped by our builder): **1** verify bundle + NUP identity → **2** extract
 and hash ExeFS → **3** RomFS resource cache (~8.5 GB, raw members stay in the NUP) + DLC → **4** ARM64→C generation
@@ -247,7 +258,7 @@ playing); `config` =
 `{install}/game/work/build/hwaoi196608/hwaoi.ini`. Release asset names:
 `AgeOfDecomp-v<ver>-Windows-x64.zip`, `AgeOfDecomp-v<ver>-Linux-x64.AppImage` + `.tar.xz` of the same AppDir (RecompLauncher
 unpacks every AppImage and starts `AppRun` from a plain folder: never rely on `APPIMAGE`). `system`: Windows 10 + Vulkan
-1.3 (add `linux` with the first published Linux build). Write only under `{install}` and `{data}`. Spec: https://recomplauncher.com/sdk (local copy `refs/RecompLauncher/docs/DEVELOPERS.md`).
+1.3, Linux glibc 2.34 + Vulkan 1.3. Write only under `{install}` and `{data}`. Spec: https://recomplauncher.com/sdk (local copy `refs/RecompLauncher/docs/DEVELOPERS.md`).
 Bump `packaging/prepare-version.txt` only when players must rebuild. It is the source for the SDK manifest,
 staged engine and compiler launch check. A UI-only update keeps the previously built game playable.
 **RecompLauncher 0.90 beta 68** (released 2026-11-23, tag at 023e313; what `https://recomplauncher.com/launcher/version.json`

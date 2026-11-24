@@ -61,18 +61,23 @@
     report = null;
   }
 
+  // Each check has a number: only the newest one may show its result, so a slow check of a file chosen before cannot
+  // pass the file chosen now.
+  let checkRun = 0;
   async function runChecks() {
     if (!nup) return;
+    const run = ++checkRun;
     step = 2;
     checking = true;
     checkError = null;
     report = null;
     try {
-      report = await api.inspectNup(nup, updateNup);
+      const result = await api.inspectNup(nup, updateNup);
+      if (run === checkRun) report = result;
     } catch (e) {
-      checkError = String(e);
+      if (run === checkRun) checkError = String(e);
     } finally {
-      checking = false;
+      if (run === checkRun) checking = false;
     }
   }
 
@@ -80,12 +85,18 @@
     const dir = await api.pickFolder(tr('Choose where the built game goes'));
     if (dir) {
       output = dir;
-      disk = await api.diskInfo(dir).catch(() => null);
+      disk = null; // the last folder's free space does not stand for this one
+      const info = await api.diskInfo(dir).catch(() => null);
+      if (output === dir) disk = info;
     }
   }
 
+  // One build at a time from this page: a second press while the first is being handed to the backend would be
+  // refused there and show the running build as failed.
+  let submitting = false;
   async function startBuild() {
-    if (!nup) return;
+    if (!nup || submitting) return;
+    submitting = true;
     try {
       app.launcher = await api.setGame(nup, updateNup, dlcNup, output);
       app.prepare = { running: true, stage: 1, fraction: 0, text: '', elapsed: 0, eta: null, log: [], result: null, error: null };
@@ -95,6 +106,8 @@
       app.prepare.running = false;
       app.prepare.result = 'error';
       app.prepare.error = String(e);
+    } finally {
+      submitting = false;
     }
   }
 

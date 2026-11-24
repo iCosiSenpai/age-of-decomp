@@ -297,7 +297,7 @@ pub fn put_back_kept_files(output: &Path) -> Vec<String> {
                 from.display()
             ));
         } else {
-            let _ = fs::remove_dir_all(&to); // empty folders only: `holds_files` said so
+            let _ = crate::saves::remove_empty_tree(&to); // folders only: a file that turns up stops it
             let moved = to.parent().map_or(Ok(()), fs::create_dir_all).and_then(|_| fs::rename(&from, &to));
             told.push(match moved {
                 Ok(()) => format!("the saves that were in the game folder before its first build are back in {}", to.display()),
@@ -336,11 +336,12 @@ impl Drop for PutBack<'_> {
 
 /// Runs the build and calls `sink` with progress, log lines and the final result. Blocking.
 pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut(Event) + Send) -> Result<(), String> {
-    control.cancel.store(false, Ordering::SeqCst);
+    // A set `control.cancel` stops this run at once: the caller clears it when the job starts (lib.rs start_prepare;
+    // the command line makes a new Control for its one run).
     let absolute = |p: &Path| std::path::absolute(p).map_err(|e| e.to_string());
     let engine = absolute(paths.engine.as_deref().ok_or("The engine is missing: reinstall Age of Decomp")?)?;
-    // The bundle's own Python (Windows: NuGet CPython, Linux: python-build-standalone); on Linux the compiler, Ninja
-    // and the libraries are the system's, which the engine checks before it starts.
+    // The bundle's own Python (Windows: NuGet CPython, Linux: python-build-standalone), which runs the bundle's own
+    // compiler on both systems.
     let python = if cfg!(windows) { engine.join("python").join("python.exe") } else { engine.join("python/bin/python3") };
     if !python.is_file() {
         return Err(format!("The engine is incomplete ({} is missing): reinstall Age of Decomp", python.display()));
@@ -361,7 +362,8 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).map_err(|e| e.to_string())?));
 
     let mut cmd = Command::new(&python);
-    cmd.arg("-E").arg("-s").arg(engine.join("source/compiler/backend.py")).arg("build");
+    // -X utf8: -E leaves PYTHONUTF8 out, and the engine's output is read as UTF-8
+    cmd.arg("-E").arg("-s").arg("-X").arg("utf8").arg(engine.join("source/compiler/backend.py")).arg("build");
     cmd.arg("--bundle").arg(&engine).arg("--nup").arg(absolute(&job.nup)?).arg("--output").arg(absolute(&job.output)?);
     cmd.arg("--jobs").arg(job.jobs.to_string()).arg("--resolution").arg(&job.resolution);
     if job.unlock {
@@ -525,8 +527,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn run_clears_an_old_cancel_before_preflight() {
-        let p = Paths { exe_dir: PathBuf::new(), data: PathBuf::new(), engine: None, portable: false };
+    fn run_leaves_a_cancel_to_its_caller() {
+        // A Cancel pressed between Set Up and the worker's start is kept: the caller clears the flag when the job
+        // starts (lib.rs start_prepare), never `run`, which would lose it.
+        let p = Paths { exe_dir: PathBuf::new(), data: PathBuf::new(), engine: None };
         let job = Job {
             nup: PathBuf::new(), update: None, dlc: None, output: PathBuf::new(), jobs: 0,
             resolution: "1920x1080".into(), unlock: false,
@@ -534,7 +538,7 @@ mod tests {
         let control = Arc::new(Control::default());
         control.cancel.store(true, Ordering::SeqCst);
         assert!(run(&p, &job, control.clone(), |_| {}).is_err());
-        assert!(!control.cancel.load(Ordering::SeqCst));
+        assert!(control.cancel.load(Ordering::SeqCst));
     }
 
     #[test]
@@ -561,7 +565,7 @@ mod early_settings_tests {
     }
 
     fn paths_in(data: &std::path::Path) -> Paths {
-        Paths { exe_dir: data.to_path_buf(), data: data.to_path_buf(), engine: None, portable: false }
+        Paths { exe_dir: data.to_path_buf(), data: data.to_path_buf(), engine: None }
     }
 
     #[test]

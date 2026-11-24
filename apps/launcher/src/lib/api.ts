@@ -87,7 +87,6 @@ export const api = {
   play: () => invoke<void>('play'),
   onGame: (cb: (e: GameEvent) => void) => listen<GameEvent>('game', cb),
   openFolder: (kind: 'game' | 'saves' | 'logs' | 'data' | 'engine') => invoke<void>('open_folder', { kind }),
-  logTail: (kind: 'prepare' | 'game') => invoke<string>('log_tail', { kind }),
   licenses: () => invoke<string>('licenses'),
   dlssStatus: () => invoke<DlssStatus>('dlss_status'),
   dlssDownload: (kind: NvidiaFile = 'dlss') => invoke<DlssStatus>('dlss_download', { kind }),
@@ -122,7 +121,7 @@ const params = typeof location !== 'undefined' ? new URLSearchParams(location.se
 const demoBuilt = !['0', 'stale', 'part'].includes(params.get('built') ?? '');
 
 const demoState: LauncherState = {
-  version: '0.2.1',
+  version: '0.3.0',
   engine_dir: 'C:\\Games\\AgeOfDecomp\\engine',
   data_dir: 'C:\\Users\\Player\\AppData\\Local\\AgeOfDecomp',
   game: {
@@ -160,11 +159,13 @@ const demoPads: Pad[] = [
 ];
 
 async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
-  if (cmd === 'check_updates') return { current: '0.2.1', latest: params.has('update') ? 'v0.3.0' : 'v0.2.1', available: params.has('update'), previous_error: null };
+  if (cmd === 'check_updates') return { current: '0.3.0', latest: params.has('update') ? 'v0.4.0' : 'v0.3.0', available: params.has('update'), previous_error: null };
   if (cmd === 'install_update') throw new Error('Update installation is available in the desktop compiler.');
   await new Promise((r) => setTimeout(r, 120));
   switch (cmd) {
     case 'get_state':
+      // ?startfail: the launcher's first read fails, as when its settings folder cannot be read
+      if (params.has('startfail')) throw new Error('Access is denied. (os error 5)');
       return structuredClone(demoState);
     case 'set_ui':
       Object.assign(demoState.ui, args?.patch);
@@ -227,8 +228,6 @@ async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknow
       setTimeout(() => demoListeners['game']?.({ kind: 'started' }), 300);
       setTimeout(() => demoListeners['game']?.({ kind: 'exited', code: 0 }), 4000);
       return;
-    case 'log_tail':
-      return '[demo] no log in the browser preview';
     case 'licenses':
       return 'Age of Decomp — GPL-3.0-or-later (demo)';
     case 'dlss_status':

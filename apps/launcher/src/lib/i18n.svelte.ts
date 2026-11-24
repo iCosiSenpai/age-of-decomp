@@ -31,10 +31,6 @@ export function trc(en: string): string {
   return dictionaries[current]?.[en] ?? en;
 }
 
-export function locale(): Locale {
-  return current;
-}
-
 export function setLocale(l: Locale) {
   current = l;
   if (typeof document !== 'undefined') document.documentElement.lang = l;

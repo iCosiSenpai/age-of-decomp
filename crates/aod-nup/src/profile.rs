@@ -187,7 +187,7 @@ pub fn check(nup: &Nup, update_nup: Option<&Nup>, profile: &GameProfile) -> Resu
             }
         }
     }
-    let romfs_bytes = romfs.values().map(|(s, _)| *s).sum();
+    let romfs_bytes = romfs.values().fold(0u64, |total, (s, _)| total.saturating_add(*s));   // sizes from the file: shown only
     let inv_ok = romfs.len() == profile.romfs_inventory.files && inventory_hash(&romfs) == profile.romfs_inventory.sha256;
     steps.push(Step {
         id: "romfs",

@@ -203,6 +203,9 @@ void input_map_configure(void) {
 int input_map_set_key(InputMap *m, int action, int slot, int key) {
     uint8_t list[INPUT_BINDING_MAX];
     int n = input_map_keys_of(m, action, list, INPUT_BINDING_MAX), lost = -1;
+    // The key this slot has already: nothing changes (taking it out first would shift the other keys into its place
+    // and drop the last one)
+    if (key != KEY_NONE && slot < n && list[slot] == key) return -1;
     if (key != KEY_NONE) {
         for (int i = 0; i < m->nkeys; i++)
             if (m->keys[i].key == key && m->keys[i].action != action) lost = m->keys[i].action;

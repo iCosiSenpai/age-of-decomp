@@ -412,8 +412,10 @@ def build_parser():
     build.add_argument("--generated", type=Path, default=ROOT / "work/generated/hwaoi196608-full")
     build.add_argument("--out", type=Path, default=ROOT / "work/build/hwaoi196608")
     build.add_argument("--romfs", type=Path, required=True, help="Prepared romfs.bin/index.json directory; not the NUP")
-    # Linux: the system's clang, lld, Ninja and libraries unless --toolchain/--deps name others (tools/build_game.py)
+    # Linux: the system's clang, lld, Ninja and libraries unless --toolchain/--deps/--sysroot name others (the release
+    # bundle's, tools/build_game.py)
     build.add_argument("--deps", type=Path, required=WINDOWS, help="Existing include/lib/bin runtime dependency tree")
+    build.add_argument("--sysroot", type=Path, help="Linux: the glibc and libstdc++ to compile and link against")
     build.add_argument("--toolchain", type=Path,
                        default=Path(os.environ.get("HWAOI_TOOLS", "F:") + "/llvm-mingw") if WINDOWS else None)
     build.add_argument("--ninja", type=Path,
@@ -521,7 +523,7 @@ def dispatch(args):
                      "--exefs", args.exefs.resolve(), "--romfs", args.romfs.resolve(),
                      "--profile", ROOT / "work/saves/hwaoi196608", "--ninja", args.ninja,
                      "--jobs", args.jobs, "--full-build"]
-                for option, value in (("--toolchain", args.toolchain), ("--deps", args.deps)):
+                for option, value in (("--toolchain", args.toolchain), ("--deps", args.deps), ("--sysroot", args.sysroot)):
                     if value is not None:
                         command += [option, value]
                 if args.toolchain_stamp:

@@ -437,7 +437,7 @@ impl Nup {
 
     /// The first `n` bytes of a file (decompressing only what is needed).
     pub fn read_head(&self, e: &Entry, n: usize) -> Result<Vec<u8>> {
-        let n = n.min(e.size as usize);
+        let n = usize::try_from((n as u64).min(e.size)).unwrap_or(n);
         if n == 0 {
             return Ok(Vec::new());
         }
@@ -505,7 +505,10 @@ impl Nup {
             None => Ok((0, 0)),
             Some(d) => {
                 let files = self.walk(d)?;
-                Ok((files.len(), files.iter().map(|(_, e)| e.size).sum()))
+                // Sizes from the file itself: a total past u64 is a damaged file, not a number to print
+                let bytes = files.iter().try_fold(0u64, |total, (_, e)| total.checked_add(e.size))
+                    .ok_or_else(|| Error::Corrupt("RomFS sizes add up past 2^64".into()))?;
+                Ok((files.len(), bytes))
             }
         }
     }

@@ -49,15 +49,16 @@ class CompilerCacheTests(unittest.TestCase):
     def test_stable_tool_paths_and_identity_change_on_repair(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); bundle = root / "bundle"; out = root / "output"
-            files = {p: self.put(bundle, p) for p in ("llvm/bin/clang.exe", "deps/include/a.h", "bin/ninja.exe")}
+            exe = ".exe" if os.name == "nt" else ""
+            files = {p: self.put(bundle, p) for p in (f"llvm/bin/clang{exe}", "deps/include/a.h", f"bin/ninja{exe}")}
             stamp = cache.prepare_tools(bundle, out, {"files": files}, Path("work/backups/one"))
             first = stamp.read_bytes(); mtime = stamp.stat().st_mtime_ns
             cache.prepare_tools(bundle, out, {"files": files}, Path("work/backups/two"))
             self.assertEqual(stamp.stat().st_mtime_ns, mtime)
-            (out / "work/toolchain/llvm/bin/clang.exe").write_bytes(b"corruption")
+            (out / f"work/toolchain/llvm/bin/clang{exe}").write_bytes(b"corruption")
             cache.prepare_tools(bundle, out, {"files": files}, Path("work/backups/three"))
             self.assertNotEqual(stamp.read_bytes(), first)
-            self.assertEqual((out / "work/toolchain/llvm/bin/clang.exe").read_bytes(), b"owned fixture")
+            self.assertEqual((out / f"work/toolchain/llvm/bin/clang{exe}").read_bytes(), b"owned fixture")
 
     def test_resource_cache_rechecks_changed_bytes_and_rejects_wrong_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -103,13 +104,11 @@ class CompilerCacheTests(unittest.TestCase):
             nup.write_bytes(b"owned source package fixture")
             sources = ("source/tools/hwaoi.py", "source/tools/hostmem.py", "source/tools/check_content.py",
                        "source/recomp/gen.py", "source/runtime/a.c")
-            # Windows bundles carry their compiler; Linux builds with the system's clang, lld and Ninja
+            # Both systems' bundles carry their compiler
             names = sources + (("llvm/bin/clang.exe", "deps/include/a.h", "bin/ninja.exe", "bin/zlib1.dll",
                                 "translator/totk_xlate.exe", "translator/totk_xlate.id") if os.name == "nt" else
-                               ("translator/totk_xlate", "translator/totk_xlate.id"))
-            def system_tools(o, path):
-                self.put(o, "work/toolchain/identity.json", b'{"identity": "fixture"}')
-                return o / "work/toolchain/identity.json"
+                               ("llvm/bin/clang", "llvm/bin/ld.lld", "deps/include/a.h", "bin/ninja",
+                                "translator/totk_xlate", "translator/totk_xlate.id"))
             manifest = {"source_revision": "fixture", "files": {p: self.put(bundle, p) for p in names}}
             identity = {"header": "header", "toc": "toc", "size": nup.stat().st_size}
             hashes = {"main": "fixture-module-hash"}; calls = []; fail = [False]
@@ -139,9 +138,7 @@ class CompilerCacheTests(unittest.TestCase):
                 else:
                     self.fail(action)
             disk = type("Disk", (), {"free": 60 << 30})()
-            with patch.object(backend.cache, "prepare_system_tools", side_effect=system_tools), \
-                 patch.object(backend.shutil, "which", return_value="/usr/bin/ninja"), \
-                 patch.object(backend, "bundle_check", return_value=manifest), patch.object(backend, "inspect_nup", return_value=identity), \
+            with patch.object(backend, "bundle_check", return_value=manifest), patch.object(backend, "inspect_nup", return_value=identity), \
                  patch.object(backend.hwaoi, "verify", side_effect=verify), \
                  patch.object(backend, "extract_game_exefs", side_effect=extract), patch.object(backend, "run_tool", side_effect=tool), \
                  patch.object(backend, "install_game_dlc", return_value={}), \

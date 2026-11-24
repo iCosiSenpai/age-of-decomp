@@ -12,6 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine
 import release
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def bundle_fixture(root: Path, **extra) -> None:
     """An engine folder whose versions match this release (bundle.json + source/VERSION)."""
@@ -39,16 +41,18 @@ class StageGuardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             tc, xlate, stage = root / "tc", root / "xlate", root / "stage"
-            (tc / "python/bin").mkdir(parents=True)
-            (tc / "python/bin/python3").touch()
+            for tool in ("python/bin/python3", "llvm/bin/clang", "bin/ninja"):   # the Linux bundle's whole compiler
+                (tc / tool).parent.mkdir(parents=True, exist_ok=True)
+                (tc / tool).touch()
             xlate.mkdir()
             (xlate / "totk_xlate").touch()
             with patch.object(engine, "ENGINE", root), patch.object(engine, "TC", tc), \
                     patch.object(engine, "XLATE_OUT", xlate), patch.object(engine, "XLATE_EXE", "totk_xlate"), \
                     patch.object(engine, "STAGE", stage), patch.object(engine, "WIN", False), \
                     patch.object(engine, "git", return_value=SimpleNamespace(stdout=" M runtime/a.c\n")), \
-                    patch.object(engine, "source_files", return_value=[]), \
-                    patch.object(engine, "copy_tree"), patch.object(engine, "run"):
+                    patch.object(engine, "source_files", return_value=[]), patch.object(engine, "LINUX_LICENSES", ()), \
+                    patch.object(engine, "copy_tree"), \
+                    patch.object(engine, "run", return_value=SimpleNamespace(returncode=0)):
                 engine.cmd_stage(SimpleNamespace(allow_dirty=True))
             info = json.loads((stage / "bundle.json").read_text())
             self.assertTrue(info["dirty"])
@@ -110,8 +114,21 @@ class ReleaseGuardTests(unittest.TestCase):
         self.assertEqual(m["prepare"]["args"][:2], ["cli", "prepare"])
 
     def test_manifest_says_what_the_pc_needs_for_the_builds_we_ship(self):
-        # RecompLauncher's `system` (SDK guide after beta 66): one part per system a release ships a build for.
-        self.assertEqual(release.manifest()["system"], {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}}})
+        # RecompLauncher's `system` (SDK guide after beta 66): one part per system a release ships a build for. Linux's
+        # glibc is the floor `release.py linux` checks every program of the AppImage against.
+        self.assertEqual(release.manifest()["system"], {"windows": {"version": "10", "graphics": {"vulkan": "1.3"}},
+                                                        "linux": {"glibc": "2.34", "graphics": {"vulkan": "1.3"}}})
+        self.assertEqual(release.LINUX_GLIBC, (2, 34))
+
+    def test_apprun_sends_the_headless_starts_to_aod_cli(self):
+        # RecompLauncher's setup step (`cli prepare …`) and its start (`--play …`) must not need the launcher's window
+        # (WebKitGTK): a Steam Deck has none. The AppRun hands both to aod-cli, which takes both (lib.rs headless).
+        text = (ROOT / "packaging/linux/AppRun").read_text(encoding="utf-8")
+        self.assertIn('if [ "$1" = "cli" ]; then\n    exec "$HERE/aod-cli" "$@"', text)
+        self.assertIn('if [ "$arg" = "--play" ]; then\n        exec "$HERE/aod-cli" "$@"', text)
+        self.assertNotIn("APPIMAGE", text.split("\n", 3)[3])   # RecompLauncher never sets it
+        cli = (ROOT / "apps/launcher/src-tauri/src/bin/aod-cli.rs").read_text(encoding="utf-8")
+        self.assertIn("aod_launcher_lib::headless(&args)", cli)
 
     def test_linux_tarball_is_the_folder_under_one_top_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
