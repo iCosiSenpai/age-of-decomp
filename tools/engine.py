@@ -773,7 +773,11 @@ def linux_probe(dest: Path) -> None:
             die(f"toolchain probe: needs {', '.join(unknown) or 'only known libraries'}, "
                 f"glibc {'.'.join(map(str, newest))}")
         out = run([t / "probe"], capture=True, check=False)
-        if out.returncode not in (0, 1):   # 1: no Vulkan loader on this PC, the program still ran
+        if out.returncode == 127 and "libvulkan.so.1" in out.stderr:   # a build machine without a Vulkan loader
+            log(f"toolchain probe: linked (needs {', '.join(needed)}; glibc {'.'.join(map(str, newest))}); not run: "
+                "this PC has no libvulkan.so.1")
+            return
+        if out.returncode not in (0, 1):   # 1: no Vulkan driver on this PC, the program still ran
             die(f"toolchain probe exit {out.returncode}: {out.stderr.strip()[-400:]}")
         log(f"toolchain probe: {out.stdout.strip()} (needs {', '.join(needed)}; glibc {'.'.join(map(str, newest))})")
 

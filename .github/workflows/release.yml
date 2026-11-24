@@ -123,7 +123,7 @@ jobs:
       - name: AppImage packing tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq squashfs-tools binutils make >/dev/null
+          sudo apt-get install -y -qq squashfs-tools binutils make libvulkan1 >/dev/null
       # LLVM's release (2 GB) and the sniper SDK (1.2 GB) once, while their pins stay the same
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
