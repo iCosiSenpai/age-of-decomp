@@ -45,11 +45,14 @@ SAVES = GAME_DIR + "/work/saves/hwaoi196608"
 # an ELF file may need from the PC: the C runtime, Vulkan's loader, and for the launcher's window GTK 3 and WebKitGTK
 # 4.1 (the AppRun checks those before it opens the window; aod-cli and the game need none of them).
 LINUX_GLIBC = (2, 34)
+# OpenSSL 3 (HTTPS: update checks, the opt-in diagnostics) is the system's on every distribution the glibc floor
+# names (Ubuntu 22.04, Debian 12, Fedora 36, SteamOS 3), as in RecompLauncher's own Linux builds.
 LINUX_SYSTEM_LIBS = {"libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1", "libutil.so.1",
-                     "ld-linux-x86-64.so.2", "libgcc_s.so.1", "libstdc++.so.6", "libz.so.1", "libvulkan.so.1"}
+                     "ld-linux-x86-64.so.2", "libgcc_s.so.1", "libstdc++.so.6", "libz.so.1", "libvulkan.so.1",
+                     "libssl.so.3", "libcrypto.so.3"}
 LINUX_WINDOW_LIBS = {"libgtk-3.so.0", "libgdk-3.so.0", "libgdk_pixbuf-2.0.so.0", "libcairo.so.2", "libgobject-2.0.so.0",
                      "libglib-2.0.so.0", "libgio-2.0.so.0", "libdbus-1.so.3", "libwebkit2gtk-4.1.so.0",
-                     "libjavascriptcoregtk-4.1.so.0", "libsoup-3.0.so.0", "libssl.so.3", "libcrypto.so.3"}
+                     "libjavascriptcoregtk-4.1.so.0", "libsoup-3.0.so.0"}
 # Extensions that must never be in a release (game content, keys, dumps).
 FORBIDDEN = {".nup", ".nsp", ".nsz", ".xci", ".xcz", ".nca", ".ncz", ".nso", ".nro", ".npdm", ".keys", ".tik", ".bfres",
              ".sarc", ".zs", ".bntx", ".bfsha", ".g1t", ".g1m", ".ktf2", ".ktsl2stbin", ".rdb", ".fdata"}
