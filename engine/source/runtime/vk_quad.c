@@ -179,6 +179,7 @@ int vk_quad_indirect_prepare_batch(VkExec *ex, const VkMemSpan *sources, const u
             // render pass ended). Each record converts into its own header slot, so the dispatches need no barriers
             // between them.
             vk_exec_barrier(ex);
+            if (vk_crumbs_draws()) rec_crumb(ex->cb, VK_CRUMB_QUADS, vk_crumbs_last_draw());   // vk_crumbs.c
             vkCmdBindPipeline(ex->cb, VK_PIPELINE_BIND_POINT_COMPUTE, Q.prepare);
             ex->recorded += 2;
         }
@@ -207,6 +208,7 @@ int vk_quad_indirect_prepare_batch(VkExec *ex, const VkMemSpan *sources, const u
     VkDependencyInfo di = {.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO, .memoryBarrierCount = 1, .pMemoryBarriers = &memory};
     vkCmdPipelineBarrier2(ex->cb, &di);
     ex->recorded += 1;
+    if (vk_crumbs_draws()) rec_crumb(ex->cb, VK_CRUMB_QUADS_END, vk_crumbs_last_draw());
     return (int)done;
 }
 

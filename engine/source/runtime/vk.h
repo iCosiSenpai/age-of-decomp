@@ -83,8 +83,10 @@ void vk_device_fault_report(VkResult r);
 // ---- GPU breadcrumbs (vk_crumbs.c): with VK_AMD_buffer_marker, each crumb has the GPU write its code into host memory
 // twice, when the command processor reaches it and when all work before it has finished. After a lost device the two
 // codes bracket the work that hung. Without the extension every call returns at once.
+// VK_CRUMB_QUADS / _QUADS_END bracket a batch of GPU QUADS conversions (vk_quad.c, with draw crumbs only); their
+// number is the draw recorded before the batch.
 enum { VK_CRUMB_SUBMIT = 1, VK_CRUMB_SUBMIT_END, VK_CRUMB_UPLOAD, VK_CRUMB_UPLOAD_END, VK_CRUMB_ASTC, VK_CRUMB_PRESENT,
-       VK_CRUMB_PRESENT_END, VK_CRUMB_DRAW };
+       VK_CRUMB_PRESENT_END, VK_CRUMB_DRAW, VK_CRUMB_QUADS, VK_CRUMB_QUADS_END };
 void vk_crumbs_init(VkCtx *c);       // after the allocator exists
 void vk_crumbs_release(void);
 // Records crumb kind with number n (a timeline value, a batch number; the low 28 bits are kept) into cb. Only the
@@ -98,11 +100,19 @@ typedef struct {
     uint32_t vertices;
     uint16_t w, h;                   // the pass's render area
     uint16_t fmt[9];                 // VkFormat of the colour targets 0-7 and of the depth target; 0: none
+    uint16_t sampled;                // the pass's targets the fragment shader samples (bit 8: depth), feedback_scan
+    uint8_t after;                   // VK_DRAW_AFTER_*: what was recorded between the previous draw and this one
+    uint32_t pass;                   // the pass it is in (VkExec.pass_serial)
     uint64_t frame;                  // the frame being drawn
     uint64_t vs, fs;                 // the NVN 2 names of the vertex and the fragment stage (nvn2_origin); 0: not NVN 2
 } VkDrawNote;
+enum { VK_DRAW_AFTER_FB_BARRIER = 1,   // the by-region feedback barrier (vk_exec_draw.c feedback_barrier)
+       VK_DRAW_AFTER_FB_RESTART = 2,   // the pass ended and began again for a feedback loop (feedback_prepare)
+       VK_DRAW_AFTER_QUADS = 4,        // a batch of GPU QUADS conversions, which ends the pass (vk_quad.c)
+       VK_DRAW_AFTER_NEW_PASS = 8 };   // set by vk_crumbs_draw: the first draw of its pass or submission
 int vk_crumbs_draws(void);                       // 1: draws are marked too
 uint32_t vk_crumbs_draw(const VkDrawNote *n);    // keeps the note and returns the number for the draw's VK_CRUMB_DRAW
+uint32_t vk_crumbs_last_draw(void);              // the number of the newest draw note (0: none yet)
 
 // ---- window and present (gfx_present.c). Host threads only.
 // vk_present_image: blits the crop rectangle {x, y, w, h} of src (NULL, or w/h <= 0: the whole w x h image), scaled

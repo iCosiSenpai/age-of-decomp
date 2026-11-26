@@ -3160,11 +3160,16 @@ static int indirect_can_stay_in_pass(const VkExec *ex, uint64_t addr, uint64_t s
 
 // Pass, shaders, pipeline, fixed state and resources for a draw. 0: the draw is skipped.
 // TOTK_DRAW_CRUMBS=1 (vk_crumbs.c): a crumb in front of the draw prepare_draw has just set up, and a note of what the
-// draw is. The crumb goes through the recorder thread in order with the draw's own commands.
-static void draw_crumb(VkExec *ex, int32_t count) {
+// draw is: after = VK_DRAW_AFTER_* bits, sampled = the pass's targets its fragment shader samples. The crumb goes
+// through the recorder thread in order with the draw's own commands.
+static int quads_since_crumb;   // a QUADS conversion batch was recorded since the last draw crumb (quads_convert)
+
+static void draw_crumb(VkExec *ex, int32_t count, uint8_t after, uint32_t sampled) {
+    if (quads_since_crumb) after |= VK_DRAW_AFTER_QUADS, quads_since_crumb = 0;
     VkDrawNote n = {.sub = (uint32_t)((vk_sync_issued() + 1) & 0x0fffffff), .vertices = (uint32_t)count,
                     .w = (uint16_t)(ex->pass_w < 0xffff ? ex->pass_w : 0xffff),
                     .h = (uint16_t)(ex->pass_h < 0xffff ? ex->pass_h : 0xffff),
+                    .sampled = (uint16_t)(sampled & 0x1ff), .after = after, .pass = ex->pass_serial,
                     .frame = __atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED) + 1};
     for (int i = 0; i < 9; i++) {
         const VkExecTarget *t = i < 8 ? &ex->color[i] : &ex->depth;
@@ -3313,7 +3318,9 @@ static int prepare_draw(VkExec *ex, int prim, int32_t count, int restart) {
     if (!vs || (has_fs && !fs) || (want_gs && (!has_gs || !gs))) return 0;
     if (!geometry_feedback_safe(ex, vs, gs)) return 0;
     g_tjit = vk_temporal_draw(ex, fs, count);   // may run FSR here (the pass is ended and begun again)
+    uint64_t fb_restarts = vk_exec_frame.fb_restarts;   // for the draw crumb: did feedback_prepare restart the pass
     uint32_t fbl = feedback_prepare(ex, fs);
+    uint8_t crumb_after = vk_exec_frame.fb_restarts != fb_restarts ? VK_DRAW_AFTER_FB_RESTART : 0;
     VkPipeState s;
     MX_CPY(&s, &ex->pipe, sizeof s);
     s.vs = vs, s.fs = fs, s.gs = gs;
@@ -3414,13 +3421,13 @@ static int prepare_draw(VkExec *ex, int prim, int32_t count, int restart) {
     record_fixed(ex);
     repeat_stats(ex, info);
     bind_resources(ex, info);
-    if (fbl & ex->fb_dirty) feedback_barrier(ex);
+    if (fbl & ex->fb_dirty) feedback_barrier(ex), crumb_after |= VK_DRAW_AFTER_FB_BARRIER;
     feedback_written(ex, &s);
     bind_vertex_buffers(ex);
     if (vk_dump_armed) vk_dump_draw(ex, &s, p, info);
     vk_exec_oq_draw(ex);
     if (indirect_batch_on()) ex->pass_storage_writes |= pipeline_storage_writes(info);
-    if (vk_crumbs_draws()) draw_crumb(ex, count);
+    if (vk_crumbs_draws()) draw_crumb(ex, count, crumb_after, fs && ex->fb_fs == fs ? ex->fb_sampled : 0);
     return 1;
 }
 
@@ -3709,6 +3716,7 @@ static int quads_convert(VkExec *ex, const p_draw_ind *d, VkQuadIndirect *out) {
     }
     __atomic_fetch_add(&vk_exec_quad_runs, 1, __ATOMIC_RELAXED);
     __atomic_fetch_add(&vk_exec_quad_batched, m, __ATOMIC_RELAXED);
+    quads_since_crumb = 1;
     *out = conv[0];
     return 1;
 }

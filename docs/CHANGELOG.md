@@ -25,6 +25,12 @@ keeps your settings and saves.
   not save no longer shows "Saved" on the Controllers page.
 - Two settings saved at the same moment no longer overwrite each other's file, which could lose one of them.
 
+### Diagnostics
+- With *Draw call markers* on, the log of a graphics card that stops answering (code 70) also says what came between
+  the last draws (a barrier inside the pass, a pass that ended and began again, a QUADS conversion) and which of its
+  own targets a draw reads, so one log tells more about a crash. For the Radeon crash in a fight reported by
+  @benkra66 (#16).
+
 ## 0.3.0 (2026-11-24)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
