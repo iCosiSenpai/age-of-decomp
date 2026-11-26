@@ -44,7 +44,8 @@ branch maps them through batch+0xf0 (s16 screen size) and the anchor at +0x10c. 
 
 hwaoi_ui_canvas replaces the copy at af42e4..af42f0 by: `ldp q0,q1,[x2]; adrp x9,page; ldr s2,[x9,#0xb8];
 fmul v0.4s/v1.4s by v2.s[0]; stp q0,q1,[x1]` (the original ldp/stp pairs become nops). Page +0xb8 = f32
-output_w / 1920 (res_init). The corners reach the vertex buffer in output pixels, consistent with text.
+output_h / 1080 (res_init; the same as output_w / 1920 at 16:9). The corners reach the vertex buffer in output
+pixels, consistent with text.
 
 ### The recorder's other shapes (2026-11-23, Age of Decomp; not yet seen in a battle)
 
@@ -129,13 +130,51 @@ are drawn at canvas resolution and scaled, like the header and the button guide)
 Checked on 2026-11-26 (RTX 5070 Ti): the Music list clean at 3840x2160 and back to the mix with `ui_text = 0`; the
 world map the same with and without it at 3840x2160; character cards clean at 3840x2160, 2560x1440 and 1920x1080;
 2560x1440 compared with 0.3.5 (Music list, cards, world map, the training field's HUD) the same; 1920x1080 and
-1280x720 clean. 3440x1440 is not an output the game takes (`OUTPUT_RES` has 1280x720, 1920x1080, 2560x1440 and
-3840x2160: hwaoi_display.h), so it was not tried.
+1280x720 clean. The 21:9 outputs came later (next section).
 
 Not done: sharper titles would keep k and give the texture and its capacity k times the size instead (scale
 `ldr x8, [x8, #0x380]` at main+577cc4 and `ldr x8, [x10, #0x380]` at main+b2ce94 by page +0x88 / page +0xa8 per axis;
 x9 and v0..v2, resp. x9 and v2..v3 are free there). It depends on every reader of the copy's UVs taking the texture's
 own size, which was not checked.
+
+## 21:9 outputs (2026-11-26)
+
+`OUTPUT_RES` takes 2560x1080, 3440x1440 and 3840x1600 besides the four 16:9 sizes (hwaoi_display.h). The scene is
+the output's size, and the camera's aspect is the scene's (camera +0x1f20 is the renderer's +0x664 / +0x668), so the
+3D view is wider at the same vertical angle (Hor+) with no patch of its own. The present takes the output's crop of
+the game's 3840x2160 texture (log: `texture=3840x2160 crop=0,0,W,H`).
+
+The 2D layer keeps 1080 canvas units of height and gets the output's shape: canvas = {round(1080 * W / H) rounded up
+to an even number, 1080} at page +0xa8 (2560x1080 at 2560x1080, 2580x1080 at 3440x1440, 2592x1080 at 3840x1600) and
+the scale at page +0xb8 = H / 1080 (`hwaoi_display_canvas`). At 16:9 both give what they gave before (1920x1080 and
+W / 1920). The layer's perspective camera takes its aspect from the canvas, so frames and panels keep their
+proportions.
+
+The 2D recorder's quads (af42dc, the map's icons) are placed for a 1920-wide screen, not for the canvas: at 7229af3
+the world map's icons (mission marker, training-field icon, symbols) were drawn (W - 16/9 * H) / 2 pixels left of their
+terrain (320 at 2560x1080, 440 at 3440x1440), while the terrain, the cursor and the labels were right and the cursor
+still selected the right place. Page +0xc0 = {dx, 0, dx, 0} with dx = (W - 1920 * scale) / 2
+(`hwaoi_display_quad_offset`, logged as `2D quads +dx px`) is added to the corners after the scale.
+
+Checked on 2026-11-26 (RTX 5070 Ti, a copy of a save each run, 23 runs, no fatal or crash):
+- The battle is Hor+: the centre 1920 pixels of the 2560x1080 picture are the 1080p picture (the buildings differ by
+  4-5 of 255 on average) and more of the world shows at both sides.
+- The HUD (hearts, gauges, portraits, the combo list, the button hints) stays in the 16:9 middle, unstretched; it is not
+  moved to the screen's corners. Markers stay on their units (the captain's name, bar and arrow, the lock-on ring).
+- Movies are pillarboxed, not stretched (the title background is a 1920x1080 VP9 movie; the new game's opening).
+- Menus (Plus, Options, Gallery cards, the Music list): the 16:9 middle is the 1080p picture (mean difference 0.3-2.4)
+  and the text is clean; the side strips show what is behind (black, or the map). Cosmetic: Raul's card art and the
+  description frame reach into the side strip, the battle pause is pillarboxed, the preparation screen's cream bands
+  are 16:9 wide.
+- With the quad offset the map's icons sit on their terrain at 2560x1080 and 3440x1440; 1080p is unchanged.
+- 2560x1440 and 3840x2160 match the shots of 0263011 (mean difference 0.2-1.4).
+- Seen once and not again: the world map zoomed in at 2560x1080, with terrain past its frame.
+
+Not checked: rectangles and lines (`hwaoi_ui_shapes`, the zoomed minimap's dots), which the training field does not
+draw. If the game places them for 1920 as well, they need the same dx.
+
+Not done: 32:9 (5120x1440 and wider). The window shows the output's crop of the game's 3840x2160 texture, so an output
+wider than 3840 needs that texture made wider first: where the game makes it was not looked for.
 
 ## Method
 

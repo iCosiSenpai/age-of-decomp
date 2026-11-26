@@ -386,7 +386,7 @@ export const zh: Record<string, string> = {
   "the mouse": "鼠标",
   "The second player in co-op. Automatic takes the second controller; None leaves player 2 out.": "合作模式中的第二位玩家。“自动”使用第二个手柄；“无”则不设玩家 2。",
   "The size of the window when not in fullscreen.": "非全屏时窗口的大小。",
-  "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads.": "游戏绘制画面的尺寸。“自动”会在独立显卡显存足够时使用屏幕尺寸：1440p 需要 12 GB，4K 需要 16 GB。如果所选尺寸超出显卡显存，游戏可能在加载时停止。",
+  "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p and 2560 × 1080, 16 GB for 4K, 3440 × 1440 and 3840 × 1600. A 21:9 size shows more of the world at the sides, while the HUD and menus stay in the 16:9 middle. A size your card has too little memory for can stop the game while it loads.": "游戏绘制画面的尺寸。“自动”会在独立显卡显存足够时使用屏幕尺寸：1440p 和 2560 × 1080 需要 12 GB，4K、3440 × 1440 和 3840 × 1600 需要 16 GB。21:9 尺寸会在两侧显示更多场景，HUD 与菜单保持在中间的 16:9 区域。如果所选尺寸超出显卡显存，游戏可能在加载时停止。",
   "The Switch controller the game is told player 2 holds.": "告诉游戏玩家 2 手持的 Switch 手柄类型。",
   "The Switch controller the game is told this player holds, whatever the real one is. Change it only if the game asks for the other kind.": "告诉游戏这位玩家手持的 Switch 手柄类型，不论实际使用的是什么手柄。只有当游戏要求另一种手柄时才更改。",
   "These are the defaults.": "这些是默认值。",

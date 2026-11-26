@@ -108,7 +108,7 @@ def display_profile(exefs):
             continue
         need(6 <= len(fields) <= 18 and fields[0] == "site"
              and fields[1] in ("hwaoi_display", "hwaoi_ui_canvas", "hwaoi_ui_quads", "hwaoi_ui_shapes",
-                               "hwaoi_ui_text", "hwaoi_confirm", "fov", "fov_view")
+                               "hwaoi_ui_text", "hwaoi_confirm", "fov")
              and fields[2] == "main", "display profile: unexpected patch entry")
         address, original = int(fields[3], 16), int(fields[4], 16)
         need(address not in sites, "display profile: duplicate site")

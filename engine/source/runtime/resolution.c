@@ -326,13 +326,17 @@ void res_init(void) {
             uint64_t canvas = pack(canvas_size[0], canvas_size[1]);
             memcpy(page + 0xa8, &canvas, sizeof canvas);
             memcpy(page + 0xb8, &canvas_scale, sizeof canvas_scale);
+            // set hwaoi_ui_quads: the quads' corners, placed by the game for a 1920-wide screen, move right by half the
+            // canvas's extra width (x of both corner pairs; 0 at 16:9)
+            float dx = hwaoi_display_quad_offset(size, canvas_scale), quad_offset[4] = {dx, 0.0f, dx, 0.0f};
+            memcpy(page + 0xc0, quad_offset, sizeof quad_offset);
             float fov_factor = 1.0f;   // set fov reads it from the start; res_fov_live writes the setting's factor
             memcpy(page + 60, &fov_factor, sizeof fov_factor);
             if (application_extra)
                 rt_log("resolution: experimental texture pool %llu MiB, matching parent %llu MiB plus bookkeeping",
                        (unsigned long long)(texture_pool >> 20), (unsigned long long)(texture_parent >> 20));
-            rt_log("resolution: HWAoI native output %ux%u, scene %ux%u, 2D canvas %ux%u; restart required to change "
-                   "allocations", R.ow, R.oh, R.sw, R.sh, canvas_size[0], canvas_size[1]);
+            rt_log("resolution: HWAoI native output %ux%u, scene %ux%u, 2D canvas %ux%u, 2D quads +%.0f px; restart "
+                   "required to change allocations", R.ow, R.oh, R.sw, R.sh, canvas_size[0], canvas_size[1], dx);
             return;
         }
         // Set hwaoi_ui_canvas reads the canvas and its scale from the page whatever the 3D resolution is: at the game's
@@ -343,6 +347,8 @@ void res_init(void) {
             float canvas_scale = 1.0f;
             memcpy(own_page + 0xa8, &canvas, sizeof canvas);
             memcpy(own_page + 0xb8, &canvas_scale, sizeof canvas_scale);
+            float quad_offset[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            memcpy(own_page + 0xc0, quad_offset, sizeof quad_offset);
             float fov_factor = 1.0f;
             memcpy(own_page + 60, &fov_factor, sizeof fov_factor);
         }

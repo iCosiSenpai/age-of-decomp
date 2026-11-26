@@ -8,7 +8,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K, `2560x1080` 2560 × 1080 (21:9), `3440x1440` 3440 × 1440 (21:9), `3840x1600` 3840 × 1600 (21:9) | `auto` | yes |
+| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p and 2560 × 1080, 16 GB for 4K, 3440 × 1440 and 3840 × 1600. A 21:9 size shows more of the world at the sides, while the HUD and menus stay in the 16:9 middle. A size your card has too little memory for can stop the game while it loads. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K, `2560x1080` 2560 × 1080 (21:9), `3440x1440` 3440 × 1440 (21:9), `3840x1600` 3840 × 1600 (21:9) | `auto` | yes |
 | `fullscreen` | Fullscreen — Fills the screen with a borderless window. F11 switches it while you play. | `0` off, `1` on | `0` |  |
 | `window_size` | Window size — The size of the window when not in fullscreen. | `1280x720` 1280 × 720, `1600x900` 1600 × 900, `1920x1080` 1920 × 1080, `2560x1440` 2560 × 1440, `2560x1080` 2560 × 1080, `3440x1440` 3440 × 1440 | `1280x720` |  |
 | `fps_limit` | Frame rate — 60 is the game's normal speed. 30 saves power. | `30` 30 FPS, `60` 60 FPS | `60` |  |

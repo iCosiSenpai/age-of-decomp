@@ -14,7 +14,7 @@
     {
       "key": "output_res", "section": "display", "group": "display", "kind": "choice", "restart": true,
       "label": "Game resolution", "default": "auto",
-      "help": "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads.",
+      "help": "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p and 2560 × 1080, 16 GB for 4K, 3440 × 1440 and 3840 × 1600. A 21:9 size shows more of the world at the sides, while the HUD and menus stay in the 16:9 middle. A size your card has too little memory for can stop the game while it loads.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "1280x720", "label": "720p" },

@@ -146,12 +146,13 @@ class DisplaySettingsTests(unittest.TestCase):
 
     def test_ui_canvas_primitive_corners_scale_by_page_factor(self):
         # main+af42dc copies a 2D primitive's four corners (ldp/stp of x8..x11). The patch loads them as two q
-        # registers, multiplies by the f32 at page +0xb8 and stores them; the displaced copies become nops.
+        # registers, multiplies by the f32 at page +0xb8, adds {dx, 0, dx, 0} from page +0xc0 (the corners are placed
+        # for a 1920-wide screen: res_init's hwaoi_display_quad_offset) and stores them; the displaced copies become nops.
         table = self.table()
         rows = table.for_module("main", 0x7000000000)
         words = rows[0x7000000000 + 0xaf42e4][1]
         self.assertEqual(table.sites["main"][0xaf42e4][2], 0xa9402448)
-        ldp, adrp, ldr, mul0, mul1, stp = words
+        ldp, adrp, ldr, ldq, mul0, mul1, add0, add1, stp = words
         self.assertEqual(ldp & 0xffc00000, 0xad400000)                       # LDP q, q, [x2]
         self.assertEqual(((ldp >> 5) & 31, ldp & 31, (ldp >> 10) & 31, (ldp >> 15) & 0x7f), (2, 0, 1, 0))
         self.assertEqual(adrp & 0x9f00001f, 0x90000009)
@@ -160,10 +161,15 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual(((0x7000000000 + 0xaf42e4) & ~0xfff) + (imm << 12), table.page)
         self.assertEqual(ldr & 0xffc00000, 0xbd400000)                       # LDR s, [x9, #imm]
         self.assertEqual(((ldr >> 5) & 31, ldr & 31, ((ldr >> 10) & 0xfff) * 4), (9, 2, 0xb8))
+        self.assertEqual(ldq & 0xffc00000, 0x3dc00000)                       # LDR q3, [x9, #0xc0]
+        self.assertEqual(((ldq >> 5) & 31, ldq & 31, ((ldq >> 10) & 0xfff) * 16), (9, 3, 0xc0))
         for word, reg in ((mul0, 0), (mul1, 1)):                             # FMUL v.4s, v.4s, v2.s[0]
             self.assertEqual(word & 0xffe0fc00, 0x4f809000)
             self.assertEqual((word & 31, (word >> 5) & 31, (word >> 16) & 15, (word >> 11) & 1, (word >> 21) & 1),
                              (reg, reg, 2, 0, 0))
+        for word, reg in ((add0, 0), (add1, 1)):                             # FADD v.4s, v.4s, v3.4s
+            self.assertEqual(word & 0xffe0fc00, 0x4e20d400)
+            self.assertEqual((word & 31, (word >> 5) & 31, (word >> 16) & 31), (reg, reg, 3))
         self.assertEqual(stp & 0xffc00000, 0xad000000)                       # STP q, q, [x1]
         self.assertEqual(((stp >> 5) & 31, stp & 31, (stp >> 10) & 31, (stp >> 15) & 0x7f), (1, 0, 1, 0))
         for off, original in ((0xaf42e8, 0xa9412c4a), (0xaf42ec, 0xa9012c2a), (0xaf42f0, 0xa9002428)):
@@ -258,17 +264,19 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual([shown(c, 18) for c in (2, 3, 0x0a, 0x3a, 0xff)], [2, 3, 0x0a, 0x3a, 0xff])
 
     def test_field_of_view_scales_the_angle_where_it_is_read(self):
-        # GitHub #21: the camera keeps half its vertical view angle at +0x1f1c. Each site keeps the original load, loads
-        # the f32 at page +0x3c (res_fov_live: TOTK_FOV / 100, 1.0 from res_init) into s1 through a scratch register
-        # and multiplies: frustum main+2cf234 (ldr s0, [x20, #0x1f1c], x8 scratch) and the render copy main+2f52ac
-        # (ldr s0, [x0, #0x1f1c], x5 scratch, set fov_view for a test).
+        # GitHub #21: the camera keeps its vertical view angle at +0x1f1c. Each site keeps the original load, loads the
+        # f32 at page +0x3c (res_fov_live: TOTK_FOV / 100, 1.0 from res_init) into a free register through a scratch
+        # register and multiplies: the camera update's copy for the projection main+2e74bc (ldr s0, [x19, #0x1f1c], x9
+        # and s3) and the frustum main+2cf234 (ldr s0, [x20, #0x1f1c], x8 and s1).
         table = self.table()
         rows = table.for_module("main", 0x7000000000)
         named = {name: env for name, env, _ in table.sets}
-        self.assertEqual((named.get("fov"), named.get("fov_view")), ("TOTK_FOV_PATCH", "TOTK_FOV_VIEW"))
-        for off, (setname, base, scratch) in {0x2cf234: ("fov", 20, 8), 0x2f52ac: ("fov_view", 0, 5)}.items():
+        self.assertEqual(named.get("fov"), "TOTK_FOV_PATCH")
+        self.assertNotIn("fov_view", named)
+        fov_sites = sorted(off for off, (k, _, _) in table.sites["main"].items() if table.sets[k][0] == "fov")
+        self.assertEqual(fov_sites, [0x2cf234, 0x2e74bc])
+        for off, (base, scratch, factor) in {0x2cf234: (20, 8, 1), 0x2e74bc: (19, 9, 3)}.items():
             k, words, original = table.sites["main"][off]
-            self.assertEqual(table.sets[k][0], setname)
             self.assertEqual(original, 0xbd400000 | (0x1f1c // 4) << 10 | base << 5)     # LDR s0, [x<base>, #0x1f1c]
             words = rows[0x7000000000 + off][1]
             self.assertEqual(len(words), 4)
@@ -278,8 +286,8 @@ class DisplaySettingsTests(unittest.TestCase):
             imm = ((adrp >> 5) & 0x7ffff) << 2 | (adrp >> 29) & 3
             imm -= (1 << 21) if imm & (1 << 20) else 0
             self.assertEqual(((0x7000000000 + off) & ~0xfff) + (imm << 12), table.page)
-            self.assertEqual(words[2], 0xbd400000 | (0x3c // 4) << 10 | scratch << 5 | 1)  # LDR s1, [x<scratch>, #0x3c]
-            self.assertEqual(words[3], 0x1e200800 | 1 << 16)                               # FMUL s0, s0, s1
+            self.assertEqual(words[2], 0xbd400000 | (0x3c // 4) << 10 | scratch << 5 | factor)  # LDR s<f>, [x<sc>, #0x3c]
+            self.assertEqual(words[3], 0x1e200800 | factor << 16)                               # FMUL s0, s0, s<f>
         text = (ROOT / "runtime/resolution.c").read_text(encoding="utf-8")
         self.assertIn("memcpy((uint8_t *)rt_patch_page() + 60, &k, sizeof k)", text)
         self.assertGreaterEqual(text.count("memcpy(page + 60, &fov_factor") + text.count("memcpy(own_page + 60, &fov_factor"), 2)
@@ -301,7 +309,11 @@ int main(void) {
   hwaoi_display_canvas(size,canvas,&scale);
   assert(canvas[0]==canvas_widths[i] && canvas[1]==1080);
   assert(scale==(float)heights[i]/1080.0f);   // canvas units to pixels, the same on both axes
-  assert(canvas[0]*scale>size[0]-1.0f && canvas[0]*scale<size[0]+1.0f); }
+  assert(canvas[0]*scale>size[0]-1.0f && canvas[0]*scale<size[0]+1.0f);
+  float dx=hwaoi_display_quad_offset(size,scale), want=i<4?0.0f:(size[0]-1920.0f*scale)/2;   // quads placed for 1920
+  assert(dx>want-0.01f && dx<want+0.01f); }
+ { unsigned uw[2]={2560,1080},uw3[2]={3440,1440}; assert(hwaoi_display_quad_offset(uw,1.0f)==320.0f);
+   float d3=hwaoi_display_quad_offset(uw3,1440.0f/1080.0f); assert(d3>439.9f&&d3<440.1f); }
  unsigned odd[2]={2561,1080}; hwaoi_display_canvas(odd,canvas,&scale); assert(canvas[0]==2562);   // even widths
  unsigned none[2]={0,0}; hwaoi_display_canvas(none,canvas,&scale); assert(canvas[0]==1920&&canvas[1]==1080&&scale==1.0f);
  const char *bad[]={0,"","1920X1080","1920x1080extra","3840x2161","5120x1440","-1920x1080"," 1920x1080"};

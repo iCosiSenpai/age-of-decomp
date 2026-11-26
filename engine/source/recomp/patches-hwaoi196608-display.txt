@@ -68,9 +68,9 @@ site hwaoi_display main 01af1b00 f2c00029 d503201f
 # canvas, 1080 high and as wide as the output's shape ({1920, 1080} at 16:9,
 # {2560, 1080} at 2560x1080, {2580, 1080} at 3440x1440; resolution.c,
 # hwaoi_display.h hwaoi_display_canvas): the layer size becomes the canvas, so
-# the cameras frame the canvas at every output and text scales with it, and the
-# game's panes anchored to the canvas's edges go to the screen's edges on a
-# wider one. add610's own perspective path
+# the cameras frame the canvas at every output and text scales with it; on a
+# wider canvas the game's layouts, the battle HUD's too, stay in its 16:9
+# middle, unstretched. add610's own perspective path
 # (callers outside the setup, e.g. b2c1f4 on a size change) gets the same size.
 # 2D primitives (map icons, minimap markers) are handled by the af42dc sites below.
 set hwaoi_ui_canvas TOTK_UI_CANVAS 1
@@ -81,11 +81,14 @@ site hwaoi_ui_canvas main 00add874 2d400a81 @page:x9 2d550921
 # draw call main+15f2ca4: map icons, minimap markers) takes positions in canvas units and, for batches with a
 # target (+0x428), copies the four corners unchanged at main+af42dc; they are drawn with the window's pixel
 # projection. Page +0xb8 holds f32 output_h/1080 (= output_w / canvas_w): the corners are scaled into output pixels there.
+# The game places these corners for a 1920-wide screen, not for the canvas: on a canvas wider than 16:9 the map's icons
+# landed (canvas_w - 1920) / 2 units left of the map they belong to (440 px at 3440x1440). Page +0xc0 holds
+# {dx, 0, dx, 0} f32, dx = (output_w - 1920 * scale) / 2 (0 at every 16:9 size), added to both corner pairs after the scale.
 # A set of its own since 2026-11-26, on only with hwaoi_ui_canvas (runtime/patches.c), so a test can turn it off alone
 # (`ui_quads = 0` keeps the canvas and leaves the quads at their 1080p place). GitHub #23 at 3840x2160 (the Music list's
 # lines mixed up) looks the same without it: that comes from the layer's camera size at 576ff8 / add844 / add874.
 set hwaoi_ui_quads TOTK_UI_QUADS 1
-site hwaoi_ui_quads main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 4f829000 4f829021 ad000420
+site hwaoi_ui_quads main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 3dc03123 4f829000 4f829021 4e23d400 4e23d421 ad000420
 site hwaoi_ui_quads main 00af42e8 a9412c4a d503201f
 site hwaoi_ui_quads main 00af42ec a9012c2a d503201f
 site hwaoi_ui_quads main 00af42f0 a9002428 d503201f
@@ -167,15 +170,18 @@ site hwaoi_display main 01c97190 52841942 52841942 @page:x16 29504610 4b090210 1
 site hwaoi_display main 019d4234 f9407b57 b85f43a9 b85f03aa 5119012b 510e114c 2a0c016b 5ac0116b 53057d6b 1b0ba529 1b0ba94a b81f43a9 b81f03aa f9407b57
 
 # Field of view (set fov; Age of Decomp, GitHub #21). runtime/resolution.c res_fov_live writes TOTK_FOV / 100 to page +60
-# (1.0 from the start) and switches the set while the game runs. The camera keeps half its vertical view angle in radians
-# at +0x1f1c and its aspect at +0x1f20; its frustum (main+2cf204, a virtual of the camera classes: half extents
-# near * tan(+0x1f1c) and that times the aspect, at the near plane +0x14) reads the angle at main+2cf234 and calls tanf
-# right after, so the angle times the factor widens the frustum without changing what the camera stores. x8 and s1 are
-# free there (both are caller-saved across the tanf call, and the code after it writes s1 before reading it).
+# (1.0 from the start) and switches the set while the game runs. The camera keeps its vertical view angle in radians at
+# +0x1f1c and its aspect at +0x1f20. The picture follows the camera update main+2e29e0 (also what the camera's virtual
+# +0x478 runs): it copies the angle into the camera's matrix block at +0x2ff8 (load at main+2e74bc, store at 2e7510; the
+# aspect goes to +0x2ffc), and main+84acd0 builds the projection there from it (the tan of half of it). The virtual +0x4a8
+# hands that block out (the world-to-screen helper main+518dc4 calls +0x478, then +0x4a8, so the markers over units
+# follow), and main+2cda00 reads the same copy. The angle times the factor is stored there instead; x9 and s3 are free
+# (x9 is written at main+2e7518 and s3 at 2e7550 before either is read; x8 and s1 are live). The frustum (main+2cf204, a
+# virtual of the camera classes: extents from near +0x14 times the tan of the angle, read at main+2cf234 just before its
+# tanf) gets the same factor, so the culling widens with the view; x8 and s1 are free there (both are caller-saved
+# across the tanf call, and the code after it writes s1 before reading it). Tested 2026-11-26 on an RTX 5070 Ti: the
+# frustum site alone left the picture as it was; with both, the scene measures 0.75 times its size at 130 % and 1.47
+# times at 70 %, and a switch while playing moves the picture at once with no drift after it.
 set fov TOTK_FOV_PATCH 0
 site fov main 002cf234 bd5f1e80 bd5f1e80 @page:x8 bd403d01 1e210800
-# The camera's render copy (main+2f5220 copies +0x1f1c to the view at +0x8cec + 0x40): the same factor where the copy reads
-# the angle (main+2f52ac), for a test of which of the two the picture follows (TOTK_FOV_VIEW=1). x5 and s1 are free there
-# (x5 is written at main+2f52dc and s1 at main+2f5320 before either is read).
-set fov_view TOTK_FOV_VIEW 0
-site fov_view main 002f52ac bd5f1c00 bd5f1c00 @page:x5 bd403ca1 1e210800
+site fov main 002e74bc bd5f1e60 bd5f1e60 @page:x9 bd403d23 1e230800
