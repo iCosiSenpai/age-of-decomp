@@ -71,6 +71,13 @@ together with `hwaoi_ui_canvas`, runtime/patches.c): GitHub #23 shows white bars
 (the Music menu, a character's unlock card) at 3440x1440 and none at 1920x1080, where every site of both sets is a
 no-op. `ui_shapes = 0` turns off only the rectangles and lines, `ui_canvas = 0` the whole canvas.
 
+A test on Windows the same day (RTX 5070 Ti, the Gallery): at 2560x1440 the character cards and the Music list are
+clean; at 3840x2160 the Music list's lines are a mix of each other's titles (the first four rows show the start of their
+title and then the end of the second row's, every row below the same mix), with `ui_shapes = 0` too, and clean with
+`ui_canvas = 0`. So the four quad sites at af42e4 became a set of their own as well, `hwaoi_ui_quads`
+(`TOTK_UI_QUADS`, `ui_quads = 0`), to tell the quads from the layer's camera size. The idea to check: the list draws its
+long titles (the scrolling text) into a target of a fixed size first, and corners scaled by 2 leave their row of it.
+
 How it was found: hardware write breakpoints (perf_event_open PERF_TYPE_BREAKPOINT, one event per thread, signal
 handler logs host rip and the guest frame-pointer chain via kern_cpu()) on the corner values of one icon found in
 memory (scan of rw mappings for the vertex buffer's first x,y), which pointed at main+15f2ca4; then a temporary hook in

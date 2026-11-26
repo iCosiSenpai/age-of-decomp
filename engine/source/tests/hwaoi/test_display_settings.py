@@ -92,14 +92,18 @@ class DisplaySettingsTests(unittest.TestCase):
         table = self.table()
         rows = table.for_module("main", 0x7000000000)
         canvas = {off: row for off, row in table.sites["main"].items() if table.sets[row[0]][0] == "hwaoi_ui_canvas"}
-        self.assertEqual(set(canvas), {0x576ff8, 0xadd844, 0xadd874, 0xaf42e4, 0xaf42e8, 0xaf42ec, 0xaf42f0})
-        # The recorder's rectangles and lines are a set of their own (GitHub #23), switched off with the canvas too.
+        self.assertEqual(set(canvas), {0x576ff8, 0xadd844, 0xadd874})
+        # The recorder's quads, rectangles and lines are sets of their own (GitHub #23), switched off with the canvas.
+        quads = {off for off, row in table.sites["main"].items() if table.sets[row[0]][0] == "hwaoi_ui_quads"}
+        self.assertEqual(quads, {0xaf42e4, 0xaf42e8, 0xaf42ec, 0xaf42f0})
+        self.assertIn(("hwaoi_ui_quads", "TOTK_UI_QUADS"), [(name, env) for name, env, _ in table.sets])
         shapes = {off for off, row in table.sites["main"].items() if table.sets[row[0]][0] == "hwaoi_ui_shapes"}
         self.assertEqual(shapes, {0xaf43d8, 0xaf43e0, 0xaf43e8, 0xaf43f0, 0xaf43f8, 0xaf4400, 0xaf4408, 0xaf4410,
                                   0xaf3b74})
         self.assertIn(("hwaoi_ui_shapes", "TOTK_UI_SHAPES"), [(name, env) for name, env, _ in table.sets])
         patches_c = (Path(__file__).resolve().parents[2] / "runtime/patches.c").read_text(encoding="utf-8")
-        self.assertIn('if (canvas >= 0 && shapes >= 0 && !rt_patch_on[canvas]) rt_patch_on[shapes] = 0;', patches_c)
+        self.assertIn('canvas_parts[] = {"hwaoi_ui_quads", "hwaoi_ui_shapes"}', patches_c)
+        self.assertIn('if (canvas >= 0 && part >= 0 && !rt_patch_on[canvas]) rt_patch_on[part] = 0;', patches_c)
         def adrp_target(pc, word):
             self.assertEqual(word & 0x9f000000, 0x90000000)
             imm = ((word >> 5) & 0x7ffff) << 2 | (word >> 29) & 3

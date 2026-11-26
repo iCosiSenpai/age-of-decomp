@@ -77,18 +77,23 @@ site hwaoi_ui_canvas main 00add874 2d400a81 @page:x9 2d550921
 # draw call main+15f2ca4: map icons, minimap markers) takes positions in canvas units and, for batches with a
 # target (+0x428), copies the four corners unchanged at main+af42dc; they are drawn with the window's pixel
 # projection. Page +0xb8 holds f32 output_w/1920: the corners are scaled into output pixels there.
-site hwaoi_ui_canvas main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 4f829000 4f829021 ad000420
-site hwaoi_ui_canvas main 00af42e8 a9412c4a d503201f
-site hwaoi_ui_canvas main 00af42ec a9012c2a d503201f
-site hwaoi_ui_canvas main 00af42f0 a9002428 d503201f
+# A set of its own since 2026-11-26, on only with hwaoi_ui_canvas (runtime/patches.c): GitHub #23 at 3840x2160 (a factor
+# of 2) mixes up the Music list's lines with the canvas on and is clean with it off, while the rectangles and lines
+# below make no difference there. `ui_quads = 0` keeps the canvas and leaves the quads at their 1080p place.
+set hwaoi_ui_quads TOTK_UI_QUADS 1
+site hwaoi_ui_quads main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 4f829000 4f829021 ad000420
+site hwaoi_ui_quads main 00af42e8 a9412c4a d503201f
+site hwaoi_ui_quads main 00af42ec a9012c2a d503201f
+site hwaoi_ui_quads main 00af42f0 a9002428 d503201f
 # The recorder's other two shapes with positions in canvas units. A quad given as a rectangle (x0 y0 x1 y1; main+af3788
 # and af3d7c through main+af43d0, which for a batch with a target copies the four numbers into four corners): each
 # number is scaled as it is read (s2 = page +0xb8; x9 and s2 are free there, and both callers load them again). A line
 # (main+af3b24: two points, colour and width in s0..s4, kept in s12..s8): scaled where the batch has a target, the
 # width too. Without them these shapes stay at their 1080p place above 1080p, towards the upper left: the enemy dots
 # of the zoomed minimap fall outside it and are clipped away, while the whole-map view, which draws quads, shows them.
-# They are a set of their own, on only with hwaoi_ui_canvas (runtime/patches.c), so a player can turn them off alone:
-# GitHub #23 shows white bars behind the lines of description text at 3440x1440 and none at 1920x1080.
+# They are a set of their own, on only with hwaoi_ui_canvas (runtime/patches.c), so a player can turn them off alone
+# (GitHub #23 shows white bars behind the lines of description text at 3440x1440 and none at 1920x1080; on 2026-11-26
+# the Music list at 3840x2160 looked the same with and without them).
 set hwaoi_ui_shapes TOTK_UI_SHAPES 1
 site hwaoi_ui_shapes main 00af43d8 bd400040 @page:x9 bd40b922 bd400040 1e220800
 site hwaoi_ui_shapes main 00af43e0 bd400440 bd400440 1e220800
