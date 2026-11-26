@@ -108,14 +108,14 @@ def display_profile(exefs):
             continue
         need(6 <= len(fields) <= 18 and fields[0] == "site"
              and fields[1] in ("hwaoi_display", "hwaoi_ui_canvas", "hwaoi_ui_quads", "hwaoi_ui_shapes",
-                               "hwaoi_confirm")
+                               "hwaoi_ui_text", "hwaoi_confirm")
              and fields[2] == "main", "display profile: unexpected patch entry")
         address, original = int(fields[3], 16), int(fields[4], 16)
         need(address not in sites, "display profile: duplicate site")
         need(struct.unpack("<I", module.code(address, 4))[0] == original,
              f"display profile: instruction mismatch at main+{address:#x}")
         sites.add(address)
-    need(len(sites) == 54, "display profile must contain the 54 verified sites")
+    need(len(sites) == 56, "display profile must contain the 56 verified sites")
     return patch
 
 
