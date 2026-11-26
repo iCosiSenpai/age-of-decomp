@@ -103,6 +103,7 @@ static const struct { const char *key, *section; } sections[] = {
     {"PUSH_SKIP", "performance"}, {"SPLIT_DRAWS", "performance"}, {"SPLIT_US", "performance"}, {"VK_VALIDATION", "performance"},
     {"VK_DYN_VERTEX", "performance"}, {"VK_DYN_A2C", "performance"}, {"VK_SUBGROUP_PIN", "performance"},
     {"TRACE", "diagnostics"}, {"FLIGHT", "diagnostics"}, {"FLIGHT_SPIKE_MS", "diagnostics"}, {"DRAW_CRUMBS", "diagnostics"},
+    {"FEEDBACK", "diagnostics"},
     {"WB_FENCE_LIMIT", "diagnostics"}, {"WB_EXACT", "diagnostics"}, {"NX2_READ_NOWAIT", "diagnostics"},
     {"NVN2_MODE_TRACE", "diagnostics"},
     {"NVN2_MODE_TRACE_START_MS", "diagnostics"}, {"NVN2_MODE_TRACE_DURATION_MS", "diagnostics"},
@@ -219,6 +220,10 @@ static const CfgMeta metas[] = {
     // diagnostics
     {"TRACE", "", NULL, RESTART}, {"FLIGHT", "0", "0|1", RESTART}, {"FLIGHT_SPIKE_MS", "100", "0..60000", RESTART},
     {"DRAW_CRUMBS", "0", "0|1", RESTART},   // a GPU breadcrumb per draw, for the report of a lost device (vk_crumbs.c)
+    // A draw that samples a target of its own pass (vk_device.c, vk_exec_draw.c feedback_prepare): auto = the feedback
+    // layout and a by-region barrier where the driver has them, restart = the pass ends and begins again behind a full
+    // barrier, 0 = nothing (for tests). restart is the test for Radeon cards whose driver stops answering (GitHub #16).
+    {"FEEDBACK", "auto", "auto|restart|0", RESTART},
     {"WB_FENCE_LIMIT", "65536", "0..1073741824", RESTART}, {"WB_EXACT", "1", "0|1", RESTART},
     {"NX2_READ_NOWAIT", "0", "0|1", RESTART},
     {"NVN2_MODE_TRACE", "0", "0|1", RESTART},

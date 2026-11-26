@@ -101,3 +101,4 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `vk_validation` | Vulkan validation — For bug reports only: much slower. Needs the Vulkan SDK. | `0` off, `1` on | `0` | yes |
 | `flight` | Flight recorder — Records timing spikes into the log for bug reports. | `0` off, `1` on | `0` | yes |
 | `draw_crumbs` | Draw call markers — For bug reports about a graphics card that stops answering (code 70): the log then names the draw calls it was working on. A little slower. | `0` off, `1` on | `0` | yes |
+| `feedback` | Draws that read their own picture — Some draws read the picture they draw into. Automatic syncs them inside the drawing pass. Restart pass ends the pass and starts it again before each one: try it if a Radeon card stops answering (code 70) in fights, and tell us in a report if it helps. It can be a little slower. | `auto` Automatic, `restart` Restart pass | `auto` | yes |

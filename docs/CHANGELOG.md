@@ -32,6 +32,8 @@ keeps your settings and saves.
   the last draws (a barrier inside the pass, a pass that ended and began again, a QUADS conversion) and which of its
   own targets a draw reads, so one log tells more about a crash. For the Radeon crash in a fight reported by
   @benkra66 (#16).
+- New diagnostics setting *Draws that read their own picture*: *Restart pass* is a test for Radeon cards whose
+  driver stops answering (code 70). If it keeps your game running, please tell us in a report (#16, #10).
 
 ## 0.3.0 (2026-11-24)
 
