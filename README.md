@@ -34,6 +34,11 @@
   RecompLauncher on a Steam Deck.
 </p>
 
+> [!NOTE]
+> **What I cannot test myself.** I have no Linux PC, no SteamOS device, no AMD Radeon graphics card and no
+> PlayStation controller, so I cannot see whether Age of Decomp really works with them. For those I count on your
+> tests and your logs to find and fix problems: please report what you see, with the newest `game-*.log`.
+
 > [!IMPORTANT]
 > **Bring your own game.** Age of Decomp contains nothing from Nintendo or Koei Tecmo and never downloads game files,
 > keys or firmware. You need your own dump of the game as a **`.nup` file with the base game and update 1.0.3

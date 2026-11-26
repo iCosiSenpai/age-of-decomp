@@ -357,3 +357,6 @@ thanks them**, with the number where there is one: GitHub issues and pull reques
 `Alano6678/hwaoi-recomp#21`), RecompLauncher page reports by the name the page shows, or "a player on RecompLauncher"
 with the date for guests. Only a real GitHub login gets an `@` (it notifies them). Credit upstream authors whose work
 we import the same way.
+The maintainer has no Linux PC, SteamOS device, AMD Radeon card or PlayStation controller: the README says so, and so
+does every release's notes (`release.py notes` ends them with the changelog's opening *Not tested here* paragraph;
+`test_release_guards.py` keeps it). Fixes for those are made from players' tests and logs: say which were not run here.

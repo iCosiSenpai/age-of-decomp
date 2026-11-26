@@ -122,11 +122,22 @@ class ReleaseGuardTests(unittest.TestCase):
 
     def test_release_notes_join_the_changelogs_wrapped_lines(self):
         # GitHub keeps a release body's line breaks: `release.py notes` puts each list item and paragraph on one line.
-        log = ("# Changelog\n\n## 9.9.9 (2026-01-01)\n\nBuild again once. Setup\nkeeps your saves.\n\n### Fixes\n"
+        log = ("# Changelog\n\nIntro.\n\n**Not tested here:** no Radeon\nhere. Every release's notes say so.\n\n"
+               "## 9.9.9 (2026-01-01)\n\nBuild again once. Setup\nkeeps your saves.\n\n### Fixes\n"
                "- One fix that is long\n  and wraps.\n- Another.\n\n## 9.9.8 (2025-12-31)\n- Old.\n")
         self.assertEqual(release.release_notes(log, "9.9.9"),
                          "Build again once. Setup keeps your saves.\n\n### Fixes\n- One fix that is long and wraps.\n"
-                         "- Another.\n")
+                         "- Another.\n\n**Not tested here:** no Radeon here.\n")
+
+    def test_every_release_says_what_is_not_tested_here(self):
+        # Senpai has no Linux PC, SteamOS device, Radeon or PlayStation controller: every release's notes say so.
+        log = (ROOT / "docs/CHANGELOG.md").read_text(encoding="utf-8")
+        note = release.untested_note(log)
+        for words in ("Linux", "SteamOS", "Radeon", "PlayStation", "game-*.log"):
+            self.assertIn(words, note)
+        self.assertTrue(release.release_notes(log, release.version()).rstrip("\n").endswith(note))
+        with self.assertRaises(SystemExit):
+            release.release_notes("# Changelog\n\n## 9.9.9 (2026-01-01)\n- A fix.\n", "9.9.9")
 
     def test_apprun_sends_the_headless_starts_to_aod_cli(self):
         # RecompLauncher's setup step (`cli prepare …`) and its start (`--play …`) must not need the launcher's window

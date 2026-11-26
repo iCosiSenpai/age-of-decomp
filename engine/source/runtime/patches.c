@@ -54,6 +54,12 @@ void rt_patches_init(void) {
             on = hwaoi_native_wanted(NULL, cfg_value("TOTK_RENDER_SCALE"));
         // a set with a row in the settings table takes its default from there; the generated default serves the rest
         rt_patch_on[i] = (uint8_t)(cfg_meta(sets[i].env) ? cfg_bool(sets[i].env) : e && *e ? strcmp(e, "0") != 0 : on);
+    }
+    // HWAoI: the 2D recorder's rectangles and lines (set hwaoi_ui_shapes) are scaled for the canvas of hwaoi_ui_canvas
+    // and only make sense with it.
+    int canvas = rt_patch_set("hwaoi_ui_canvas"), shapes = rt_patch_set("hwaoi_ui_shapes");
+    if (canvas >= 0 && shapes >= 0 && !rt_patch_on[canvas]) rt_patch_on[shapes] = 0;
+    for (int i = 0; i < RT_PATCH_COUNT; i++) {
         n += (size_t)snprintf(list + n, sizeof list - n, "%s%s %s", i ? ", " : "", sets[i].name,
                               rt_patch_on[i] ? "on" : "off");
         if (n >= sizeof list) n = sizeof list - 1;
