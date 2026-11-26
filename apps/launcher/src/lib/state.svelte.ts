@@ -243,10 +243,16 @@ class AppState {
 
   /** These settings back to their defaults; `done` is said when it worked, the reason when it did not. */
   async reset(keys: string[], done: string) {
+    // In the same queue as the changes: one still waiting would otherwise reach the file after the defaults.
+    const sent = ++this.settingsSent;
+    const write = this.settingsQueue.then(() => api.resetSettings(keys));
+    this.settingsQueue = write.catch(() => {});
     try {
-      this.settings = await api.resetSettings(keys);
+      const saved = await write;
+      if (sent === this.settingsSent) this.settings = saved;
       this.toast(done, 'ok');
     } catch (err) {
+      this.settings = await api.settings().catch(() => this.settings);
       this.toast(String(err), 'err');
     }
   }

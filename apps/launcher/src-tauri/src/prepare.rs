@@ -340,7 +340,8 @@ impl Drop for PutBack<'_> {
 const TEMP_VARS: &[&str] = if cfg!(windows) { &["TEMP", "TMP"] } else { &["TMPDIR"] };
 
 /// Makes every temporary folder the build's environment names that is missing; one that cannot be made is replaced by
-/// `<output>.tmp` for the build. Returns what was done, for the log.
+/// `<output>.tmp` for the build. `output` is absolute, and so is every folder the build is given: the build runs in
+/// the engine's folder, not in this process's. Returns what was done, for the log.
 fn temp_folders_ready(cmd: &mut Command, output: &Path) -> Vec<String> {
     temp_folders_ready_with(cmd, output, |var| std::env::var_os(var))
 }
@@ -350,7 +351,11 @@ fn temp_folders_ready_with(cmd: &mut Command, output: &Path, value_of: impl Fn(&
     let mut done = Vec::new();
     for var in TEMP_VARS {
         let Some(value) = value_of(var).filter(|v| !v.is_empty()) else { continue };
-        let dir = PathBuf::from(&value);
+        let named = PathBuf::from(&value);
+        let dir = std::path::absolute(&named).unwrap_or_else(|_| named.clone());
+        if dir != named {
+            cmd.env(var, &dir);   // a relative folder means the same one in the build's own working folder
+        }
         if dir.is_dir() {
             continue;
         }
@@ -410,7 +415,7 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
         cmd.arg("--dlc-nup").arg(absolute(d)?);
     }
     cmd.current_dir(&engine).env("PYTHONUTF8", "1").env("PYTHONNOUSERSITE", "1");
-    for line in temp_folders_ready(&mut cmd, &job.output) {
+    for line in temp_folders_ready(&mut cmd, &absolute(&job.output)?) {
         let _ = writeln!(log.lock().unwrap(), "Age of Decomp: {line}");
         eprintln!("Age of Decomp: {line}");
     }
@@ -615,6 +620,14 @@ mod tests {
         }
         assert!(temp_folders_ready_with(&mut Command::new("unused"), &output, |_| Some(root.clone().into_os_string()))
             .is_empty());
+        // A relative folder is the same one for the build, which runs in the engine's folder: it gets the absolute path.
+        let mut cmd = Command::new("unused");
+        let relative = PathBuf::from(format!("aod-temp-rel-{}", std::process::id()));
+        assert!(temp_folders_ready_with(&mut cmd, &output, |_| Some(relative.clone().into_os_string())).len() == 1);
+        let absolute = std::path::absolute(&relative).unwrap();
+        assert!(absolute.is_dir());
+        assert!(cmd.get_envs().all(|(_, v)| v == Some(absolute.as_os_str())));
+        let _ = fs::remove_dir_all(&absolute);
         let _ = fs::remove_dir_all(&root);
     }
 }
