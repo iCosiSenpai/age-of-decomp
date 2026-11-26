@@ -302,7 +302,8 @@ launcher UI is navigable with any of them. Details and button-prompt rules: `doc
 `#3fc6ff` = focus/selected, gold `#e7b75a` = primary action, green `#4fd18b` = valid/ready, amber `#ffb547` = needs
 attention, red `#ff5a4f` = error. Colours are state, not decoration. Typeface: Cinzel (OFL) for display, Inter (OFL)
 for text. Everything reachable with a controller (D-pad/A/B/LB/RB/Start) and the keyboard. Languages: English
-(source) and Italian (`tr('English')`, Italian tables in `src/lib/i18n/it.ts`).
+(source), Italian and Simplified Chinese (`tr('English')`, tables in `src/lib/i18n/it.ts` and `zh.ts` with the same
+keys; `pnpm check` needs both; Chinese is drawn with the system's CJK font, `--font-cjk`).
 
 ## Helpers available on this PC
 

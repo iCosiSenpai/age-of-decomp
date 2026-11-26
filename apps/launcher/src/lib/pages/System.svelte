@@ -34,7 +34,7 @@
       <div><div class="l">{tr('Language')}</div><div class="faint">{tr('Automatic follows your system.')}</div></div>
       <Segmented
         label={tr('Language')}
-        options={[{ value: 'auto', label: tr('Automatic') }, { value: 'en', label: 'English' }, { value: 'it', label: 'Italiano' }]}
+        options={[{ value: 'auto', label: tr('Automatic') }, { value: 'en', label: 'English' }, { value: 'it', label: 'Italiano' }, { value: 'zh', label: '简体中文' }]}
         value={app.launcher?.ui.language ?? 'auto'}
         onchange={setLanguage}
       />

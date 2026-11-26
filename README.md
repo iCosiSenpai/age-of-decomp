@@ -20,7 +20,7 @@
   <img alt="Windows and Linux" src="https://img.shields.io/badge/windows%20%7C%20linux-x86--64-efe6d2?style=for-the-badge&labelColor=0f1115">
   <a href="LICENSE"><img alt="GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-4fd18b?style=for-the-badge&labelColor=0f1115"></a>
   <img alt="Vulkan" src="https://img.shields.io/badge/Vulkan-1.3-3fc6ff?style=for-the-badge&labelColor=0f1115">
-  <img alt="English and Italian" src="https://img.shields.io/badge/UI-English%20%7C%20Italiano-e7b75a?style=for-the-badge&labelColor=0f1115">
+  <img alt="English, Italian and Simplified Chinese" src="https://img.shields.io/badge/UI-English%20%7C%20Italiano%20%7C%20%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-e7b75a?style=for-the-badge&labelColor=0f1115">
 </p>
 
 <h1 align="center">🧪 Testers wanted: handheld PCs and Linux</h1>
@@ -69,7 +69,7 @@ RecompLauncher integration.
 | 🖥️ **Every setting** | Game resolution (automatic, or 720p–4K), window, screen sync, frame rate, 3D resolution, upscaling with AMD FSR or NVIDIA DLSS, NVIDIA frame generation, edge smoothing, sharpness, picture shape, colour (profiles or brightness/contrast/saturation/gamma), performance overlay, graphics card, language, console mode, volume (up to 300 %), mute in the background, audio buffer, players, controller type, button layout, the buttons the game shows, dead zone, motion, rumble strength/curve/triggers, mouse, and the engine's performance and memory options. |
 | 🎮 **Controllers, natively** | SDL 3 supports Xbox, DualSense / DualSense Edge, DualShock 4, Switch Pro, Joy-Con and GameCube controllers. Switch 2 Pro and Joy-Con 2 work over USB with our SDL build. On Windows, the Switch 2 Pro Controller can also connect over Bluetooth through the included transport. The launcher and the in-game settings menu show each controller's own buttons, and the game's own button pictures follow the controller you use, your bindings and the keyboard. |
 | 🚀 **RecompLauncher ready** | Each release carries `recomplauncher.json`: one-click setup from your `.nup` (the setup checks that it is the supported copy), the settings on the game's page, Big Picture mode, save backups. |
-| 🌐 **English and Italian** | Follows your system; switch any time. |
+| 🌐 **English, Italian and Simplified Chinese** | Follows your system; switch any time. |
 
 ## Screenshots
 

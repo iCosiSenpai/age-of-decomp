@@ -11,7 +11,7 @@ export type PageId =
   | 'diagnostics'
   | 'system';
 
-export type UiLanguage = 'auto' | 'en' | 'it';
+export type UiLanguage = 'auto' | 'en' | 'it' | 'zh';
 export type BuildStatus = 'none' | 'incomplete' | 'stale' | 'complete';
 
 export interface CheckStep {

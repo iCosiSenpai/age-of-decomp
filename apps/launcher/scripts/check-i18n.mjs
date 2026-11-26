@@ -1,5 +1,6 @@
-// Checks the Italian dictionary against the UI: every literal tr('...') in src and every English label/help in
-// src/lib/settings/catalog.json must have a translation, and an English key must not get two different translations.
+// Checks the Italian and Simplified Chinese dictionaries against the UI: every literal tr('...') in src and every English
+// label/help in src/lib/settings/catalog.json must have a translation in both, an English key must not get two different
+// translations, the two dictionaries hold the same keys, and every {placeholder} of a key is in its translations.
 // Run by `pnpm check`. Adapted from the maintainer's Deluxe8 launcher.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -7,6 +8,7 @@ import { join, relative } from 'node:path';
 const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const src = join(root, 'src');
 const dictFile = join(src, 'lib', 'i18n', 'it.ts');
+const zhFile = join(src, 'lib', 'i18n', 'zh.ts');
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -15,16 +17,28 @@ function walk(dir) {
   });
 }
 
-// Italian dictionary: one `"english": "italiano",` entry per line (JSON strings).
-const italian = new Map();
+// A dictionary: one `"english": "translation",` entry per line (JSON strings).
 const problems = [];
-for (const line of readFileSync(dictFile, 'utf8').split('\n')) {
-  const m = line.match(/^\s*("(?:[^"\\]|\\.)*")\s*:\s*("(?:[^"\\]|\\.)*"),?\s*$/);
-  if (!m) continue;
-  const [en, it] = [JSON.parse(m[1]), JSON.parse(m[2])];
-  const seen = italian.get(en);
-  if (seen !== undefined && seen !== it) problems.push(`"${en}" has two translations: "${seen}" and "${it}"`);
-  italian.set(en, it);
+function dictionary(file, name) {
+  const map = new Map();
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    const m = line.match(/^\s*("(?:[^"\\]|\\.)*")\s*:\s*("(?:[^"\\]|\\.)*"),?\s*$/);
+    if (!m) continue;
+    const [en, tl] = [JSON.parse(m[1]), JSON.parse(m[2])];
+    const seen = map.get(en);
+    if (seen !== undefined && seen !== tl) problems.push(`${name}: "${en}" has two translations: "${seen}" and "${tl}"`);
+    map.set(en, tl);
+  }
+  return map;
+}
+const italian = dictionary(dictFile, 'Italian');
+const chinese = dictionary(zhFile, 'Chinese');
+const placeholders = (t) => [...t.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+for (const [name, map, other] of [['Chinese', chinese, italian], ['Italian', italian, chinese]]) {
+  for (const [en, tl] of map) {
+    if (!other.has(en)) problems.push(`${name} has "${en}", the other dictionary does not`);
+    if (placeholders(en) !== placeholders(tl)) problems.push(`${name}: "${en}" and "${tl}" have different {placeholders}`);
+  }
 }
 
 const call = /\btr\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|(`))/g;
@@ -42,6 +56,7 @@ for (const file of walk(src).filter((f) => /\.(svelte|ts)$/.test(f) && f !== dic
     used++;
     usedTexts.add(en);
     if (!italian.has(en)) problems.push(`${where}: no Italian for "${en}"`);
+    if (!chinese.has(en)) problems.push(`${where}: no Chinese for "${en}"`);
   }
 }
 
@@ -69,6 +84,7 @@ for (const t of texts) {
   used++;
   usedTexts.add(t);
   if (!native.has(t) && !italian.has(t)) problems.push(`catalog: no Italian for "${t}"`);
+  if (!native.has(t) && !chinese.has(t)) problems.push(`catalog: no Chinese for "${t}"`);
 }
 
 // `node scripts/check-i18n.mjs --unused`: the dictionary entries no string of the UI uses any more, one per line.
@@ -82,4 +98,4 @@ if (problems.length) {
   console.error(`\ni18n: ${problems.length} problem(s)`);
   process.exit(1);
 }
-console.log(`i18n: ${used} strings in the UI, ${italian.size} Italian translations, all covered`);
+console.log(`i18n: ${used} strings in the UI, ${italian.size} Italian and ${chinese.size} Chinese translations, all covered`);

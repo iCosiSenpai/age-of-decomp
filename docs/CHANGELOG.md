@@ -28,6 +28,12 @@ keeps your settings and saves.
   needs a change in the game itself and is still to come. Thanks to @The-Gaymer for asking (#19).
 
 ### Launcher
+- The launcher speaks Simplified Chinese too: *System → Language → 简体中文*, or *Automatic* on a Chinese desktop
+  (outside Taiwan, Hong Kong and Macau, as the game's own menu decides). The text is drawn with the system's Chinese
+  font. The game's own settings menu (Esc) already had Simplified Chinese. Thanks to @zerocreator0 for asking (#25).
+- Setup makes the temporary folder the compiler writes into when the one the system names does not exist, instead of
+  failing with "unable to make temporary file" (RecompLauncher's setup step can name a folder it never made:
+  elripalda/RecompLauncher#551).
 - Settings changed quickly one after the other are saved in the order you made them, and a change the launcher could
   not save no longer shows "Saved" on the Controllers page.
 - Two settings saved at the same moment no longer overwrite each other's file, which could lose one of them.
