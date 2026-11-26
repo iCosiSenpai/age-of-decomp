@@ -75,8 +75,13 @@ A test on Windows the same day (RTX 5070 Ti, the Gallery): at 2560x1440 the char
 clean; at 3840x2160 the Music list's lines are a mix of each other's titles (the first four rows show the start of their
 title and then the end of the second row's, every row below the same mix), with `ui_shapes = 0` too, and clean with
 `ui_canvas = 0`. So the four quad sites at af42e4 became a set of their own as well, `hwaoi_ui_quads`
-(`TOTK_UI_QUADS`, `ui_quads = 0`), to tell the quads from the layer's camera size. The idea to check: the list draws its
-long titles (the scrolling text) into a target of a fixed size first, and corners scaled by 2 leave their row of it.
+(`TOTK_UI_QUADS`, `ui_quads = 0`), to tell the quads from the layer's camera size. With `ui_quads = 0` the list is as
+mixed up as with every set on (row frames, icons and panels stay scaled; the character list's portraits move), so the
+quads are not the cause: the layer size of 576ff8 / add844 / add874 is. Text is placed at anchor * (output / layer
+size) + output/2, so above 1080p it is drawn larger than the layer believes; the idea to check next is that the list
+draws its long titles (the scrolling text) into a target of its own sized in layer units, where text at twice the size
+runs into the next row's slot. At 2560x1440 (x 1.33) it still fits, at 3440x1440 (x 1.79 across) and 3840x2160 (x 2)
+it does not. Until it is fixed, `ui_canvas = 0` is the way round it (menus small and centred).
 
 How it was found: hardware write breakpoints (perf_event_open PERF_TYPE_BREAKPOINT, one event per thread, signal
 handler logs host rip and the guest frame-pointer chain via kern_cpu()) on the corner values of one icon found in

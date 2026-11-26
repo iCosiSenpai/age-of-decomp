@@ -77,9 +77,9 @@ site hwaoi_ui_canvas main 00add874 2d400a81 @page:x9 2d550921
 # draw call main+15f2ca4: map icons, minimap markers) takes positions in canvas units and, for batches with a
 # target (+0x428), copies the four corners unchanged at main+af42dc; they are drawn with the window's pixel
 # projection. Page +0xb8 holds f32 output_w/1920: the corners are scaled into output pixels there.
-# A set of its own since 2026-11-26, on only with hwaoi_ui_canvas (runtime/patches.c): GitHub #23 at 3840x2160 (a factor
-# of 2) mixes up the Music list's lines with the canvas on and is clean with it off, while the rectangles and lines
-# below make no difference there. `ui_quads = 0` keeps the canvas and leaves the quads at their 1080p place.
+# A set of its own since 2026-11-26, on only with hwaoi_ui_canvas (runtime/patches.c), so a test can turn it off alone
+# (`ui_quads = 0` keeps the canvas and leaves the quads at their 1080p place). GitHub #23 at 3840x2160 (the Music list's
+# lines mixed up) looks the same without it: that comes from the layer's camera size at 576ff8 / add844 / add874.
 set hwaoi_ui_quads TOTK_UI_QUADS 1
 site hwaoi_ui_quads main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 4f829000 4f829021 ad000420
 site hwaoi_ui_quads main 00af42e8 a9412c4a d503201f
