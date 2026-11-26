@@ -257,6 +257,33 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual([shown(1, 16), shown(0, 62)], [1, 0])                                   # Dodge, Special attack
         self.assertEqual([shown(c, 18) for c in (2, 3, 0x0a, 0x3a, 0xff)], [2, 3, 0x0a, 0x3a, 0xff])
 
+    def test_field_of_view_scales_the_angle_where_it_is_read(self):
+        # GitHub #21: the camera keeps half its vertical view angle at +0x1f1c. Each site keeps the original load, loads
+        # the f32 at page +0x3c (res_fov_live: TOTK_FOV / 100, 1.0 from res_init) into s1 through a scratch register
+        # and multiplies: frustum main+2cf234 (ldr s0, [x20, #0x1f1c], x8 scratch) and the render copy main+2f52ac
+        # (ldr s0, [x0, #0x1f1c], x5 scratch, set fov_view for a test).
+        table = self.table()
+        rows = table.for_module("main", 0x7000000000)
+        named = {name: env for name, env, _ in table.sets}
+        self.assertEqual((named.get("fov"), named.get("fov_view")), ("TOTK_FOV_PATCH", "TOTK_FOV_VIEW"))
+        for off, (setname, base, scratch) in {0x2cf234: ("fov", 20, 8), 0x2f52ac: ("fov_view", 0, 5)}.items():
+            k, words, original = table.sites["main"][off]
+            self.assertEqual(table.sets[k][0], setname)
+            self.assertEqual(original, 0xbd400000 | (0x1f1c // 4) << 10 | base << 5)     # LDR s0, [x<base>, #0x1f1c]
+            words = rows[0x7000000000 + off][1]
+            self.assertEqual(len(words), 4)
+            self.assertEqual(words[0], original)
+            adrp = words[1]
+            self.assertEqual((adrp & 0x9f000000, adrp & 31), (0x90000000, scratch))
+            imm = ((adrp >> 5) & 0x7ffff) << 2 | (adrp >> 29) & 3
+            imm -= (1 << 21) if imm & (1 << 20) else 0
+            self.assertEqual(((0x7000000000 + off) & ~0xfff) + (imm << 12), table.page)
+            self.assertEqual(words[2], 0xbd400000 | (0x3c // 4) << 10 | scratch << 5 | 1)  # LDR s1, [x<scratch>, #0x3c]
+            self.assertEqual(words[3], 0x1e200800 | 1 << 16)                               # FMUL s0, s0, s1
+        text = (ROOT / "runtime/resolution.c").read_text(encoding="utf-8")
+        self.assertIn("memcpy((uint8_t *)rt_patch_page() + 60, &k, sizeof k)", text)
+        self.assertGreaterEqual(text.count("memcpy(page + 60, &fov_factor") + text.count("memcpy(own_page + 60, &fov_factor"), 2)
+
     def test_native_presets_and_invalid_forms(self):
         cc = compiler()
         if not cc:
@@ -265,11 +292,18 @@ class DisplaySettingsTests(unittest.TestCase):
 #include <assert.h>
 #include "hwaoi_display.h"
 int main(void) {
- const char *names[]={"1280x720","1920x1080","2560x1440","3840x2160"};
- unsigned widths[]={1280,1920,2560,3840}, heights[]={720,1080,1440,2160};
- unsigned size[2];
- for(unsigned i=0;i<4;i++) { assert(hwaoi_display_size(names[i],size));
-  assert(size[0]==widths[i] && size[1]==heights[i]); }
+ const char *names[]={"1280x720","1920x1080","2560x1440","3840x2160","2560x1080","3440x1440","3840x1600"};
+ unsigned widths[]={1280,1920,2560,3840,2560,3440,3840}, heights[]={720,1080,1440,2160,1080,1440,1600};
+ unsigned canvas_widths[]={1920,1920,1920,1920,2560,2580,2592};   // 1080 high, the output's shape
+ unsigned size[2], canvas[2]; float scale;
+ for(unsigned i=0;i<7;i++) { assert(hwaoi_display_size(names[i],size));
+  assert(size[0]==widths[i] && size[1]==heights[i]);
+  hwaoi_display_canvas(size,canvas,&scale);
+  assert(canvas[0]==canvas_widths[i] && canvas[1]==1080);
+  assert(scale==(float)heights[i]/1080.0f);   // canvas units to pixels, the same on both axes
+  assert(canvas[0]*scale>size[0]-1.0f && canvas[0]*scale<size[0]+1.0f); }
+ unsigned odd[2]={2561,1080}; hwaoi_display_canvas(odd,canvas,&scale); assert(canvas[0]==2562);   // even widths
+ unsigned none[2]={0,0}; hwaoi_display_canvas(none,canvas,&scale); assert(canvas[0]==1920&&canvas[1]==1080&&scale==1.0f);
  const char *bad[]={0,"","1920X1080","1920x1080extra","3840x2161","5120x1440","-1920x1080"," 1920x1080"};
  for(unsigned i=0;i<sizeof bad/sizeof *bad;i++) {size[0]=111;size[1]=222;
   assert(!hwaoi_display_size(bad[i],size));assert(size[0]==111&&size[1]==222);}

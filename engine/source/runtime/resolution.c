@@ -255,8 +255,8 @@ void res_init(void) {
             unsigned size[2], scene[2];
             const char *value = output_setting();
             if (!hwaoi_display_dimensions(value, cfg_get("TOTK_SCENE_RES"), size, scene))
-                rt_fatal("resolution: HWAoI OUTPUT_RES=%s unsupported; choose auto, 1280x720, 1920x1080, 2560x1440 or "
-                         "3840x2160", value);
+                rt_fatal("resolution: HWAoI OUTPUT_RES=%s unsupported; choose auto, 1280x720, 1920x1080, 2560x1440, "
+                         "3840x2160, 2560x1080, 3440x1440 or 3840x1600", value);
             // Temporal upscaling: the scene below the output by HWAOI_FSR_QUALITY, scaled back by FSR in place of the
             // game's FSR 1 EASU (vk_temporal.c). An explicit SCENE_RES wins. The pool plan stays the output's
             // (res_heap_extra_bytes), which a smaller scene never exceeds.
@@ -312,15 +312,21 @@ void res_init(void) {
                 rt_fatal("resolution: enlarged native scene requires a larger application pool; remove the APP_POOL override");
             memcpy(page + 0x98, &texture_pool, sizeof texture_pool);
             memcpy(page + 0xa0, &texture_parent, sizeof texture_parent);
-            uint64_t canvas = pack(1920, 1080);   // set hwaoi_ui_canvas: the screen cameras frame the game's 2D canvas
+            // set hwaoi_ui_canvas: the screen cameras frame the game's 2D canvas, 1080 high and of the output's shape;
+            // +0xb8 turns canvas units into output pixels (2D primitive corners)
+            unsigned canvas_size[2];
+            float canvas_scale;
+            hwaoi_display_canvas(size, canvas_size, &canvas_scale);
+            uint64_t canvas = pack(canvas_size[0], canvas_size[1]);
             memcpy(page + 0xa8, &canvas, sizeof canvas);
-            float canvas_scale = (float)size[0] / 1920.0f;   // canvas units to output pixels (2D primitive corners)
             memcpy(page + 0xb8, &canvas_scale, sizeof canvas_scale);
+            float fov_factor = 1.0f;   // set fov reads it from the start; res_fov_live writes the setting's factor
+            memcpy(page + 60, &fov_factor, sizeof fov_factor);
             if (application_extra)
                 rt_log("resolution: experimental texture pool %llu MiB, matching parent %llu MiB plus bookkeeping",
                        (unsigned long long)(texture_pool >> 20), (unsigned long long)(texture_parent >> 20));
-            rt_log("resolution: HWAoI native output %ux%u, scene %ux%u; restart required to change allocations",
-                   R.ow, R.oh, R.sw, R.sh);
+            rt_log("resolution: HWAoI native output %ux%u, scene %ux%u, 2D canvas %ux%u; restart required to change "
+                   "allocations", R.ow, R.oh, R.sw, R.sh, canvas_size[0], canvas_size[1]);
             return;
         }
         // Set hwaoi_ui_canvas reads the canvas and its scale from the page whatever the 3D resolution is: at the game's
@@ -331,6 +337,8 @@ void res_init(void) {
             float canvas_scale = 1.0f;
             memcpy(own_page + 0xa8, &canvas, sizeof canvas);
             memcpy(own_page + 0xb8, &canvas_scale, sizeof canvas_scale);
+            float fov_factor = 1.0f;
+            memcpy(own_page + 60, &fov_factor, sizeof fov_factor);
         }
         int native = rt_patch_set("hwaoi_native1080");
         const char *requested = cfg_get("TOTK_NATIVE_1080");

@@ -611,13 +611,16 @@ static void row_window_size(void) {
 static void row_output_res(void) {
     if (RT_TARGET_HWAOI) {
         // auto: the screen's size as far as the graphics card's memory allows (resolution.c); the row names what it is
-        static const char *const vals[] = {"auto", "1280x720", "1920x1080", "2560x1440", "3840x2160"};
+        // and the 21:9 monitor sizes (hwaoi_display.h): the camera shows more at the sides, the interface keeps its shape
+        static const char *const vals[] = {"auto", "1280x720", "1920x1080", "2560x1440", "3840x2160",
+                                           "2560x1080", "3440x1440", "3840x1600"};
         static char automatic[64];
         unsigned a[2];
         res_auto_size(a);
         snprintf(automatic, sizeof automatic, menu_text(UI_MENU_OUTPUT_RES_AUTO), a[0], a[1]);
-        const char *names[] = {automatic, "1280 × 720", "1920 × 1080", "2560 × 1440", "3840 × 2160"};
-        opt_choice_list("TOTK_OUTPUT_RES", UI_MENU_OUTPUT_RES, vals, names, 5, UI_MENU_OUTPUT_RES_DESC);
+        const char *names[] = {automatic, "1280 × 720", "1920 × 1080", "2560 × 1440", "3840 × 2160",
+                               "2560 × 1080 (21:9)", "3440 × 1440 (21:9)", "3840 × 1600 (21:9)"};
+        opt_choice_list("TOTK_OUTPUT_RES", UI_MENU_OUTPUT_RES, vals, names, 8, UI_MENU_OUTPUT_RES_DESC);
         return;
     }
     static const char *const vals[] = {"1280x720", "1600x900", "1920x1080", "2560x1440", "3200x1800", "3840x2160",

@@ -29,7 +29,7 @@ from compiler import cache
 
 STATE = "hwaoi-compiler.json"
 # auto: the game takes its screen's size at each start (runtime/resolution.c) and the build leaves the setting alone
-RESOLUTIONS = ("auto", "1280x720", "1920x1080", "2560x1440", "3840x2160")
+RESOLUTIONS = ("auto", "1280x720", "1920x1080", "2560x1440", "3840x2160", "2560x1080", "3440x1440", "3840x1600")
 WINDOWS = os.name == "nt"
 LINUX = sys.platform.startswith("linux")
 # What a bundle must hold besides the sources: its whole compiler on both systems.

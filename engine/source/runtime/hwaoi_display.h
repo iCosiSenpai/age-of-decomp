@@ -13,10 +13,15 @@ static inline int hwaoi_native_wanted(const char *native_1080, const char *rende
     return !render_scale || strcmp(render_scale, "game") != 0;
 }
 
+// The game resolutions: 16:9 from 1280x720 to 3840x2160, and the 21:9 monitor sizes (GitHub #8). Every one fits in the
+// 3840x2160 texture the game presents from (its window crop is the output), and the camera takes the scene's own shape
+// (the renderer's +0x664 / +0x668), so a wider output shows more of the world at the sides; the 2D canvas follows the
+// output's shape at a height of 1080 (hwaoi_display_canvas), so the interface keeps its proportions.
 static inline int hwaoi_display_size(const char *value, unsigned size[2]) {
     static const struct { const char *name; unsigned w, h; } presets[] = {
         {"1280x720", 1280, 720}, {"1920x1080", 1920, 1080},
         {"2560x1440", 2560, 1440}, {"3840x2160", 3840, 2160},
+        {"2560x1080", 2560, 1080}, {"3440x1440", 3440, 1440}, {"3840x1600", 3840, 1600},
     };
     for (unsigned i = 0; i < sizeof presets / sizeof *presets; i++) {
         if (value && !strcmp(value, presets[i].name)) {
@@ -35,6 +40,17 @@ static inline int hwaoi_display_dimensions(const char *output, const char *scene
     if (scene_override && (!hwaoi_display_size(scene_override, s) || s[0] > o[0] || s[1] > o[1])) return 0;
     out[0] = o[0]; out[1] = o[1]; scene[0] = s[0]; scene[1] = s[1];
     return 1;
+}
+
+// The 2D canvas the game lays its interface out on (set hwaoi_ui_canvas, page +0xa8) and the factor from canvas units to
+// output pixels (page +0xb8): 1080 units high and as wide as the output's shape, so 1920x1080 at every 16:9 size and
+// 2560x1080 at 2560x1080 or 2580x1080 at 3440x1440. The game anchors its panes to the canvas's edges and centre (on a
+// wider canvas the 16:9 layouts stay in the middle and a corner label goes to the screen's corner), its screen cameras
+// frame the whole canvas, and one factor scales both axes, so nothing is stretched. Even widths only.
+static inline void hwaoi_display_canvas(const unsigned out[2], unsigned canvas[2], float *scale) {
+    canvas[1] = 1080;
+    canvas[0] = out[1] ? ((unsigned)(((uint64_t)out[0] * 1080 + out[1] / 2) / out[1]) + 1) & ~1u : 1920;
+    *scale = out[1] ? (float)out[1] / 1080.0f : 1.0f;
 }
 
 // The scene for the temporal upscaler (HWAOI_TEMPORAL=fsr, HWAOI_FSR_QUALITY): the output divided by 1.5 (quality),
