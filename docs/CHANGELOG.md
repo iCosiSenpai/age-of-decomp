@@ -3,6 +3,49 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
+**Not tested here:** I have no Linux PC, no SteamOS device, no AMD Radeon graphics card and no PlayStation
+controller, so I cannot see whether Age of Decomp really works with them. For those I count on your tests and your
+logs to find and fix problems: please report what you see, with the newest `game-*.log`. Every release's notes say so.
+
+## 0.3.5 (2026-11-26)
+
+Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
+keeps your settings and saves.
+
+### Controllers
+- With DS4Windows, DSX, Steam Input or another tool that turns a controller into keys or mouse motion, the menus kept
+  going back to confirming with the right button and the button pictures to the keyboard's: the keys the tool sent
+  together with the pad's own buttons made the game think the keyboard was in use. Keys or mouse motion that come
+  within a quarter of a second of the pad's own input now leave the pad the device in use. Thanks to @The-Gaymer for
+  the report and the logs (#18).
+- Rumble and motion controls reach Joy-Cons and a handheld-mode controller too: the game asked for them with the
+  handle of another controller style and got nothing. Thanks to @bdzdq for the report
+  (Alano6678/hwaoi-recomp#33).
+- A burst of input while the game's own menu is busy no longer loses a button's release, which could leave a button
+  held in the menu.
+- New setting *Camera speed* (Controls, in the launcher and in the game's menu): lower it to turn the camera more
+  slowly with the right stick and the mouse, down to 60 % of the game's own speed. A camera faster than the game's
+  needs a change in the game itself and is still to come. Thanks to @The-Gaymer for asking (#19).
+
+### Launcher
+- The launcher speaks Simplified Chinese too: *System → Language → 简体中文*, or *Automatic* on a Chinese desktop
+  (outside Taiwan, Hong Kong and Macau, as the game's own menu decides). The text is drawn with the system's Chinese
+  font. The game's own settings menu (Esc) already had Simplified Chinese. Thanks to @zerocreator0 for asking (#25).
+- Setup makes the temporary folder the compiler writes into when the one the system names does not exist, instead of
+  failing with "unable to make temporary file" (RecompLauncher's setup step can name a folder it never made:
+  elripalda/RecompLauncher#551).
+- Settings changed quickly one after the other are saved in the order you made them, and a change the launcher could
+  not save no longer shows "Saved" on the Controllers page.
+- Two settings saved at the same moment no longer overwrite each other's file, which could lose one of them.
+
+### Diagnostics
+- With *Draw call markers* on, the log of a graphics card that stops answering (code 70) also says what came between
+  the last draws (a barrier inside the pass, a pass that ended and began again, a QUADS conversion) and which of its
+  own targets a draw reads, so one log tells more about a crash. For the Radeon crash in a fight reported by
+  @benkra66 (#16).
+- New diagnostics setting *Draws that read their own picture*: *Restart pass* is a test for Radeon cards whose
+  driver stops answering (code 70). If it keeps your game running, please tell us in a report (#16, #10).
+
 ## 0.3.0 (2026-11-24)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup

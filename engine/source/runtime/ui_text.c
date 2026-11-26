@@ -206,6 +206,8 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_STICK_DEADZONE_DESC] = "How far a gamepad stick moves before the game sees it. Raise it if the character or the camera moves on its own.",
     [UI_MENU_MOUSE_SENS] = "Mouse camera sensitivity",
     [UI_MENU_MOUSE_SENS_DESC] = "How fast the mouse turns the camera.",
+    [UI_MENU_CAMERA_SPEED] = "Camera speed",
+    [UI_MENU_CAMERA_SPEED_DESC] = "Lower it to turn the camera more slowly with the right stick and the mouse. 100 % is the game's own speed.",
     [UI_MENU_PLAYERS] = "Players and console",
     [UI_BINDS_PLAYER] = "Bindings for",
     [UI_BINDS_PLAYER_DESC] = "Whose buttons the rows below change. Each player has their own bindings, for their keyboard "
@@ -549,6 +551,8 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_STICK_DEADZONE_DESC] = "Насколько нужно отклонить стик геймпада, чтобы игра это заметила. Увеличьте, если персонаж или камера двигаются сами.",
     [UI_MENU_MOUSE_SENS] = "Чувствительность мыши",
     [UI_MENU_MOUSE_SENS_DESC] = "Как быстро мышь поворачивает камеру.",
+    [UI_MENU_CAMERA_SPEED] = "Скорость камеры",
+    [UI_MENU_CAMERA_SPEED_DESC] = "Уменьшите, чтобы правый стик и мышь поворачивали камеру медленнее. 100 % — скорость самой игры.",
     [UI_MENU_PLAYERS] = "Игроки и консоль",
     [UI_BINDS_PLAYER] = "Назначения для",
     [UI_BINDS_PLAYER_DESC] = "Чьи кнопки меняют строки ниже. У каждого игрока свои назначения; выберите эту строку, чтобы "
@@ -918,6 +922,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_STICK_DEADZONE_DESC] = "摇杆偏移超过死区才会产生输入。角色或镜头自行移动时，可以调高这个值。",
     [UI_MENU_MOUSE_SENS] = "鼠标镜头灵敏度",
     [UI_MENU_MOUSE_SENS_DESC] = "调整鼠标控制镜头的转动速度。",
+    [UI_MENU_CAMERA_SPEED] = "镜头速度",
+    [UI_MENU_CAMERA_SPEED_DESC] = "调低后，右摇杆和鼠标转动镜头会更慢。100 % 为游戏原本的速度。",
     [UI_MENU_PLAYERS] = "玩家与主机",
     [UI_BINDS_PLAYER] = "配置玩家",
     [UI_BINDS_PLAYER_DESC] = "每个玩家都有独立的键鼠和手柄绑定。左右切换可选择要修改的玩家。",
@@ -1387,6 +1393,9 @@ static const char *const text_it[UI_TEXT_COUNT] = {
                                     "o la telecamera si muovono da soli.",
     [UI_MENU_MOUSE_SENS] = "Sensibilità del mouse",
     [UI_MENU_MOUSE_SENS_DESC] = "Velocità con cui il mouse muove la telecamera.",
+    [UI_MENU_CAMERA_SPEED] = "Velocità della telecamera",
+    [UI_MENU_CAMERA_SPEED_DESC] = "Abbassala per girare la telecamera più lentamente con lo stick destro e il mouse. 100 % è "
+                                  "la velocità del gioco.",
     [UI_MENU_PLAYERS] = "Giocatori e console", [UI_BINDS_PLAYER] = "Comandi per",
     [UI_BINDS_PLAYER_DESC] = "Di quale giocatore cambiano i comandi qui sotto. Ogni giocatore ha assegnazioni proprie "
                              "per tastiera e controller; cambia questa riga con sinistra o destra per scegliere il giocatore.",

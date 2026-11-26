@@ -51,9 +51,9 @@
   // The catalogue's Controls settings, each where it applies: a controller's own (only the ones it has the hardware
   // for), the keyboard and mouse's, and the rest (who plays with what) for every device. A setting that applies to
   // both a controller and the keyboard is in both lists.
-  const PAD_KEYS = ['button_prompts', 'confirm_button', 'stick_deadzone', 'motion', 'rumble_strength', 'rumble_curve',
-    'rumble_triggers'];
-  const KEYBOARD_KEYS = ['button_prompts', 'mouse_sens'];
+  const PAD_KEYS = ['button_prompts', 'confirm_button', 'stick_deadzone', 'camera_speed', 'motion', 'rumble_strength',
+    'rumble_curve', 'rumble_triggers'];
+  const KEYBOARD_KEYS = ['button_prompts', 'camera_speed', 'mouse_sens'];
   const controls = catalog.settings.filter((s) => s.group === 'controls');
   function has(p: Pad, key: string): boolean {
     if (key === 'motion') return p.has_gyro && p.has_accel;
@@ -85,9 +85,9 @@
   async function assign(n: 1 | 2) {
     const value = pad ? padValue(app.pads, pad) : 'keyboard';
     const other = n === 1 ? 2 : 1;
-    await app.set(`player${n}_device`, value);
+    if (!(await app.set(`player${n}_device`, value))) return;   // the reason is in the toast set() showed
     // One device, one player: the other player goes back to Automatic when it had this one.
-    if (app.settings[`player${other}_device`] === value) await app.set(`player${other}_device`, 'auto');
+    if (app.settings[`player${other}_device`] === value && !(await app.set(`player${other}_device`, 'auto'))) return;
     app.toast(tr('{name} is now player {n}', { name: pad ? padTitle(app.pads, pad) : tr('Keyboard and mouse'), n }), 'ok');
   }
 

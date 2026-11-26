@@ -69,6 +69,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `button_prompts` | Buttons shown in the game — The buttons the game shows in its HUD and hints. Automatic: those of the controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. Pick a maker when your controller is shown as another one, or Game's own to keep the buttons as the game draws them. | `auto` Automatic, `xbox` Xbox, `playstation` PlayStation, `nintendo` Switch, `game` Game's own | `auto` |  |
 | `confirm_button` | Confirm button in menus — The button that confirms in the game's menus; the other one goes back. Automatic: the bottom button on Xbox, PlayStation and other controllers, the right one on a Switch controller, as the game has it. Battle keeps every button, and the keyboard its keys. | `auto` Automatic, `bottom` Bottom button, `right` Right button | `auto` |  |
 | `stick_deadzone` | Stick dead zone — Raise it if the camera or the character moves on its own. | 0 – 50 (step 1) | `8` |  |
+| `camera_speed` | Camera speed — Lower it to turn the camera more slowly with the right stick and the mouse. 100 % is the game's own speed. | 60 – 100 (step 5) | `100` |  |
 | `motion` | Motion controls — Uses the controller's gyro and accelerometer where the game asks for motion. | `0` off, `1` on | `1` |  |
 | `rumble_strength` | Rumble strength — 0 turns rumble off. | 0 – 300 (step 10) | `130` |  |
 | `rumble_curve` | Rumble curve — Lower values make light rumble stronger; 1 is linear. | 0.2 – 1.5 (step 0.05) | `0.6` |  |
@@ -100,3 +101,4 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `vk_validation` | Vulkan validation — For bug reports only: much slower. Needs the Vulkan SDK. | `0` off, `1` on | `0` | yes |
 | `flight` | Flight recorder — Records timing spikes into the log for bug reports. | `0` off, `1` on | `0` | yes |
 | `draw_crumbs` | Draw call markers — For bug reports about a graphics card that stops answering (code 70): the log then names the draw calls it was working on. A little slower. | `0` off, `1` on | `0` | yes |
+| `feedback` | Draws that read their own picture — Some draws read the picture they draw into. Automatic syncs them inside the drawing pass. Restart pass ends the pass and starts it again before each one: try it if a Radeon card stops answering (code 70) in fights, and tell us in a report if it helps. It can be a little slower. | `auto` Automatic, `restart` Restart pass | `auto` | yes |

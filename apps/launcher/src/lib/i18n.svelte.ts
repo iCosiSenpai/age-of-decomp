@@ -1,14 +1,15 @@
 // Interface language. English is the source text: every string in the UI is written in English and passed through `tr`,
-// which returns the translation for the current language (Italian lives in ./i18n/it.ts). `scripts/check-i18n.mjs`
-// (part of `pnpm check`) fails when an English string has no Italian translation.
+// which returns the translation for the current language (Italian in ./i18n/it.ts, Simplified Chinese in ./i18n/zh.ts).
+// `scripts/check-i18n.mjs` (part of `pnpm check`) fails when an English string has no Italian or Chinese translation.
 // Pattern from the maintainer's Deluxe8 launcher.
 
 import { it } from './i18n/it';
+import { zh } from './i18n/zh';
 import type { UiLanguage } from './types';
 
-export type Locale = 'en' | 'it';
+export type Locale = 'en' | 'it' | 'zh';
 
-const dictionaries: Record<Locale, Record<string, string> | null> = { en: null, it };
+const dictionaries: Record<Locale, Record<string, string> | null> = { en: null, it, zh };
 
 let current = $state<Locale>('en');
 
@@ -33,12 +34,16 @@ export function trc(en: string): string {
 
 export function setLocale(l: Locale) {
   current = l;
-  if (typeof document !== 'undefined') document.documentElement.lang = l;
+  if (typeof document !== 'undefined') document.documentElement.lang = l === 'zh' ? 'zh-Hans' : l;
 }
 
-/** "auto" means Italian for players in Italy (or San Marino, Vatican City) or with an Italian desktop, English otherwise. */
+/**
+ * "auto" means Italian for players in Italy (or San Marino, Vatican City) or with an Italian desktop, Simplified Chinese
+ * with a Chinese desktop outside Taiwan, Hong Kong and Macau (as the game's own menu decides), English otherwise.
+ */
 export function resolveLocale(setting: UiLanguage, system: { language: string; country: string } | null | undefined): Locale {
-  if (setting === 'en' || setting === 'it') return setting;
+  if (setting === 'en' || setting === 'it' || setting === 'zh') return setting;
   if (!system) return 'en';
+  if (system.language === 'zh') return ['TW', 'HK', 'MO'].includes(system.country) ? 'en' : 'zh';
   return system.language === 'it' || ['IT', 'SM', 'VA'].includes(system.country) ? 'it' : 'en';
 }

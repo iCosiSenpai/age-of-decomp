@@ -201,16 +201,29 @@ class AppState {
     });
   }
 
-  async set(key: string, value: string) {
+  /** Settings changes go to the file one after another, in the order they were made (a dragged slider sends several),
+   *  and only the answer to the newest one replaces what the screen shows: an older answer would put back a value the
+   *  player has already changed again. */
+  private settingsQueue: Promise<unknown> = Promise.resolve();
+  private settingsSent = 0;
+
+  /** Saves one setting; false (and the reason in a toast) when the file could not take it. */
+  async set(key: string, value: string): Promise<boolean> {
     const before = this.settings;
     this.settings = { ...this.settings, [key]: value };
+    const sent = ++this.settingsSent;
+    const write = this.settingsQueue.then(() => api.setSetting(key, value));
+    this.settingsQueue = write.catch(() => {});
     try {
-      this.settings = await api.setSetting(key, value);
+      const saved = await write;
+      if (sent === this.settingsSent) this.settings = saved;
       if (key === 'rumble_strength' || key === 'rumble_curve') this.rumblePreview();
+      return true;
     } catch (err) {
       // What the file holds is what the game reads: show that again, not the value that was not saved.
       this.settings = await api.settings().catch(() => before);
       this.toast(String(err), 'err');
+      return false;
     }
   }
 
@@ -230,10 +243,16 @@ class AppState {
 
   /** These settings back to their defaults; `done` is said when it worked, the reason when it did not. */
   async reset(keys: string[], done: string) {
+    // In the same queue as the changes: one still waiting would otherwise reach the file after the defaults.
+    const sent = ++this.settingsSent;
+    const write = this.settingsQueue.then(() => api.resetSettings(keys));
+    this.settingsQueue = write.catch(() => {});
     try {
-      this.settings = await api.resetSettings(keys);
+      const saved = await write;
+      if (sent === this.settingsSent) this.settings = saved;
       this.toast(done, 'ok');
     } catch (err) {
+      this.settings = await api.settings().catch(() => this.settings);
       this.toast(String(err), 'err');
     }
   }

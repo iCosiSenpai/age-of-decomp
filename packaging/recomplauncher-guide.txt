@@ -1,8 +1,11 @@
-023e313f25a14b2bb8147af011c81227a198e365
-# The RecompLauncher commit (github.com/elripalda/RecompLauncher, main at the tag v0.90.0-beta.68 with its patch
-# notes, 2026-11-23) whose developer guide, manifest schema and setup inputs page Age of Decomp was last checked
-# against (2026-11-23, with tools/recomplauncher_check.py on the 0.2.0 release folder). From this guide on, the
-# setup step runs the program players start ("Ship one program": AgeOfDecomp.exe cli prepare …) and the manifest
-# has no prepare.timeout or prepare.version (AGENTS.md, RecompLauncher contract).
+c680f1f552688a5dc54264fb0eebcddb981adece
+# The RecompLauncher commit (github.com/elripalda/RecompLauncher, main on 2026-11-25) whose developer guide, manifest
+# schema and setup inputs page Age of Decomp was last checked against (2026-11-26). Read since 023e313 (beta 68):
+# fixes for one recomp go in that recomp (#493); a failed setup shows the last 10 lines the step printed, so the reason
+# is printed last (cli.rs / prepare.rs end on the engine's ERROR line or the check's sentence); unpacked AppImages
+# (#486): AppRun finds everything from its own path, sets no LD_LIBRARY_PATH, and release.py refuses links that leave
+# the AppDir; only what the launcher can use counts in "Launcher features" (#532): Verified Copies still needs
+# game.dumps or game.check.ids, which a .nup cannot have (AGENTS.md, RecompLauncher contract); tools are named for what
+# they do (the release has none beside the game). The manifest validates against the schema of that day's main.
 # .github/workflows/recomplauncher.yml opens an issue when the guide, the schema or the inputs page changes after it;
 # put the newest commit id on the first line once checked.

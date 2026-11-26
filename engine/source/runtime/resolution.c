@@ -180,7 +180,8 @@ static size_t field(const Byml *b, uint32_t node, const char *name, uint8_t type
         uint32_t e;
         if (!u32_at(b, node + 4 + 8 * (size_t)i, &e)) return 0;
         const char *k = key_name(b, e & 0xffffff);
-        if (k && !strcmp(k, name)) return e >> 24 == type ? node + 8 + 8 * (size_t)i : 0;
+        size_t value = node + 8 + 8 * (size_t)i;   // the entry's value word, which the caller reads and writes
+        if (k && !strcmp(k, name)) return e >> 24 == type && value + 4 <= b->n ? value : 0;
     }
     return 0;
 }

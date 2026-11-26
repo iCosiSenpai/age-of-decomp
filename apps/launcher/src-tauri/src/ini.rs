@@ -129,9 +129,12 @@ impl Ini {
         let eol = if self.crlf { "\r\n" } else { "\n" };
         let mut text = self.lines.join(eol);
         text.push_str(eol);
-        // A name of this process's own: the launcher's window, aod-cli and RecompLauncher can each write this file,
-        // and none must rename what another is still writing.
-        let tmp = path.with_extension(format!("ini.{}.part", std::process::id()));
+        // A name of this process's and this call's own: the launcher's window, aod-cli and RecompLauncher can each
+        // write this file, and two commands of the window can save at once; none must rename what another is still
+        // writing.
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let tmp = path.with_extension(format!("ini.{}-{n}.part", std::process::id()));
         std::fs::write(&tmp, text)?;
         std::fs::rename(&tmp, path).inspect_err(|_| {
             let _ = std::fs::remove_file(&tmp);

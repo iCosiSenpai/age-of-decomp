@@ -39,8 +39,11 @@
   --err: #ff5a4f;
   --err-soft: rgba(255, 90, 79, 0.14);
 
-  --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
-  --font-text: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  /* Inter and Cinzel have no Chinese: the system's CJK fonts draw it (Windows, macOS, Linux in that order). */
+  --font-cjk: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC',
+    'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei';
+  --font-display: 'Cinzel', 'Trajan Pro', Georgia, var(--font-cjk), serif;
+  --font-text: 'Inter', 'Segoe UI', var(--font-cjk), system-ui, sans-serif;
 
   --radius-s: 6px;
   --radius-m: 10px;

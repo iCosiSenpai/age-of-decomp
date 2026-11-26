@@ -1240,6 +1240,22 @@
       }
     },
     {
+      "id": "camera_speed",
+      "label": "Camera speed",
+      "help": "Lower it to turn the camera more slowly with the right stick and the mouse. 100 % is the game's own speed.",
+      "group": "Controls",
+      "slider": {
+        "key": "camera_speed",
+        "min": 60,
+        "max": 100,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "camera_speed": "100"
+      }
+    },
+    {
       "id": "motion",
       "label": "Motion controls",
       "help": "Uses the controller's gyro and accelerometer where the game asks for motion.",
@@ -1731,6 +1747,29 @@
       ],
       "defaults": {
         "draw_crumbs": "0"
+      }
+    },
+    {
+      "id": "feedback",
+      "label": "Draws that read their own picture",
+      "help": "Some draws read the picture they draw into. Automatic syncs them inside the drawing pass. Restart pass ends the pass and starts it again before each one: try it if a Radeon card stops answering (code 70) in fights, and tell us in a report if it helps. It can be a little slower.",
+      "group": "Diagnostics",
+      "choices": [
+        {
+          "label": "Automatic",
+          "set": {
+            "feedback": "auto"
+          }
+        },
+        {
+          "label": "Restart pass",
+          "set": {
+            "feedback": "restart"
+          }
+        }
+      ],
+      "defaults": {
+        "feedback": "auto"
       }
     }
   ],

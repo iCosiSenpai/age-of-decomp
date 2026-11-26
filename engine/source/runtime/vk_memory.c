@@ -1463,6 +1463,14 @@ static void mirror_create(PoolRec *r) {
     plat_mutex_unlock_shared(&pool_lock);
     if (i < 0) return;   // finalized meanwhile
     if (!alone) return refuse(r, MR_OVERLAP, "it overlaps another pool");
+    // TOTK_MIRROR_MAX_MB (a test switch): a pool larger than this stays imported while the others get their mirror, as
+    // the game's 4.6 GiB pool does by itself on a 6 GB card (GitHub #26: a GTX 1060 6 GB faults at its first frame).
+    const char *max_mb = cfg_get("TOTK_MIRROR_MAX_MB");
+    if (max_mb && *max_mb && n > strtoull(max_mb, NULL, 10) << 20) {
+        char why[96];
+        snprintf(why, sizeof why, "its %.1f MiB mirror is larger than TOTK_MIRROR_MAX_MB", n / 1048576.0);
+        return refuse(r, MR_BUDGET, why);
+    }
     uint64_t r0 = r->import_lo >> SNAP_SHIFT, r1 = (r->import_hi - 1) >> SNAP_SHIFT;
     if (r1 >= SNAP_REGIONS) return refuse(r, MR_UNTRACKED, "outside the write-watched address space");
     uint64_t used, budget;

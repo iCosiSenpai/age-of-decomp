@@ -9,7 +9,8 @@
                                           .tar.xz of the same folder, SHA256SUMS-Linux.txt)
   py tools/release.py check <folder>      refuse any game material in a folder (also run by `windows` and `linux`)
   py tools/release.py notes [--out F]     the GitHub release notes of VERSION: its docs/CHANGELOG.md section with the
-                                          wrapped lines joined (GitHub keeps a Markdown file's line breaks)
+                                          wrapped lines joined (GitHub keeps a Markdown file's line breaks), then the
+                                          changelog's note on what is not tested here
 
 The release holds the launcher, aod-cli, the engine bundle (out/engine/<os>: engine sources, shader translator,
 Python and the whole compiler) and recomplauncher.json. It never holds anything from the game: the game is built on the
@@ -446,9 +447,27 @@ def cmd_linux(a) -> None:
               f"({tarball.stat().st_size / 2**20:.0f} MiB), {sums.name}")
 
 
+UNTESTED_MARK = "**Not tested here:**"
+UNTESTED_TAIL = " Every release's notes say so."
+
+
+def untested_note(changelog: str) -> str:
+    """The changelog's opening paragraph on what the maintainer cannot test (Linux, SteamOS, Radeon, PlayStation
+    controllers), on one line and without its last sentence: every release's notes end with it (Senpai, 2026-11-26)."""
+    lines = changelog.split("\n## ", 1)[0].splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith(UNTESTED_MARK)), None)
+    if start is None:
+        sys.exit(f"docs/CHANGELOG.md has no paragraph starting with {UNTESTED_MARK} before its first version")
+    end = next((i for i in range(start, len(lines)) if not lines[i].strip()), len(lines))
+    text = " ".join(line.strip() for line in lines[start:end])
+    return text.removesuffix(UNTESTED_TAIL)
+
+
 def release_notes(changelog: str, ver: str) -> str:
     """The section `## <ver> (…)` of the changelog, its lines joined the way GitHub's release page needs them: a list
-    item or a paragraph on one line (the changelog wraps them at 120 columns; GitHub keeps those breaks)."""
+    item or a paragraph on one line (the changelog wraps them at 120 columns; GitHub keeps those breaks), then the
+    changelog's note on what is not tested here."""
+    note = untested_note(changelog)
     lines = changelog.splitlines()
     start = next((i for i, line in enumerate(lines) if line.startswith(f"## {ver} ")), None)
     if start is None:
@@ -467,6 +486,8 @@ def release_notes(changelog: str, ver: str) -> str:
         out.pop(0)
     while out and not out[-1]:
         out.pop()
+    if note not in out:
+        out += ["", note]
     return "\n".join(out) + "\n"
 
 

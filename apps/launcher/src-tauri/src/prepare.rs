@@ -334,6 +334,45 @@ impl Drop for PutBack<'_> {
     }
 }
 
+/// The variables that name the temporary folder of the compiler the build runs: clang writes its object files there
+/// first and stops with "unable to make temporary file" when the folder does not exist (RecompLauncher #551: its setup
+/// step gave TEMP and TMP a folder of its own that was never made).
+const TEMP_VARS: &[&str] = if cfg!(windows) { &["TEMP", "TMP"] } else { &["TMPDIR"] };
+
+/// Makes every temporary folder the build's environment names that is missing; one that cannot be made is replaced by
+/// `<output>.tmp` for the build. `output` is absolute, and so is every folder the build is given: the build runs in
+/// the engine's folder, not in this process's. Returns what was done, for the log.
+fn temp_folders_ready(cmd: &mut Command, output: &Path) -> Vec<String> {
+    temp_folders_ready_with(cmd, output, |var| std::env::var_os(var))
+}
+
+fn temp_folders_ready_with(cmd: &mut Command, output: &Path, value_of: impl Fn(&str) -> Option<std::ffi::OsString>)
+                           -> Vec<String> {
+    let mut done = Vec::new();
+    for var in TEMP_VARS {
+        let Some(value) = value_of(var).filter(|v| !v.is_empty()) else { continue };
+        let named = PathBuf::from(&value);
+        let dir = std::path::absolute(&named).unwrap_or_else(|_| named.clone());
+        if dir != named {
+            cmd.env(var, &dir);   // a relative folder means the same one in the build's own working folder
+        }
+        if dir.is_dir() {
+            continue;
+        }
+        match fs::create_dir_all(&dir) {
+            Ok(()) => done.push(format!("{var} named {}, which did not exist: made it", dir.display())),
+            Err(e) => {
+                let own = output.with_extension("tmp");
+                let made = fs::create_dir_all(&own).is_ok();
+                cmd.env(var, &own);
+                done.push(format!("{var} named {}, which could not be made ({e}): the build uses {}{}", dir.display(),
+                                  own.display(), if made { "" } else { ", which could not be made either" }));
+            }
+        }
+    }
+    done
+}
+
 /// Runs the build and calls `sink` with progress, log lines and the final result. Blocking.
 pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut(Event) + Send) -> Result<(), String> {
     // A set `control.cancel` stops this run at once: the caller clears it when the job starts (lib.rs start_prepare;
@@ -376,6 +415,10 @@ pub fn run(paths: &Paths, job: &Job, control: Arc<Control>, mut sink: impl FnMut
         cmd.arg("--dlc-nup").arg(absolute(d)?);
     }
     cmd.current_dir(&engine).env("PYTHONUTF8", "1").env("PYTHONNOUSERSITE", "1");
+    for line in temp_folders_ready(&mut cmd, &absolute(&job.output)?) {
+        let _ = writeln!(log.lock().unwrap(), "Age of Decomp: {line}");
+        eprintln!("Age of Decomp: {line}");
+    }
     cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
     {
@@ -550,6 +593,42 @@ mod tests {
         assert_eq!(sub_progress(5, "emitted 362/362 chunks, 26s"), Some(1.0));
         assert_eq!(sub_progress(6, "[1/485] CC work/generated/main_table.c").map(|f| f > 0.0), Some(true));
         assert!(overall(7, 1.0) < 1.0 && overall(1, 0.0) == 0.0);
+    }
+
+    #[test]
+    fn missing_temp_folders_are_made_before_the_build() {
+        // RecompLauncher #551: the setup step's TEMP named a folder that did not exist, and clang could not write.
+        let root = std::env::temp_dir().join(format!("aod-temp-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let missing = root.join("rl-tmp").join("deeper");
+        let blocked = root.join("a-file");
+        fs::write(&blocked, b"x").unwrap();
+        let output = root.join("game");
+        let mut cmd = Command::new("unused");
+        let lines = temp_folders_ready_with(&mut cmd, &output, |var| {
+            Some(if var == TEMP_VARS[0] { missing.clone() } else { blocked.join("sub") }.into_os_string())
+        });
+        assert!(missing.is_dir());
+        assert!(lines[0].contains("did not exist: made it"), "{lines:?}");
+        if TEMP_VARS.len() > 1 {
+            // A folder that cannot be made (a file is in the way) is replaced by <output>.tmp for the build.
+            assert!(root.join("game.tmp").is_dir());
+            let set: Vec<_> = cmd.get_envs().filter(|(k, _)| *k == TEMP_VARS[1]).collect();
+            assert_eq!(set.len(), 1);
+            assert_eq!(set[0].1, Some(root.join("game.tmp").as_os_str()));
+        }
+        assert!(temp_folders_ready_with(&mut Command::new("unused"), &output, |_| Some(root.clone().into_os_string()))
+            .is_empty());
+        // A relative folder is the same one for the build, which runs in the engine's folder: it gets the absolute path.
+        let mut cmd = Command::new("unused");
+        let relative = PathBuf::from(format!("aod-temp-rel-{}", std::process::id()));
+        assert!(temp_folders_ready_with(&mut cmd, &output, |_| Some(relative.clone().into_os_string())).len() == 1);
+        let absolute = std::path::absolute(&relative).unwrap();
+        assert!(absolute.is_dir());
+        assert!(cmd.get_envs().all(|(_, v)| v == Some(absolute.as_os_str())));
+        let _ = fs::remove_dir_all(&absolute);
+        let _ = fs::remove_dir_all(&root);
     }
 }
 

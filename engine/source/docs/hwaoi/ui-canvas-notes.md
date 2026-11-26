@@ -66,6 +66,23 @@ width too). The world map and the training field's HUD at 2560x1440 look the sam
 If the zoomed minimap still lacks something, the triangles are next. resolution.c also writes the canvas (1920x1080)
 and a scale of 1.0 to the page on the game's own 3D path (`RENDER_SCALE=game`), where the page was left at zero.
 
+Since 2026-11-26 these nine sites are a set of their own, `hwaoi_ui_shapes` (`TOTK_UI_SHAPES`, on by default and only
+together with `hwaoi_ui_canvas`, runtime/patches.c): GitHub #23 shows white bars behind each line of description text
+(the Music menu, a character's unlock card) at 3440x1440 and none at 1920x1080, where every site of both sets is a
+no-op. `ui_shapes = 0` turns off only the rectangles and lines, `ui_canvas = 0` the whole canvas.
+
+A test on Windows the same day (RTX 5070 Ti, the Gallery): at 2560x1440 the character cards and the Music list are
+clean; at 3840x2160 the Music list's lines are a mix of each other's titles (the first four rows show the start of their
+title and then the end of the second row's, every row below the same mix), with `ui_shapes = 0` too, and clean with
+`ui_canvas = 0`. So the four quad sites at af42e4 became a set of their own as well, `hwaoi_ui_quads`
+(`TOTK_UI_QUADS`, `ui_quads = 0`), to tell the quads from the layer's camera size. With `ui_quads = 0` the list is as
+mixed up as with every set on (row frames, icons and panels stay scaled; the character list's portraits move), so the
+quads are not the cause: the layer size of 576ff8 / add844 / add874 is. Text is placed at anchor * (output / layer
+size) + output/2, so above 1080p it is drawn larger than the layer believes; the idea to check next is that the list
+draws its long titles (the scrolling text) into a target of its own sized in layer units, where text at twice the size
+runs into the next row's slot. At 2560x1440 (x 1.33) it still fits, at 3440x1440 (x 1.79 across) and 3840x2160 (x 2)
+it does not. Until it is fixed, `ui_canvas = 0` is the way round it (menus small and centred).
+
 How it was found: hardware write breakpoints (perf_event_open PERF_TYPE_BREAKPOINT, one event per thread, signal
 handler logs host rip and the guest frame-pointer chain via kern_cpu()) on the corner values of one icon found in
 memory (scan of rw mappings for the vertex buffer's first x,y), which pointed at main+15f2ca4; then a temporary hook in

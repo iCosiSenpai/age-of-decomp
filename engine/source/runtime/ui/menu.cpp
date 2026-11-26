@@ -123,7 +123,12 @@ static void push(Ev e) {
     if (!menu_is_open()) return;
     plat_mutex_lock(&ev_lock);
     if (e.type == EV_POS && ev_n && ev_q[ev_n - 1].type == EV_POS) ev_q[ev_n - 1] = e;   // only the newest position
-    else if (ev_n < EV_MAX) ev_q[ev_n++] = e;
+    else {
+        // Full (frames stopped while events kept coming): the oldest goes, so a key-up or a button-up that arrives last
+        // is never the one lost (a lost release would hold the key in ImGui until it is pressed again).
+        if (ev_n == EV_MAX) memmove(ev_q, ev_q + 1, sizeof ev_q[0] * --ev_n);
+        ev_q[ev_n++] = e;
+    }
     plat_mutex_unlock(&ev_lock);
 }
 
@@ -1066,6 +1071,7 @@ static void tab_controls(float scale) {
         opt_describe_next(used[FOR_ALL]);
         opt_slider("TOTK_STICK_DEADZONE", UI_MENU_STICK_DEADZONE, 0, 50, UI_MENU_STICK_DEADZONE_DESC, 1, "%.0f %%");
     }
+    opt_slider("TOTK_CAMERA_SPEED", UI_MENU_CAMERA_SPEED, 60, 100, UI_MENU_CAMERA_SPEED_DESC, 5, "%.0f %%");
     static char mouse[128];
     snprintf(mouse, sizeof mouse, menu_text(UI_MENU_USED_BY), menu_text(UI_MENU_DEVICE_KEYBOARD));
     opt_describe_next(mouse);

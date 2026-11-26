@@ -352,6 +352,11 @@
       "help": "Raise it if the camera or the character moves on its own."
     },
     {
+      "key": "camera_speed", "section": "input", "group": "controls", "kind": "slider",
+      "label": "Camera speed", "default": "100", "min": 60, "max": 100, "step": 5, "format": "%.0f", "unit": "%",
+      "help": "Lower it to turn the camera more slowly with the right stick and the mouse. 100 % is the game's own speed."
+    },
+    {
       "key": "motion", "section": "input", "group": "controls", "kind": "toggle",
       "label": "Motion controls", "default": "1",
       "help": "Uses the controller's gyro and accelerometer where the game asks for motion."
@@ -481,6 +486,15 @@
       "key": "draw_crumbs", "section": "diagnostics", "group": "diagnostics", "kind": "toggle", "restart": true,
       "label": "Draw call markers", "default": "0",
       "help": "For bug reports about a graphics card that stops answering (code 70): the log then names the draw calls it was working on. A little slower."
+    },
+    {
+      "key": "feedback", "section": "diagnostics", "group": "diagnostics", "kind": "choice", "restart": true,
+      "label": "Draws that read their own picture", "default": "auto",
+      "help": "Some draws read the picture they draw into. Automatic syncs them inside the drawing pass. Restart pass ends the pass and starts it again before each one: try it if a Radeon card stops answering (code 70) in fights, and tell us in a report if it helps. It can be a little slower.",
+      "choices": [
+        { "value": "auto", "label": "Automatic" },
+        { "value": "restart", "label": "Restart pass" }
+      ]
     }
   ]
 }
