@@ -7,6 +7,16 @@ report names who reported it: thank you all for testing and writing in.
 controller, so I cannot see whether Age of Decomp really works with them. For those I count on your tests and your
 logs to find and fix problems: please report what you see, with the newest `game-*.log`. Every release's notes say so.
 
+## 0.3.6 (not released yet)
+
+Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
+keeps your settings and saves.
+
+### Graphics
+- At 3840x2160 the Gallery's Music list showed every title mixed with the others. The game draws those titles through
+  one texture of its own, and at that size they no longer fit in it. They are now laid out there at the menus' own
+  size and scaled with the rest of the screen. Thanks to @The-Gaymer for the report and the screenshots (#23).
+
 ## 0.3.5 (2026-11-26)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup

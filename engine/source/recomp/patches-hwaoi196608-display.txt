@@ -105,6 +105,20 @@ site hwaoi_ui_shapes main 00af4408 bd400840 bd400840 1e220800
 site hwaoi_ui_shapes main 00af4410 bd400c40 bd400c40 1e220800
 site hwaoi_ui_shapes main 00af3b74 f94202a8 @page:x9 bd40b930 1e30098c 1e30096b 1e30094a 1e300929 1e300908 f94202a8
 
+# The shared text texture (set hwaoi_ui_text; Age of Decomp, GitHub #23). Text panes the game draws through a texture of
+# their own (the Gallery's Music list titles, which scroll when they are long, and other menu rows) share one texture:
+# its size is in the game's settings object ([main+28a7e60]+0x380: 1800x1024, made at main+577cc4 through main+700f00
+# when +0x37c is set), and main+b2ce14 lays the panes out in it with their text scaled by k = output / layer size
+# (main+b2cedc for x, main+b2cee4 for y; each pane keeps it at +0x13c / +0x140 for its glyphs). With hwaoi_ui_canvas
+# the layer is the 1920x1080 canvas, so k reaches 2 at 3840x2160 (1.33 at 2560x1440, where they still fit): the Music
+# list's nine titles no longer fit in 1800x1024 and are drawn on top of each other, and every row shows a mix. On the
+# console the layer has the output's size and k is 1. These two sites keep k at 1, so the texture is laid out in canvas
+# units as at 1080p, and the layer's camera scales it to the output with the rest of the canvas. On only together with
+# hwaoi_ui_canvas (runtime/patches.c); `ui_text = 0` turns it off alone.
+set hwaoi_ui_text TOTK_UI_TEXT 1
+site hwaoi_ui_text main 00b2cedc 1e211848 1e2e1008
+site hwaoi_ui_text main 00b2cee4 1e201829 1e2e1009
+
 # Menus confirm with the bottom button (set hwaoi_confirm; Age of Decomp). The game's button table (data table #46 of
 # its table registry at [main+2942708]+dd70, eight bytes a row: the pad button in byte 0, as an index into the key codes
 # at main+235a950) binds action 9 to A (confirm in every menu) and action 10 to B (back), apart from the battle's

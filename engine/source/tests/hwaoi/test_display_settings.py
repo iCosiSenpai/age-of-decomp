@@ -102,7 +102,7 @@ class DisplaySettingsTests(unittest.TestCase):
                                   0xaf3b74})
         self.assertIn(("hwaoi_ui_shapes", "TOTK_UI_SHAPES"), [(name, env) for name, env, _ in table.sets])
         patches_c = (Path(__file__).resolve().parents[2] / "runtime/patches.c").read_text(encoding="utf-8")
-        self.assertIn('canvas_parts[] = {"hwaoi_ui_quads", "hwaoi_ui_shapes"}', patches_c)
+        self.assertIn('canvas_parts[] = {"hwaoi_ui_quads", "hwaoi_ui_shapes", "hwaoi_ui_text"}', patches_c)
         self.assertIn('if (canvas >= 0 && part >= 0 && !rt_patch_on[canvas]) rt_patch_on[part] = 0;', patches_c)
         def adrp_target(pc, word):
             self.assertEqual(word & 0x9f000000, 0x90000000)
@@ -125,6 +125,24 @@ class DisplaySettingsTests(unittest.TestCase):
                 self.assertEqual(load & 0xffc00000, 0x2d400000)
                 self.assertEqual(((load >> 15) & 0x7f) * 4, 0xa8)
                 self.assertEqual((load & 31, (load >> 10) & 31), dest)
+
+    def test_ui_text_layout_scale_stays_one(self):
+        # GitHub #23: main+b2ce14 lays text panes out in the shared text texture with k = output / layer size, two
+        # FDIV (scalar, single) into s8 (x) and s9 (y). The set replaces each by FMOV (scalar, immediate) of 1.0 into
+        # the same register, nothing else; it is switched off with the canvas like the recorder's sets.
+        table = self.table()
+        rows = table.for_module("main", 0x7000000000)
+        self.assertIn(("hwaoi_ui_text", "TOTK_UI_TEXT"), [(name, env) for name, env, _ in table.sets])
+        text = {off: row for off, row in table.sites["main"].items() if table.sets[row[0]][0] == "hwaoi_ui_text"}
+        self.assertEqual(set(text), {0xb2cedc, 0xb2cee4})
+        for off, (rd, rn, rm) in {0xb2cedc: (8, 2, 1), 0xb2cee4: (9, 1, 0)}.items():
+            original = text[off][2]
+            self.assertEqual(original & 0xffe0fc00, 0x1e201800)                      # FDIV Sd, Sn, Sm
+            self.assertEqual((original & 31, (original >> 5) & 31, (original >> 16) & 31), (rd, rn, rm))
+            words = rows[0x7000000000 + off][1]
+            self.assertEqual(len(words), 1)
+            self.assertEqual(words[0] & 0xffe01fe0, 0x1e201000)                      # FMOV Sd, #imm
+            self.assertEqual(((words[0] >> 13) & 0xff, words[0] & 31), (0x70, rd))    # imm8 0x70 = 1.0
 
     def test_ui_canvas_primitive_corners_scale_by_page_factor(self):
         # main+af42dc copies a 2D primitive's four corners (ldp/stp of x8..x11). The patch loads them as two q

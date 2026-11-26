@@ -167,7 +167,9 @@ glyph set, the battle HUD's sheet, the skill wheel's sheet, whose letters are co
 changes; our own drawings and Roboto Medium only; `tests/hwaoi/test_hud_prompts.py` draws them without the game, and
 `TOTK_TEST_PAD=0,0,0,0` gives a real start a gamepad; the rules are in `docs/CONTROLLERS.md`); the 2D layer above
 1080p (`recomp/patches-hwaoi196608-display.txt`, set `hwaoi_ui_canvas`: the game's 2D recorder gets its quads,
-rectangles and lines scaled by the output's width over 1920; `docs/hwaoi/ui-canvas-notes.md`); `TOTK_DUMP_TEX` writes
+rectangles and lines scaled by the output's width over 1920 (sets `hwaoi_ui_quads`, `hwaoi_ui_shapes`), and the text
+texture the menus share is laid out at the canvas's own scale (set `hwaoi_ui_text`, GitHub #23: main+b2cedc / b2cee4);
+`docs/hwaoi/ui-canvas-notes.md`); `TOTK_DUMP_TEX` writes
 a block-compressed texture's own bytes as `..._blocks.bin`; `TOTK_SWAPCHAIN_TEST=1` resizes the window while its
 swapchain is made, to check that case in the log; the recorder thread off on AMD's own driver for every card
 generation and an `sfence` before it publishes its progress (`runtime/vk_rec.c`: `VK_RECORDER=auto|0|1`, catalogue

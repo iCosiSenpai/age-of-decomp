@@ -81,7 +81,8 @@ quads are not the cause: the layer size of 576ff8 / add844 / add874 is. Text is 
 size) + output/2, so above 1080p it is drawn larger than the layer believes; the idea to check next is that the list
 draws its long titles (the scrolling text) into a target of its own sized in layer units, where text at twice the size
 runs into the next row's slot. At 2560x1440 (x 1.33) it still fits, at 3440x1440 (x 1.79 across) and 3840x2160 (x 2)
-it does not. Until it is fixed, `ui_canvas = 0` is the way round it (menus small and centred).
+it does not. That was it, with one shared texture rather than one per list: see *The shared text texture* below (set
+`hwaoi_ui_text`).
 
 How it was found: hardware write breakpoints (perf_event_open PERF_TYPE_BREAKPOINT, one event per thread, signal
 handler logs host rip and the guest frame-pointer chain via kern_cpu()) on the corner values of one icon found in
@@ -95,6 +96,46 @@ rt_dispatch logging indirect calls by return address (c->x[30]) gave the target 
   1e9xxxx are DRS UV clamps. add610 mode 1 (ortho camera) forced to 1920x1080 changes nothing visible.
 - Forcing the window draws' ortho to 2/1920 fixes the primitives but breaks text (output pixels): one producer has to
   change, which is what the af42dc patch does.
+
+## The shared text texture (set hwaoi_ui_text, fixed 2026-11-26)
+
+Some text panes are not drawn straight to the window but into one texture the whole UI shares, and copied from it to
+the screen (the Gallery's Music list titles, which scroll when they are long; Options rows draw there too). The game's
+settings object `[main+28a7e60]` turns it on (+0x37c) and gives its size (+0x380: 1800x1024, RGBA8): the layer setup
+makes it at main+577cc4 (through main+700f00, kept at the layer's render object +0x38), and main+b2ce14 lays the panes
+out in it before each frame. That layout reads the output's size (the render context's target +0x58) and the layer's
+(the layer's screen object +0x150 / +0x154), computes k = output / layer size per axis (fdiv at main+b2cedc into s8, at
+main+b2cee4 into s9), stores the texture's size at +0x248 as its capacity and keeps k in each pane (+0x13c / +0x140),
+whose glyphs are then built k times their canvas size. On the console the layer is the output's size, so k = 1. With
+the canvas patch the layer is 1920x1080, so k = 2 at 3840x2160 (1.33 at 2560x1440, 0.67 at 1280x720): the nine
+titles of the Music list, 63 canvas pixels apart, need 1134 of the texture's 1024 lines and are all laid out at its
+top, on top of each other, and each row's copy shows that mix. At 2560x1440 they still fit.
+
+Frame dumps of the Music list (`TOTK_DUMP_TRIGGER`; 2026-11-26, RTX 5070 Ti): at 1920x1080 the frame clears the
+1800x1024 texture, draws the nine titles into it at 1x, stacked from the top-left 63 px apart (one render pass, nine
+DrawElementsBaseVertex, viewport and scissor 0 0 1800 1024), then copies each row's strip to the window in the row's own
+pass. At 3840x2160 the same nine draws put every title at twice the size into the same top strip. A temporary probe in
+SetRenderTargets (the guest chain of a target of a given size) and in TextureInitialize (who makes a texture of a given
+size) found the binding on the render thread (main+719198, main+71a3dc) and the texture's maker (main+577cf8); a scan for
+the settings object's +0x380 found the only other reader, the layout at main+b2ce94. The pane boxes with effects
+(300x60 for a header, 1500x60 for the button guide, 480x270 for the glow) are other textures, drawn at 1x at every
+output. A first attempt that scaled the layer's own targets at main+576fa0 (config +0xb0) changed nothing: that is not
+the texture the titles go through.
+
+hwaoi_ui_text replaces both divisions by `fmov s8, #1.0` / `fmov s9, #1.0`: the shared texture is laid out in canvas
+units, as at 1920x1080, and the layer's camera scales the copies to the output with the rest of the canvas (the titles
+are drawn at canvas resolution and scaled, like the header and the button guide). On only with hwaoi_ui_canvas
+(runtime/patches.c), `ui_text = 0` (`TOTK_UI_TEXT`) turns it off alone. At 1920x1080 both divisions give 1 already.
+Checked on 2026-11-26 (RTX 5070 Ti): the Music list clean at 3840x2160 and back to the mix with `ui_text = 0`; the
+world map the same with and without it at 3840x2160; character cards clean at 3840x2160, 2560x1440 and 1920x1080;
+2560x1440 compared with 0.3.5 (Music list, cards, world map, the training field's HUD) the same; 1920x1080 and
+1280x720 clean. 3440x1440 is not an output the game takes (`OUTPUT_RES` has 1280x720, 1920x1080, 2560x1440 and
+3840x2160: hwaoi_display.h), so it was not tried.
+
+Not done: sharper titles would keep k and give the texture and its capacity k times the size instead (scale
+`ldr x8, [x8, #0x380]` at main+577cc4 and `ldr x8, [x10, #0x380]` at main+b2ce94 by page +0x88 / page +0xa8 per axis;
+x9 and v0..v2, resp. x9 and v2..v3 are free there). It depends on every reader of the copy's UVs taking the texture's
+own size, which was not checked.
 
 ## Method
 
