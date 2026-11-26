@@ -3,6 +3,28 @@
 What changes for players in each version. The GitHub release notes are copied from here. Every fix that answers a
 report names who reported it: thank you all for testing and writing in.
 
+## 0.3.1 (not released yet)
+
+Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
+keeps your settings and saves.
+
+### Controllers
+- With DS4Windows, DSX, Steam Input or another tool that turns a controller into keys or mouse motion, the menus kept
+  going back to confirming with the right button and the button pictures to the keyboard's: the keys the tool sent
+  together with the pad's own buttons made the game think the keyboard was in use. Keys or mouse motion that come
+  within a quarter of a second of the pad's own input now leave the pad the device in use. Thanks to @The-Gaymer for
+  the report and the logs (#18).
+- Rumble and motion controls reach Joy-Cons and a handheld-mode controller too: the game asked for them with the
+  handle of another controller style and got nothing. Thanks to @bdzdq for the report
+  (Alano6678/hwaoi-recomp#33).
+- A burst of input while the game's own menu is busy no longer loses a button's release, which could leave a button
+  held in the menu.
+
+### Launcher
+- Settings changed quickly one after the other are saved in the order you made them, and a change the launcher could
+  not save no longer shows "Saved" on the Controllers page.
+- Two settings saved at the same moment no longer overwrite each other's file, which could lose one of them.
+
 ## 0.3.0 (2026-11-24)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup

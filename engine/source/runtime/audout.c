@@ -27,6 +27,7 @@ typedef struct {
     PlatMutex lock;
     PlatThread *thread;
     SDL_AudioStream *stream;
+    int sdl_audio;             // this stream holds a reference on SDL's audio subsystem (released in out_close)
     volatile int32_t running;
     uint32_t event, state, rate, channels, lead;
     uint64_t played, last_ns, fraction, submitted, consumed;
@@ -158,6 +159,7 @@ static void out_close(void *state) {
     int away = kern_core_away();
     plat_thread_join(o->thread);
     if (o->stream) SDL_DestroyAudioStream(o->stream);
+    if (o->sdl_audio) SDL_QuitSubSystem(SDL_INIT_AUDIO);
     kern_core_back(&away);
     for (unsigned i = 0; i < o->npending; i++) free(o->pending[i].data);
     kern_handle_close(o->event);
@@ -298,6 +300,7 @@ void audout_manager_handler(IpcSession *s, const IpcRequest *rq, IpcResponse *rs
         const int silent = (mode && !strcmp(mode, "none")) || cfg_get("TOTK_AUDIO_OFF");
         if (!silent) {
             if (SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+                o->sdl_audio = 1;
                 SDL_AudioSpec spec = {SDL_AUDIO_S16, (int)channels, (int)rate};
                 // A 10-ms device period keeps the lead short; AUDIO_LATENCY trades it for fewer underruns on slow
                 // or Bluetooth outputs. An explicit SDL hint still wins.

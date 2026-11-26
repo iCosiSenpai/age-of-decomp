@@ -50,6 +50,13 @@ SDL's own HIDAPI drivers talk to the pads.
   pictures then show the buttons that do it. Texts that name a battle button (tutorials, the controls list) keep the
   game's icons, which are the battle buttons. Age of Decomp's own menu confirms with the same button. A guide already
   on screen when the device changes keeps its icons until the screen is opened again.
+- **Mapping tools** (DS4Windows, DSX, Steam Input, reWASD, JoyToKey): they can send keys or mouse motion while the pad
+  is used, for a touchpad, a gyro mouse or a button mapped to a key. Those keys must not make the keyboard the device
+  in use, or the menus' confirm and the pictures would flip back to the keyboard's at every press (GitHub #18). The
+  game takes keys pressed within 250 ms of the same player's pad input (`KB_WITH_PAD_KEYS_NS`), and mouse motion
+  alone once a pad was used, as the pad's: they still act, and the pad stays the device in use. The log says so once
+  per kind (`input: keys together with a gamepad's input`). A key pressed on its own later switches to the keyboard
+  as before, and so does a mouse button.
 - **The game's own button pictures** (its hints, tutorials and HUD) follow the device in use: `BUTTON_PROMPTS`,
   *Buttons shown in the game*, engine `runtime/hud_prompts.c`. The game keeps them in three textures: its glyph set,
   a white mask it tints, for hints, tutorials and most of the HUD; the battle HUD's own sheet, with copies of the

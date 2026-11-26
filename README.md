@@ -6,6 +6,8 @@
 
 <p align="center">
   <a href="https://recompstore.com/dev/icosisenpai"><img alt="Verified developer on RecompStore" src="https://recompstore.com/assets/press/verified-dark.svg"></a>
+  <a href="https://decompbuddy.com/games/hyrule-warriors-age-of-imprisonment-age-of-decomp-nintendo-switch-2"><img alt="Listed on Decomp Buddy" src="https://decompbuddy.com/badge.svg"></a>
+  <a href="https://decompbuddy.com/games/hyrule-warriors-age-of-imprisonment-age-of-decomp-nintendo-switch-2?install"><img alt="Install With Decomp Buddy" src="https://decompbuddy.com/install-button.svg"></a>
 </p>
 
 <p align="center">

@@ -123,8 +123,9 @@ class BuildEdgeTests(unittest.TestCase):
             # DEPS set (as for a real --toolchain build) so the flags need no system VMA and nothing is fetched.
             deps = root / "deps"
             (deps / "include").mkdir(parents=True)
-            with patch.multiple(build_game, ROOT=root, MAIN_ROOT=root, ICON=icon, WIN=True, DEPS=deps,
-                                VMA_LOCAL=root / "no-fetch"), \
+            # EXE too: build_game names it from the system it runs on when it is imported.
+            with patch.multiple(build_game, ROOT=root, MAIN_ROOT=root, ICON=icon, WIN=True, EXE="hwaoi.exe",
+                                DEPS=deps, VMA_LOCAL=root / "no-fetch"), \
                     patch.object(build_game, "runtime_sources", side_effect=lambda *args: []), \
                     patch.object(build_game, "vma_include", side_effect=lambda: deps / "include"):
                 text, objs, exe = build_game.ninja_file(gen, out, {"main": [a]}, 2)

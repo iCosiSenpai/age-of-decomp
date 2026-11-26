@@ -403,10 +403,38 @@ static const uint32_t *need_handle(const void *p, const char *fn) {
     return p;
 }
 
+// The player a handle of another style than the player's names, or -1. Byte 1 is the controller id; byte 0 the style
+// the game asked the handles for (3 full-key, 4 handheld, 5 Joy-Con pair). The game keeps full-key handles and uses
+// them while the player shows as a Joy-Con pair (TOTK_PLAYER<n>_TYPE=dual, Alano6678/hwaoi-recomp#33), so any of the
+// three styles reaches the player with that id: the two motors, and the sensor, have the same device numbers in each.
+static int handle_player_any_style(uint32_t v) {
+    uint32_t index = v & 0xff;
+    if (index != STYLE_INDEX_FULL_KEY && index != STYLE_INDEX_HANDHELD && index != 5u) return -1;
+    for (int p = 0; p < INPUT_PLAYERS; p++)
+        if ((v >> 8 & 0xff) == player_id(p)) return p;
+    return -1;
+}
+
+// The player a vibration handle sends to: one of the player's own style first; one of another style only while the
+// game has sent nothing to the player's own for a second, so two streams (one of them neutral) never take turns.
+static uint64_t vib_exact_at[INPUT_PLAYERS];   // when a handle of the player's own style was last used (atomics)
+static int vibration_player(uint32_t v) {
+    uint64_t now = plat_now_ns();
+    int p = handle_player(v);
+    if (p >= 0) {
+        __atomic_store_n(&vib_exact_at[p], now, __ATOMIC_RELAXED);
+        return p;
+    }
+    p = handle_player_any_style(v);
+    if (p < 0) return -1;
+    uint64_t exact = __atomic_load_n(&vib_exact_at[p], __ATOMIC_RELAXED);
+    return exact && now - exact < 1000000000ull ? -1 : p;
+}
+
 // The vibration device a handle names, as player * 2 + side (0 left, 1 right), or -1 (logged once).
 static int vibration_side(const uint32_t *h, const char *fn) {
     uint32_t v = *need_handle(h, fn), dev = v >> 16 & 0xff;
-    int p = handle_player(v);
+    int p = vibration_player(v);
     if (p >= 0 && dev < 2) return p * 2 + (int)dev;
     static volatile int32_t warned;
     once(&warned, "hid: vibration call for handle %#x, not a device of a connected controller: ignored", v);
@@ -550,6 +578,7 @@ static volatile int32_t six_running[INPUT_PLAYERS];   // StartSixAxisSensor .. S
 static int six_axis_player(const uint32_t *h, const char *fn) {
     uint32_t v = *need_handle(h, fn), dev = v >> 16 & 0xff;
     int p = handle_player(v);
+    if (p < 0) p = handle_player_any_style(v);   // a full-key sensor handle kept while the player is a pair (#33)
     if (p >= 0 && (dev == SIX_AXIS_DEVICE || (player_style(p) == STYLE_JOY_DUAL && dev < 2))) return p;
     static volatile int32_t warned;
     once(&warned, "hid: six-axis call for handle %#x, not a connected controller's sensor: reads at rest", v);

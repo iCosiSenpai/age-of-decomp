@@ -85,9 +85,9 @@
   async function assign(n: 1 | 2) {
     const value = pad ? padValue(app.pads, pad) : 'keyboard';
     const other = n === 1 ? 2 : 1;
-    await app.set(`player${n}_device`, value);
+    if (!(await app.set(`player${n}_device`, value))) return;   // the reason is in the toast set() showed
     // One device, one player: the other player goes back to Automatic when it had this one.
-    if (app.settings[`player${other}_device`] === value) await app.set(`player${other}_device`, 'auto');
+    if (app.settings[`player${other}_device`] === value && !(await app.set(`player${other}_device`, 'auto'))) return;
     app.toast(tr('{name} is now player {n}', { name: pad ? padTitle(app.pads, pad) : tr('Keyboard and mouse'), n }), 'ok');
   }
 

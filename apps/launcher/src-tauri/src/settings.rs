@@ -8,7 +8,15 @@ use crate::paths::{self, Paths};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+/// One change of a settings file at a time in this process: each one reads the file, changes it and writes it back,
+/// and the window runs its commands on several threads (a slider dragged sends one after another), so two at once
+/// would each keep their own key and lose the other's.
+fn file_lock() -> MutexGuard<'static, ()> {
+    static LOCK: Mutex<()> = Mutex::new(());
+    LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 const CATALOG: &str = include_str!("../../src/lib/settings/catalog.json");
 
@@ -117,6 +125,7 @@ pub fn read(cfg: &Config, paths: &Paths) -> BTreeMap<String, String> {
 
 pub fn write(cfg: &Config, paths: &Paths, key: &str, value: &str) -> Result<(), String> {
     let s = validate(key, value)?;
+    let _file = file_lock();
     let path = ini_path(cfg, paths);
     let mut ini = load_ini(&path)?;
     ini.set(key, value, &s.section);
@@ -124,6 +133,7 @@ pub fn write(cfg: &Config, paths: &Paths, key: &str, value: &str) -> Result<(), 
 }
 
 pub fn reset(cfg: &Config, paths: &Paths, keys: &[String]) -> Result<(), String> {
+    let _file = file_lock();
     let mut files = Vec::new();
     for path in [ini_path(cfg, paths), paths.pending_ini()] {
         if files.iter().any(|(p, _): &(PathBuf, Ini)| p == &path) {
@@ -156,6 +166,7 @@ const RETIRED: &[(&str, &[&str], &str)] = &[
 
 /// Before the game starts: rewrite retired values (from an older launcher or RecompLauncher) to their replacement.
 pub fn retire_values(path: &Path) -> Result<(), String> {
+    let _file = file_lock();
     let Some(mut ini) = existing_ini(path)? else { return Ok(()) };
     let values = ini.values();
     let mut changed = false;
@@ -185,6 +196,7 @@ pub(crate) fn carry(from: &Ini, to: &mut Ini) {
 
 /// After a build: settings chosen before the game existed go into its hwaoi.ini.
 pub fn merge_pending(cfg: &Config, paths: &Paths) -> Result<(), String> {
+    let _file = file_lock();
     let pending = paths.pending_ini();
     let Some(pending_ini) = existing_ini(&pending)? else { return Ok(()) };
     let target = paths::game_ini(&cfg.output(paths));

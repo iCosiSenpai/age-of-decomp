@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <linux/fs.h>
 #include <linux/futex.h>
 #include <linux/userfaultfd.h>
@@ -1406,17 +1407,37 @@ int plat_run_self(const char *env_name, const char *env_value, char *out, size_t
         close(p[0]);
         return -1;
     }
+    // The timeout counts from the start: a child that hangs with the pipe open is killed while its output is read
+    // (until then the read would wait for its end), as Windows' version waits on the process with the same limit.
     size_t len = 0;
     char sink[512];
     ssize_t k;
-    while (len + 1 < cap && (k = read(p[0], out + len, cap - 1 - len)) != 0)
-        if (k > 0) len += (size_t)k;
-        else if (errno != EINTR) break;
+    uint64_t end = plat_now_ns() + (uint64_t)timeout_ms * 1000000u;
+    int killed = 0;
+    for (;;) {
+        if (timeout_ms) {
+            uint64_t now = plat_now_ns();
+            if (now >= end && !killed) kill(pid, SIGKILL), killed = 1;
+            // after the kill only what is already in the pipe is read, a second at most
+            int wait_ms = killed ? 1000 : (int)((end - now + 999999u) / 1000000u);
+            struct pollfd pf = {.fd = p[0], .events = POLLIN};
+            int r = poll(&pf, 1, wait_ms);
+            if (r < 0 && errno == EINTR) continue;
+            if (r < 0 || (r == 0 && killed)) break;
+            if (r == 0) continue;
+        }
+        int into_out = len + 1 < cap;   // past the buffer the rest is drained, so the child never blocks on a full pipe
+        k = into_out ? read(p[0], out + len, cap - 1 - len) : read(p[0], sink, sizeof sink);
+        if (k == 0) break;
+        if (k < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        if (into_out) len += (size_t)k;
+    }
     if (cap) out[len] = 0;
-    while ((k = read(p[0], sink, sizeof sink)) > 0 || (k < 0 && errno == EINTR)) {}
     close(p[0]);
     int status = 0;
-    uint64_t end = plat_now_ns() + (uint64_t)timeout_ms * 1000000u;
     while (waitpid(pid, &status, timeout_ms ? WNOHANG : 0) == 0) {
         if (plat_now_ns() >= end) {
             kill(pid, SIGKILL);

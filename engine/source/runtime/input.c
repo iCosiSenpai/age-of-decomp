@@ -501,7 +501,8 @@ static void shown_update(void) {
     int last = -1;
     for (int i = 0; i < npads; i++)
         if (pads[i].used_ns && (last < 0 || pads[i].used_ns > pads[last].used_ns)) last = i;
-    plat_xchg32(&kb_active, kb_used_ns && (last < 0 || kb_used_ns > pads[last].used_ns));
+    uint64_t kb_at = __atomic_load_n(&kb_used_ns, __ATOMIC_RELAXED);
+    plat_xchg32(&kb_active, kb_at && (last < 0 || kb_at > pads[last].used_ns));
     for (int i = 0; i < npads && last < 0; i++)
         if (pad_owner[i] == 0) last = i;
     unsigned ver = cfg_version() + pads_version * 65537u;
@@ -702,6 +703,43 @@ static void feed_apply(uint64_t *buttons, int32_t left[2], int32_t right[2]) {
     input_feed_merge(&feed, now, buttons, left, right);
 }
 
+// When a gamepad of each player was last used (pad_read's used_ns), for the keyboard's check below: written under lock
+// by poll_player, read also by the window thread (input_note_keyboard).
+static uint64_t pad_used_at[INPUT_PLAYERS];
+
+// Under lock, after pad_read: pad_used_at from the open gamepads and their players.
+static void pad_used_note(void) {
+    uint64_t used[INPUT_PLAYERS] = {0};
+    for (int i = 0; i < npads; i++)
+        if (pad_owner[i] >= 0 && pad_owner[i] < INPUT_PLAYERS && pads[i].used_ns > used[pad_owner[i]])
+            used[pad_owner[i]] = pads[i].used_ns;
+    for (int q = 0; q < INPUT_PLAYERS; q++) __atomic_store_n(&pad_used_at[q], used[q], __ATOMIC_RELAXED);
+}
+
+// The keyboard or the mouse of player p was used (keys: a key or a mouse button is down; else the mouse only moved).
+// A mapping tool (Steam Input's desktop configuration, DS4Windows, DSX, reWASD) also turns a gamepad's buttons,
+// touchpad or gyro into keys and mouse motion, which arrive with the pad's own input: taken as the keyboard's, they made
+// it the device in use at every press, so the menus' confirm button and the button pictures went back and forth
+// (GitHub #18). Keys within a quarter of a second of that player's gamepad input stay the gamepad's, and mouse motion
+// alone never takes over from a gamepad once one was used (Age of Decomp's menu has the same rule for the pointer).
+// Logged once for each. Returns whether the keyboard is now the device in use. Any thread: atomics only.
+#define KB_WITH_PAD_KEYS_NS 250000000ull
+static int kb_note_used(int p, int keys) {
+    uint64_t now = plat_now_ns();
+    uint64_t pad_at = p >= 0 && p < INPUT_PLAYERS ? __atomic_load_n(&pad_used_at[p], __ATOMIC_RELAXED) : 0;
+    if (pad_at && (!keys || now - pad_at < KB_WITH_PAD_KEYS_NS)) {
+        static volatile int32_t logged[2];
+        if (keys || now - pad_at < KB_WITH_PAD_KEYS_NS) {   // a nudged mouse long after the pad is not worth a line
+            if (!plat_xchg32(&logged[keys != 0], 1))
+                rt_log("input: %s together with a gamepad's input (a mapping tool such as Steam Input or DS4Windows?): "
+                       "the gamepad stays the device in use", keys ? "keys" : "mouse motion");
+        }
+        return 0;
+    }
+    __atomic_store_n(&kb_used_ns, now, __ATOMIC_RELAXED);
+    return 1;
+}
+
 // Player p's controller: the gamepads and, when it owns them, the keyboard and mouse that feed it (assign). Returns 1
 // when the player has a device (player 1 always counts as connected). Script, feed and recording belong to player 1.
 #define MENU_HOLD_MINUS_NS 500000000ull   // the menu button held this long is Minus (poll_player)
@@ -720,6 +758,7 @@ static int poll_player(int p, uint64_t *buttons, int32_t *lx, int32_t *ly, int32
         if (state == 1)
             for (int i = 0; i < npads; i++)
                 if (pad_owner[i] == p) connected |= 1, pad_read(&pads[i], input_map_player(p), &b, sl, sr);
+        pad_used_note();
         shown_update();
         if (kb_owner == p) connected = 1;
         focus_reset = pad_focus_gate(p, &b, sl, sr);
@@ -747,9 +786,9 @@ static int poll_player(int p, uint64_t *buttons, int32_t *lx, int32_t *ly, int32
             pick(&sr[0], &sr[1], k[0], k[1]);
             mouse_camera(k);
             pick(&sr[0], &sr[1], k[0], k[1]);
-            int used = k[0] || k[1];
-            for (int i = 1; i < KEY_COUNT && !used; i++) used = down[i];
-            if (used) kb_used_ns = plat_now_ns();
+            int keys = 0;
+            for (int i = 1; i < KEY_COUNT && !keys; i++) keys = down[i];
+            if (keys || k[0] || k[1]) kb_note_used(p, keys);
         }
     }
     if (p == 0) {
@@ -881,6 +920,7 @@ int input_pad_read(uint64_t *buttons, int32_t *lx, int32_t *ly) {
         pads_tick();
         assign();
         for (int i = 0; i < npads; i++) ok |= pad_read(&pads[i], &input_map, &b, sl, sr);
+        pad_used_note();
         shown_update();
     }
     pad_focus_gate(INPUT_PLAYERS, &b, sl, sr);
@@ -1019,10 +1059,10 @@ void input_prompt_state(InputPromptState *o) {
     plat_mutex_unlock(&lock);
 }
 
-// Any thread (the window's): not under lock, a torn read only moves the hint by one event.
+// Any thread (the window's): not under lock; the time is stored atomically, the hint moves by one event at most.
 void input_note_keyboard(void) {
-    kb_used_ns = plat_now_ns();
-    plat_xchg32(&kb_active, 1);
+    int p = __atomic_load_n(&kb_owner, __ATOMIC_RELAXED);   // a stale value only checks the other player's pads once
+    if (kb_note_used(p < 0 ? 0 : p, 1)) plat_xchg32(&kb_active, 1);
 }
 
 uint16_t rumble_motor(float a, float curve, float strength) {

@@ -183,12 +183,14 @@ static void output_open(Mixer *m, int rate) {
     m->stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, sdl_pull, m);
     if (!m->stream) {
         rt_log("audio: no output device (%s): mixing without sound", SDL_GetError());
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);   // audio_mixer_close releases the reference only with a stream
         return;
     }
     if (!SDL_ResumeAudioStreamDevice(m->stream)) {
         rt_log("audio: starting the output failed (%s): mixing without sound", SDL_GetError());
         SDL_DestroyAudioStream(m->stream);
         m->stream = NULL;
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
         return;
     }
     m->device_ok = 1;
