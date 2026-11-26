@@ -4,11 +4,17 @@
 
 <h1 align="center">Age of Decomp</h1>
 
-<p align="center">
-  <a href="https://recompstore.com/dev/icosisenpai"><img alt="Verified developer on RecompStore" src="https://recompstore.com/assets/press/verified-dark.svg"></a>
-  <a href="https://decompbuddy.com/games/hyrule-warriors-age-of-imprisonment-age-of-decomp-nintendo-switch-2"><img alt="Listed on Decomp Buddy" src="https://decompbuddy.com/badge.svg"></a>
-  <a href="https://decompbuddy.com/games/hyrule-warriors-age-of-imprisonment-age-of-decomp-nintendo-switch-2?install"><img alt="Install With Decomp Buddy" src="https://decompbuddy.com/install-button.svg"></a>
-</p>
+<div align="center">
+<table>
+  <tr>
+    <td rowspan="2"><a href="https://recompstore.com/dev/icosisenpai"><img alt="Verified developer on RecompStore" src="https://recompstore.com/assets/press/verified-dark.svg"></a></td>
+    <td><a href="https://decompbuddy.com/games/hyrule-warriors-age-of-imprisonment-age-of-decomp-nintendo-switch-2"><img alt="Listed on Decomp Buddy" src="https://decompbuddy.com/badge.svg"></a></td>
+  </tr>
+  <tr>
+    <td><a href="https://decompbuddy.com/games/hyrule-warriors-age-of-imprisonment-age-of-decomp-nintendo-switch-2?install"><img alt="Install With Decomp Buddy" src="https://decompbuddy.com/install-button.svg"></a></td>
+  </tr>
+</table>
+</div>
 
 <p align="center">
   <b>Hyrule Warriors: Age of Imprisonment</b>, recompiled into a native Windows and Linux game from <b>your own</b> copy.<br>
