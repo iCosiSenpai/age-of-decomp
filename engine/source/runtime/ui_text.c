@@ -118,7 +118,11 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_AA_DESC] = "SMAA smooths jagged edges in the final picture at a small GPU cost.",
     [UI_MENU_AA_OFF] = "Off", [UI_MENU_AA_SMAA] = "SMAA",
     [UI_MENU_FOV] = "Field of view",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "How much of the world the camera shows, in percent of the game's own.",
+#else
     [UI_MENU_FOV_DESC] = "How much of the world the camera shows, in percent of the game's own. Game version 1.4.3 only.",
+#endif
     [UI_MENU_SHARPNESS] = "Sharpness",
     [UI_MENU_SHARPNESS_DESC] = "Sharpening after FSR scaling, also used by FSR 4; 0 turns it off.",
     [UI_MENU_COLOR] = "Colour",
@@ -462,7 +466,11 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_AA_DESC] = "SMAA сглаживает неровные края итоговой картинки при небольшой нагрузке на GPU.",
     [UI_MENU_AA_OFF] = "Выкл.", [UI_MENU_AA_SMAA] = "SMAA",
     [UI_MENU_FOV] = "Поле зрения",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "Сколько мира показывает камера, в процентах от игрового.",
+#else
     [UI_MENU_FOV_DESC] = "Сколько мира показывает камера, в процентах от игрового. Только для версии игры 1.4.3.",
+#endif
     [UI_MENU_SHARPNESS] = "Резкость",
     [UI_MENU_SHARPNESS_DESC] = "Повышение резкости после масштабирования FSR, также для FSR 4; 0 выключает его.",
     [UI_MENU_COLOR] = "Цвет",
@@ -836,7 +844,11 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_AA_OFF] = "关闭",
     [UI_MENU_AA_SMAA] = "SMAA",
     [UI_MENU_FOV] = "视野范围",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "调整镜头视野相对游戏原版的比例。",
+#else
     [UI_MENU_FOV_DESC] = "调整镜头视野相对游戏原版的比例。仅适用于 1.4.3 版游戏。",
+#endif
     [UI_MENU_SHARPNESS] = "锐化强度",
     [UI_MENU_SHARPNESS_DESC] = "调整 FSR 缩放后的锐化，FSR 4 也使用这个数值。设为 0 可关闭。",
     [UI_MENU_COLOR] = "色彩",
@@ -1313,7 +1325,11 @@ static const char *const text_it[UI_TEXT_COUNT] = {
                             "16:9 su uno schermo 21:9, mantiene le proporzioni con bande nere oppure allunga l'immagine.",
     [UI_MENU_ASPECT_FIT] = "Bande nere", [UI_MENU_ASPECT_STRETCH] = "Allunga",
     [UI_MENU_FOV] = "Campo visivo",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "Quanto mondo mostra la telecamera, in percentuale rispetto al gioco originale.",
+#else
     [UI_MENU_FOV_DESC] = "Quanto mondo mostra la telecamera, in percentuale rispetto al gioco originale. Solo versione 1.4.3.",
+#endif
     [UI_MENU_SHARPNESS] = "Nitidezza FSR",
     [UI_MENU_SHARPNESS_DESC] = "Nitidezza dopo il ridimensionamento FSR; 0 la disattiva.",
     [UI_MENU_COLOR] = "Colore", [UI_MENU_COLOR_PRESET] = "Profilo colore",

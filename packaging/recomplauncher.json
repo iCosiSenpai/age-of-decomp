@@ -159,6 +159,24 @@
           "set": {
             "output_res": "3840x2160"
           }
+        },
+        {
+          "label": "2560 × 1080 (21:9)",
+          "set": {
+            "output_res": "2560x1080"
+          }
+        },
+        {
+          "label": "3440 × 1440 (21:9)",
+          "set": {
+            "output_res": "3440x1440"
+          }
+        },
+        {
+          "label": "3840 × 1600 (21:9)",
+          "set": {
+            "output_res": "3840x1600"
+          }
         }
       ],
       "defaults": {
@@ -531,7 +549,7 @@
     {
       "id": "aspect",
       "label": "Picture shape",
-      "help": "The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same.",
+      "help": "When the game resolution and the screen have different shapes (a 16:9 picture on a 21:9 screen), keep the picture's shape with black bars or stretch it over the whole window. When they have the same shape the two look the same.",
       "group": "Display",
       "choices": [
         {
@@ -549,6 +567,22 @@
       ],
       "defaults": {
         "aspect": "fit"
+      }
+    },
+    {
+      "id": "fov",
+      "label": "Field of view",
+      "help": "How much of the world the camera shows, in percent of the game's own.",
+      "group": "Display",
+      "slider": {
+        "key": "fov",
+        "min": 70,
+        "max": 140,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "fov": "100"
       }
     },
     {

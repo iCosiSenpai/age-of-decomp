@@ -468,4 +468,10 @@ export const zh: Record<string, string> = {
   "Could not reach GitHub. Check your connection and try again.": "无法连接 GitHub。请检查网络连接后重试。",
   "Run the compiler from the downloaded release folder to install updates.": "从下载的发布文件夹中运行编译器以安装更新。",
   "Controller support follows the connection and model. On Windows, Pro Controller 2 Bluetooth connects through the Nintendo transport included with Age of Decomp. Close other controller bridge apps and press Sync.": "手柄支持取决于连接方式和型号。在 Windows 上，Pro 手柄 2 通过 Age of Decomp 附带的 Nintendo 传输组件以蓝牙连接。请关闭其他手柄桥接程序，然后按下手柄上的同步按钮。",
+  "2560 × 1080 (21:9)": "2560 × 1080 (21:9)",
+  "3440 × 1440 (21:9)": "3440 × 1440 (21:9)",
+  "3840 × 1600 (21:9)": "3840 × 1600 (21:9)",
+  "Field of view": "视野范围",
+  "How much of the world the camera shows, in percent of the game's own.": "调整镜头视野相对游戏原版的比例。",
+  "When the game resolution and the screen have different shapes (a 16:9 picture on a 21:9 screen), keep the picture's shape with black bars or stretch it over the whole window. When they have the same shape the two look the same.": "游戏分辨率与屏幕比例不同时（例如 16:9 画面显示在 21:9 屏幕上），可以保留黑边维持原比例，或拉伸铺满整个窗口。比例相同时两者效果一样。",
 };

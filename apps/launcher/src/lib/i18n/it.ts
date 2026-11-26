@@ -468,4 +468,10 @@ export const it: Record<string, string> = {
   "Could not reach GitHub. Check your connection and try again.": "Impossibile contattare GitHub. Controlla la connessione e riprova.",
   "Run the compiler from the downloaded release folder to install updates.": "Avvia il compilatore dalla cartella della release scaricata per installare gli aggiornamenti.",
   "Controller support follows the connection and model. On Windows, Pro Controller 2 Bluetooth connects through the Nintendo transport included with Age of Decomp. Close other controller bridge apps and press Sync.": "Il supporto dipende dal modello e dalla connessione. Su Windows, il Pro Controller 2 Bluetooth si collega tramite il modulo Nintendo incluso in Age of Decomp. Chiudi le altre applicazioni per controller e premi Sync.",
+  "2560 × 1080 (21:9)": "2560 × 1080 (21:9)",
+  "3440 × 1440 (21:9)": "3440 × 1440 (21:9)",
+  "3840 × 1600 (21:9)": "3840 × 1600 (21:9)",
+  "Field of view": "Campo visivo",
+  "How much of the world the camera shows, in percent of the game's own.": "Quanto mondo mostra la telecamera, in percentuale rispetto al gioco originale.",
+  "When the game resolution and the screen have different shapes (a 16:9 picture on a 21:9 screen), keep the picture's shape with black bars or stretch it over the whole window. When they have the same shape the two look the same.": "Quando la risoluzione del gioco e lo schermo hanno forme diverse (un'immagine 16:9 su uno schermo 21:9), puoi mantenere le proporzioni con le bande nere o allungare l'immagine su tutta la finestra. Con la stessa forma le due scelte sono uguali.",
 };

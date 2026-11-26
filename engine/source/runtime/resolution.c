@@ -61,7 +61,9 @@ static struct {
 // HWAoI: what OUTPUT_RES=auto gives on this PC: the preset of the screen's size, held back by the graphics card's
 // memory, since the render targets and the texture pool grow with the picture (2560x1440 with DLAA used about
 // 8.4 GiB of video memory on a 16 GiB card). 2560x1440 wants a discrete card with 12 GiB, 3840x2160 one with
-// 16 GiB; a screen smaller than 1920x1080 gets 1280x720; everything else 1920x1080, the game's own. Found once: the
+// 16 GiB; a 21:9 screen of a preset's size gets that preset with the memory of the next 16:9 size above its pixel
+// count (2560x1080 as 2560x1440, 3440x1440 and 3840x1600 as 3840x2160), else what a 16:9 screen of its height gets;
+// a screen smaller than 1920x1080 gets 1280x720; everything else 1920x1080, the game's own. Found once: the
 // allocations are made at start.
 static const char *auto_output(void) {
     static char pick[16];
@@ -70,7 +72,11 @@ static const char *auto_output(void) {
     uint64_t mib = 0;
     int card = vk_probe_memory(&mib, &discrete);
     const char *p = "1920x1080";
+    int wide21 = screen && ((w == 2560 && h == 1080) || (w == 3440 && h == 1440) || (w == 3840 && h == 1600));
     if (screen && (w < 1920 || h < 1080)) p = "1280x720";
+    else if (wide21 && w == 2560 && card && discrete && mib >= 11000) p = "2560x1080";
+    else if (wide21 && w == 3440 && card && discrete && mib >= 15000) p = "3440x1440";
+    else if (wide21 && w == 3840 && card && discrete && mib >= 15000) p = "3840x1600";
     else if (screen && w >= 3840 && h >= 2160 && card && discrete && mib >= 15000) p = "3840x2160";
     else if (screen && w >= 2560 && h >= 1440 && card && discrete && mib >= 11000) p = "2560x1440";
     snprintf(pick, sizeof pick, "%s", p);
@@ -415,9 +421,10 @@ int res_wants_wide_overlay(const unsigned out[2]) {
 }
 
 // Field of view (TOTK_FOV, percent of the game's own, 70..140, live): the camera's vertical view angle times the
-// factor on page +60 (recomp/patches-v143.txt, set fov). The horizontal angle follows through the aspect ratio. 100
-// switches the set off, so the camera code is the game's own. Runs on a settings change (gfx_present.c
-// window_settings_live), the first time at the first present.
+// factor on page +60 (set fov: recomp/patches-v143.txt for TotK 1.4.3, recomp/patches-hwaoi196608-display.txt for
+// HWAoI, where res_init puts 1.0 there first). The horizontal angle follows through the aspect ratio. 100 switches the
+// set off, so the camera code is the game's own. Runs on a settings change (gfx_present.c window_settings_live), the
+// first time at the first present.
 #define FOV_MIN 70
 #define FOV_MAX 140
 void res_fov_live(void) {

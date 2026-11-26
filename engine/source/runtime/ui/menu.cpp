@@ -557,18 +557,28 @@ static void list_gpus(VkInstance inst) {
     g_gpu_n = (int)n;
 }
 
-// Window sizes: the common 16:9 sizes that fit the monitor, the 1920x1080 default and the current size.
+// Window sizes: the common 16:9 sizes that fit the monitor, the 1920x1080 default and the current size; on a monitor
+// wider than 16:9 also the 21:9 sizes that fit it (kWide), for a 21:9 game resolution in a window.
 static const int kSizes[][2] = {{1280, 720}, {1366, 768}, {1600, 900}, {1920, 1080}, {2560, 1440}, {3200, 1800},
                                 {3840, 2160}};
-enum { MAX_SIZES = sizeof kSizes / sizeof *kSizes + 1 };
+static const int kWide[][2] = {{1720, 720}, {2560, 1080}, {3440, 1440}, {3840, 1600}};
+enum { MAX_SIZES = sizeof kSizes / sizeof *kSizes + sizeof kWide / sizeof *kWide + 1 };
 
 static void row_window_size(void) {
     int sz[MAX_SIZES][2], n = 0, mw = 0, mh = 0, cw = 0, ch = 0;
     int have = gfx_window_monitor_size(&mw, &mh);
     int cur_ok = sscanf(cfg_value("TOTK_WINDOW_SIZE"), "%dx%d", &cw, &ch) == 2;
-    bool listed = false;
-    for (size_t i = 0; i < sizeof kSizes / sizeof *kSizes; i++) {
-        int w = kSizes[i][0], h = kSizes[i][1];
+    bool listed = false, wide = have && (long)mw * 9 > (long)mh * 16 * 21 / 20;   // 5 % wider than 16:9
+    int cand[MAX_SIZES][2], nc = 0;   // the 16:9 sizes, then the 21:9 ones on a wide monitor, in area order
+    for (size_t i = 0; i < sizeof kSizes / sizeof *kSizes; i++) cand[nc][0] = kSizes[i][0], cand[nc][1] = kSizes[i][1], nc++;
+    for (size_t i = 0; wide && i < sizeof kWide / sizeof *kWide; i++) {
+        int at = nc;
+        while (at > 0 && (long)cand[at - 1][0] * cand[at - 1][1] > (long)kWide[i][0] * kWide[i][1]) at--;
+        memmove(cand[at + 1], cand[at], sizeof cand[0] * (nc - at));
+        cand[at][0] = kWide[i][0], cand[at][1] = kWide[i][1], nc++;
+    }
+    for (int i = 0; i < nc; i++) {
+        int w = cand[i][0], h = cand[i][1];
         bool cur = cur_ok && w == cw && h == ch;
         if (have && (w > mw || h > mh) && !cur && !(w == 1920 && h == 1080)) continue;
         listed |= cur;
