@@ -179,7 +179,7 @@ static const CfgMeta metas[] = {
     {"PLAYER2_DEVICE", "auto", NULL, LIVE}, {"PLAYER2_TYPE", "pro", "pro|dual", LIVE},
     {"BINDS_PLAYER", "1", "1|2", LIVE},   // the player whose bindings the Controls tab remap rows edit
     {"STICK_DEADZONE", "8", "0..50", LIVE}, {"MOUSE_SENS", "1", "0..10", LIVE},
-    {"CAMERA_SPEED", "100", "60..300", LIVE},   // percent: the right stick as the game gets it (ov_input.c camera_scaled)
+    {"CAMERA_SPEED", "100", "60..100", LIVE},   // percent: the right stick as the game gets it (ov_input.c camera_scaled)
     {"MENU_LANG", "", "en|ru|it|zh-Hans", LIVE},
     // Advanced: scheduling
     {"LAZY_HEAP", "auto", "auto|0|1", RESTART}, // Windows-only demand-commit heap; auto: only when commit is short (memory.c)

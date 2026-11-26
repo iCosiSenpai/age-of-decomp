@@ -1242,12 +1242,12 @@
     {
       "id": "camera_speed",
       "label": "Camera speed",
-      "help": "How fast the right stick and the mouse turn the camera. 100 % is the game's own speed.",
+      "help": "Lower it to turn the camera more slowly with the right stick and the mouse. 100 % is the game's own speed.",
       "group": "Controls",
       "slider": {
         "key": "camera_speed",
         "min": 60,
-        "max": 300,
+        "max": 100,
         "step": 5,
         "format": "%.0f"
       },

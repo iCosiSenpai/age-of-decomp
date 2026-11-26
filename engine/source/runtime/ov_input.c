@@ -120,11 +120,12 @@ static void ov_style_set(Cpu *c) {
     ret_x(c, p >= 0 && player_live(p) ? __atomic_load_n(&styles, __ATOMIC_RELAXED) & player_style(p) : 0);
 }
 
-// The right stick as the game gets it, times TOTK_CAMERA_SPEED percent (live; GitHub #19). The game turns its camera by
-// the stick's deflection, which it reads as value / 32767 with no clamp of its own (KT getter main+1e4ac14, pad manager
-// main+1e49660; plan&activity/research/input-camera-fov.md), so the value may go past full deflection. Applied after every
-// device and the mouse camera merged, to the pad's right stick and the mouse alike. At least 60: the game's stick
-// directions (codes 0xb0-0xb7, which menus read) need more than half deflection.
+// The right stick as the game gets it, times TOTK_CAMERA_SPEED percent (live; GitHub #19): a slower camera for the pad
+// and the mouse alike, applied after every device and the mouse camera merged. Only slower: past full deflection the
+// battle camera turns no faster (2026-11-26 test in the training field: 200 % turned as far as 100 %, 60 % about half
+// to two thirds; the stick reaches the camera through a clamp, plan&activity/research/input-camera-fov.md), so a
+// faster camera needs a patch of the game's camera speed. At least 60: the game's stick directions (codes 0xb0-0xb7,
+// which menus read) need more than half deflection.
 static int32_t camera_scaled(int32_t v) {
     static unsigned seen;
     static volatile int pct = -1;
@@ -132,7 +133,7 @@ static int32_t camera_scaled(int32_t v) {
     int now = pct;
     if (now < 0 || ver != seen) {
         int want = cfg_int("TOTK_CAMERA_SPEED");
-        now = want < 60 ? 60 : want > 300 ? 300 : want;
+        now = want < 60 ? 60 : want > 100 ? 100 : want;
         pct = now, seen = ver;
     }
     return now == 100 ? v : (int32_t)((int64_t)v * now / 100);

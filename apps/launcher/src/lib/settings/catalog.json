@@ -353,8 +353,8 @@
     },
     {
       "key": "camera_speed", "section": "input", "group": "controls", "kind": "slider",
-      "label": "Camera speed", "default": "100", "min": 60, "max": 300, "step": 5, "format": "%.0f", "unit": "%",
-      "help": "How fast the right stick and the mouse turn the camera. 100 % is the game's own speed."
+      "label": "Camera speed", "default": "100", "min": 60, "max": 100, "step": 5, "format": "%.0f", "unit": "%",
+      "help": "Lower it to turn the camera more slowly with the right stick and the mouse. 100 % is the game's own speed."
     },
     {
       "key": "motion", "section": "input", "group": "controls", "kind": "toggle",
