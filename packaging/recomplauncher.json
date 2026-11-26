@@ -235,6 +235,18 @@
           "set": {
             "window_size": "2560x1440"
           }
+        },
+        {
+          "label": "2560 × 1080",
+          "set": {
+            "window_size": "2560x1080"
+          }
+        },
+        {
+          "label": "3440 × 1440",
+          "set": {
+            "window_size": "3440x1440"
+          }
         }
       ],
       "defaults": {
