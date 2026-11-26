@@ -174,14 +174,22 @@ site hwaoi_display main 019d4234 f9407b57 b85f43a9 b85f03aa 5119012b 510e114c 2a
 # +0x1f1c and its aspect at +0x1f20. The picture follows the camera update main+2e29e0 (also what the camera's virtual
 # +0x478 runs): it copies the angle into the camera's matrix block at +0x2ff8 (load at main+2e74bc, store at 2e7510; the
 # aspect goes to +0x2ffc), and main+84acd0 builds the projection there from it (the tan of half of it). The virtual +0x4a8
-# hands that block out (the world-to-screen helper main+518dc4 calls +0x478, then +0x4a8, so the markers over units
-# follow), and main+2cda00 reads the same copy. The angle times the factor is stored there instead; x9 and s3 are free
-# (x9 is written at main+2e7518 and s3 at 2e7550 before either is read; x8 and s1 are live). The frustum (main+2cf204, a
+# hands that block out, and main+2cda00 reads the same copy. The angle times the factor is stored there instead; x9 and
+# s3 are free (x9 is written at main+2e7518 and s3 at 2e7550 before either is read; x8 and s1 are live). The frustum (main+2cf204, a
 # virtual of the camera classes: extents from near +0x14 times the tan of the angle, read at main+2cf234 just before its
 # tanf) gets the same factor, so the culling widens with the view; x8 and s1 are free there (both are caller-saved
 # across the tanf call, and the code after it writes s1 before reading it). Tested 2026-11-26 on an RTX 5070 Ti: the
 # frustum site alone left the picture as it was; with both, the scene measures 0.75 times its size at 130 % and 1.47
-# times at 70 %, and a switch while playing moves the picture at once with no drift after it.
+# times at 70 %, and a switch while playing moves the picture at once with no drift after it. Not yet right: the units'
+# name labels (Raul, Soniah) stay where they are at 100 %. These reads of +0x1f1c, each scaled in a test, did not move
+# them: main+2f52ac (the render copy), 1e99d90, 1e9afe8, 38ee40, the getter 1150b6c, dae8a0, eb7f64, 24235c, 2d66f8,
+# 155050; the camera-framing reads 518c44, 5192d4, 51b5ac, 51e2e4, 521ad8, 52f200 move the camera closer instead.
+# The camera's FOV setter main+2cf3a0 (vtable +0x480) stores the angle to +0x1f1c and +0x2ff8 and rebuilds the
+# projection block at once (main+84aaf4 / 84acd0) with the angle as it is, so whatever reads the block before the next
+# update gets 100 %. The third site scales s8 there, after its store to +0x1f1c and before the one to +0x2ff8 (at
+# main+2cf474, in the perspective branch; x9 is written at main+2cf4d8, s16 is free by a scan that also counts a call as
+# a possible reader of x0..x8 / v0..v7). NOT YET RUN: it is here for the next test (labels with FOV 130 and 70).
 set fov TOTK_FOV_PATCH 0
 site fov main 002cf234 bd5f1e80 bd5f1e80 @page:x8 bd403d01 1e210800
 site fov main 002e74bc bd5f1e60 bd5f1e60 @page:x9 bd403d23 1e230800
+site fov main 002cf474 bd5f2260 bd5f2260 @page:x9 bd403d30 1e300908

@@ -274,7 +274,18 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual(named.get("fov"), "TOTK_FOV_PATCH")
         self.assertNotIn("fov_view", named)
         fov_sites = sorted(off for off, (k, _, _) in table.sites["main"].items() if table.sets[k][0] == "fov")
-        self.assertEqual(fov_sites, [0x2cf234, 0x2e74bc])
+        self.assertEqual(fov_sites, [0x2cf234, 0x2cf474, 0x2e74bc])
+        # The setter main+2cf3a0: the original reads the aspect (ldr s0, [x19, #0x1f20]) and the angle in s8 is scaled.
+        k, words, original = table.sites["main"][0x2cf474]
+        self.assertEqual(original, 0xbd400000 | (0x1f20 // 4) << 10 | 19 << 5)
+        words = rows[0x7000000000 + 0x2cf474][1]
+        self.assertEqual((len(words), words[0]), (4, original))
+        self.assertEqual((words[1] & 0x9f000000, words[1] & 31), (0x90000000, 9))
+        imm = ((words[1] >> 5) & 0x7ffff) << 2 | (words[1] >> 29) & 3
+        imm -= (1 << 21) if imm & (1 << 20) else 0
+        self.assertEqual(((0x7000000000 + 0x2cf474) & ~0xfff) + (imm << 12), table.page)
+        self.assertEqual(words[2], 0xbd400000 | (0x3c // 4) << 10 | 9 << 5 | 16)   # LDR s16, [x9, #0x3c]
+        self.assertEqual(words[3], 0x1e200800 | 16 << 16 | 8 << 5 | 8)              # FMUL s8, s8, s16
         for off, (base, scratch, factor) in {0x2cf234: (20, 8, 1), 0x2e74bc: (19, 9, 3)}.items():
             k, words, original = table.sites["main"][off]
             self.assertEqual(original, 0xbd400000 | (0x1f1c // 4) << 10 | base << 5)     # LDR s0, [x<base>, #0x1f1c]

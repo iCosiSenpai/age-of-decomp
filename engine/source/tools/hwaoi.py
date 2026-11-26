@@ -115,7 +115,7 @@ def display_profile(exefs):
         need(struct.unpack("<I", module.code(address, 4))[0] == original,
              f"display profile: instruction mismatch at main+{address:#x}")
         sites.add(address)
-    need(len(sites) == 58, "display profile must contain the 58 verified sites")
+    need(len(sites) == 59, "display profile must contain the 59 verified sites")
     return patch
 
 
