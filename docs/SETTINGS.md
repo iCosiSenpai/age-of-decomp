@@ -69,6 +69,7 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `button_prompts` | Buttons shown in the game — The buttons the game shows in its HUD and hints. Automatic: those of the controller you are using, with your own bindings, and the keys when you use the keyboard and mouse. Pick a maker when your controller is shown as another one, or Game's own to keep the buttons as the game draws them. | `auto` Automatic, `xbox` Xbox, `playstation` PlayStation, `nintendo` Switch, `game` Game's own | `auto` |  |
 | `confirm_button` | Confirm button in menus — The button that confirms in the game's menus; the other one goes back. Automatic: the bottom button on Xbox, PlayStation and other controllers, the right one on a Switch controller, as the game has it. Battle keeps every button, and the keyboard its keys. | `auto` Automatic, `bottom` Bottom button, `right` Right button | `auto` |  |
 | `stick_deadzone` | Stick dead zone — Raise it if the camera or the character moves on its own. | 0 – 50 (step 1) | `8` |  |
+| `camera_speed` | Camera speed — How fast the right stick and the mouse turn the camera. 100 % is the game's own speed. | 60 – 300 (step 5) | `100` |  |
 | `motion` | Motion controls — Uses the controller's gyro and accelerometer where the game asks for motion. | `0` off, `1` on | `1` |  |
 | `rumble_strength` | Rumble strength — 0 turns rumble off. | 0 – 300 (step 10) | `130` |  |
 | `rumble_curve` | Rumble curve — Lower values make light rumble stronger; 1 is linear. | 0.2 – 1.5 (step 0.05) | `0.6` |  |

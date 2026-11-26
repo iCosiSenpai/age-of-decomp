@@ -51,9 +51,9 @@
   // The catalogue's Controls settings, each where it applies: a controller's own (only the ones it has the hardware
   // for), the keyboard and mouse's, and the rest (who plays with what) for every device. A setting that applies to
   // both a controller and the keyboard is in both lists.
-  const PAD_KEYS = ['button_prompts', 'confirm_button', 'stick_deadzone', 'motion', 'rumble_strength', 'rumble_curve',
-    'rumble_triggers'];
-  const KEYBOARD_KEYS = ['button_prompts', 'mouse_sens'];
+  const PAD_KEYS = ['button_prompts', 'confirm_button', 'stick_deadzone', 'camera_speed', 'motion', 'rumble_strength',
+    'rumble_curve', 'rumble_triggers'];
+  const KEYBOARD_KEYS = ['button_prompts', 'camera_speed', 'mouse_sens'];
   const controls = catalog.settings.filter((s) => s.group === 'controls');
   function has(p: Pad, key: string): boolean {
     if (key === 'motion') return p.has_gyro && p.has_accel;

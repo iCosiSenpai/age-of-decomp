@@ -19,6 +19,8 @@ keeps your settings and saves.
   (Alano6678/hwaoi-recomp#33).
 - A burst of input while the game's own menu is busy no longer loses a button's release, which could leave a button
   held in the menu.
+- New setting *Camera speed* (Controls, in the launcher and in the game's menu): how fast the right stick and the
+  mouse turn the camera, from 60 % to 300 % of the game's own speed. Thanks to @The-Gaymer for asking (#19).
 
 ### Launcher
 - Settings changed quickly one after the other are saved in the order you made them, and a change the launcher could

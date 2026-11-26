@@ -1240,6 +1240,22 @@
       }
     },
     {
+      "id": "camera_speed",
+      "label": "Camera speed",
+      "help": "How fast the right stick and the mouse turn the camera. 100 % is the game's own speed.",
+      "group": "Controls",
+      "slider": {
+        "key": "camera_speed",
+        "min": 60,
+        "max": 300,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "camera_speed": "100"
+      }
+    },
+    {
       "id": "motion",
       "label": "Motion controls",
       "help": "Uses the controller's gyro and accelerometer where the game asks for motion.",

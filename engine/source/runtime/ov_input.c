@@ -120,6 +120,24 @@ static void ov_style_set(Cpu *c) {
     ret_x(c, p >= 0 && player_live(p) ? __atomic_load_n(&styles, __ATOMIC_RELAXED) & player_style(p) : 0);
 }
 
+// The right stick as the game gets it, times TOTK_CAMERA_SPEED percent (live; GitHub #19). The game turns its camera by
+// the stick's deflection, which it reads as value / 32767 with no clamp of its own (KT getter main+1e4ac14, pad manager
+// main+1e49660; plan&activity/research/input-camera-fov.md), so the value may go past full deflection. Applied after every
+// device and the mouse camera merged, to the pad's right stick and the mouse alike. At least 60: the game's stick
+// directions (codes 0xb0-0xb7, which menus read) need more than half deflection.
+static int32_t camera_scaled(int32_t v) {
+    static unsigned seen;
+    static volatile int pct = -1;
+    unsigned ver = cfg_version();
+    int now = pct;
+    if (now < 0 || ver != seen) {
+        int want = cfg_int("TOTK_CAMERA_SPEED");
+        now = want < 60 ? 60 : want > 300 ? 300 : want;
+        pct = now, seen = ver;
+    }
+    return now == 100 ? v : (int32_t)((int64_t)v * now / 100);
+}
+
 // int GetNpadStates(<State> *out, int count, const NpadIdType &id): the newest state only. want: the style of the
 // overload, 0 for the single Joy-Con overloads (never connected).
 static void npad_read_state(NpadState *out, uint32_t id, uint32_t want) {
@@ -134,9 +152,10 @@ static void npad_read_state(NpadState *out, uint32_t id, uint32_t want) {
     plat_mutex_unlock(&lock);
     int p = player_of(id);
     if (want && p >= 0 && want == player_style(p) && (__atomic_load_n(&styles, __ATOMIC_RELAXED) & want) &&
-        player_live(p) && input_poll_player(p, &s.buttons, &s.lx, &s.ly, &s.rx, &s.ry))
+        player_live(p) && input_poll_player(p, &s.buttons, &s.lx, &s.ly, &s.rx, &s.ry)) {
         s.attributes = ATTR_CONNECTED | (want == STYLE_JOY_DUAL ? ATTR_LEFT_CONNECTED | ATTR_RIGHT_CONNECTED : 0);
-    else
+        s.rx = camera_scaled(s.rx), s.ry = camera_scaled(s.ry);
+    } else
         s.buttons = 0, s.lx = s.ly = s.rx = s.ry = 0;
     *out = s;
     // The menus' confirm and back follow the device just polled (input.h input_confirm_bottom), before the game's

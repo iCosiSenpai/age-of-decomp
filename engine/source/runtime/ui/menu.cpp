@@ -1071,6 +1071,7 @@ static void tab_controls(float scale) {
         opt_describe_next(used[FOR_ALL]);
         opt_slider("TOTK_STICK_DEADZONE", UI_MENU_STICK_DEADZONE, 0, 50, UI_MENU_STICK_DEADZONE_DESC, 1, "%.0f %%");
     }
+    opt_slider("TOTK_CAMERA_SPEED", UI_MENU_CAMERA_SPEED, 60, 300, UI_MENU_CAMERA_SPEED_DESC, 5, "%.0f %%");
     static char mouse[128];
     snprintf(mouse, sizeof mouse, menu_text(UI_MENU_USED_BY), menu_text(UI_MENU_DEVICE_KEYBOARD));
     opt_describe_next(mouse);
