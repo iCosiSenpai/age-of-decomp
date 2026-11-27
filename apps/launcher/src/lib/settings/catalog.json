@@ -14,13 +14,16 @@
     {
       "key": "output_res", "section": "display", "group": "display", "kind": "choice", "restart": true,
       "label": "Game resolution", "default": "auto",
-      "help": "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads.",
+      "help": "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p and 2560 × 1080, 16 GB for 4K, 3440 × 1440 and 3840 × 1600. A 21:9 size shows more of the world at the sides, while the HUD and menus stay in the 16:9 middle. A size your card has too little memory for can stop the game while it loads.",
       "choices": [
         { "value": "auto", "label": "Automatic" },
         { "value": "1280x720", "label": "720p" },
         { "value": "1920x1080", "label": "1080p" },
         { "value": "2560x1440", "label": "1440p" },
-        { "value": "3840x2160", "label": "4K" }
+        { "value": "3840x2160", "label": "4K" },
+        { "value": "2560x1080", "label": "2560 × 1080 (21:9)" },
+        { "value": "3440x1440", "label": "3440 × 1440 (21:9)" },
+        { "value": "3840x1600", "label": "3840 × 1600 (21:9)" }
       ]
     },
     {
@@ -36,7 +39,9 @@
         { "value": "1280x720", "label": "1280 × 720" },
         { "value": "1600x900", "label": "1600 × 900" },
         { "value": "1920x1080", "label": "1920 × 1080" },
-        { "value": "2560x1440", "label": "2560 × 1440" }
+        { "value": "2560x1440", "label": "2560 × 1440" },
+        { "value": "2560x1080", "label": "2560 × 1080" },
+        { "value": "3440x1440", "label": "3440 × 1440" }
       ]
     },
     {
@@ -138,11 +143,16 @@
     {
       "key": "aspect", "section": "display", "group": "display", "kind": "choice",
       "label": "Picture shape", "default": "fit",
-      "help": "The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same.",
+      "help": "When the game resolution and the screen have different shapes (a 16:9 picture on a 21:9 screen), keep the picture's shape with black bars or stretch it over the whole window. When they have the same shape the two look the same.",
       "choices": [
         { "value": "fit", "label": "Black bars" },
         { "value": "stretch", "label": "Stretch" }
       ]
+    },
+    {
+      "key": "fov", "section": "display", "group": "display", "kind": "slider",
+      "label": "Field of view", "default": "100", "min": 70, "max": 140, "step": 5, "format": "%.0f", "unit": "%",
+      "help": "How much of the world the camera shows, in percent of the game's own."
     },
     {
       "key": "perf_overlay", "section": "display", "group": "display", "kind": "choice",

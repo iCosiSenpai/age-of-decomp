@@ -121,7 +121,7 @@ static const CfgMeta metas[] = {
     {"PERF_OVERLAY", "off", "off|fps|full", LIVE},
 #if RT_TARGET_HWAOI
     // auto: the screen's own size as far as the graphics card's memory allows (resolution.c auto_output)
-    {"OUTPUT_RES", "auto", "auto|1280x720|1920x1080|2560x1440|3840x2160", RESTART},
+    {"OUTPUT_RES", "auto", "auto|1280x720|1920x1080|2560x1440|3840x2160|2560x1080|3440x1440|3840x1600", RESTART},
     {"RENDER_SCALE", "100", "100|game", RESTART},
 #else
     {"OUTPUT_RES", "1920x1080", NULL, RESTART}, {"RENDER_SCALE", "game", "game|50|67|75|100|125|150|200", RESTART},

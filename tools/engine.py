@@ -1027,7 +1027,8 @@ def main() -> None:
     g.add_argument("--nup", required=True)
     g.add_argument("--out", default=str(ROOT / "work" / ("game" if WIN else "game-linux")))
     g.add_argument("--jobs", type=int, default=0)
-    g.add_argument("--resolution", default="auto", choices=("auto", "1280x720", "1920x1080", "2560x1440", "3840x2160"))
+    g.add_argument("--resolution", default="auto", choices=("auto", "1280x720", "1920x1080", "2560x1440", "3840x2160",
+                                                          "2560x1080", "3440x1440", "3840x1600"))
     sub.add_parser("status")
     args = ap.parse_args()
     {"toolchain": cmd_toolchain, "translator": cmd_translator, "stage": cmd_stage, "game": cmd_game,

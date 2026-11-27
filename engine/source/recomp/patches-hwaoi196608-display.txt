@@ -1,7 +1,9 @@
 # HWAoI NCM 196608, exact main SHA256 checked by tools/hwaoi.py.
-# Configurable native 16:9 output and scene. Patch page +0x80: scene {u32 w,h},
-# +0x88: output {u32 w,h}, +0xa8: the 2D canvas {u32 1920,1080}, +0xb8: f32 output_w/1920
-# (set hwaoi_ui_canvas; +0xb0 is hwaoi_rate's u32).
+# Configurable native output (16:9 and 21:9) and scene. Patch page +0x80: scene {u32 w,h},
+# +0x88: output {u32 w,h}, +0xa8: the 2D canvas {u32 w,1080} of the output's shape, +0xb8: f32 output_h/1080
+# (set hwaoi_ui_canvas; +0xb0 is hwaoi_rate's u32), +0x3c: f32 the field-of-view factor (set fov), +0xc0: f32
+# {dx, 0, dx, 0} (set hwaoi_ui_quads), +0xd0: u64 the return address that marks the scene view's projection and
+# +0xe0: f32 {factor, 1.0} (set fov, the units' labels).
 # Initialized before guest execution by resolution.c.
 # Original NUP/NSO remain unchanged. Both scale policies must stay at 1.0.
 set hwaoi_display TOTK_NATIVE_1080 1
@@ -64,9 +66,13 @@ site hwaoi_display main 01af1b00 f2c00029 d503201f
 # size.h/2 / tan(22.5 deg) from the canvas (inlined at 5770d0, and main+add610
 # mode 0), orthographic in size pixels (add610 mode 1); text anchors are mapped
 # with output/size. With size = output the canvas spans 1080/output_h of the
-# screen: centred and small above 1080p, cropped below. Page +0xa8 holds
-# {u32 1920, 1080}: the layer size becomes the canvas, so the cameras frame the
-# canvas at every output and text scales with it. add610's own perspective path
+# screen: centred and small above 1080p, cropped below. Page +0xa8 holds the
+# canvas, 1080 high and as wide as the output's shape ({1920, 1080} at 16:9,
+# {2560, 1080} at 2560x1080, {2580, 1080} at 3440x1440; resolution.c,
+# hwaoi_display.h hwaoi_display_canvas): the layer size becomes the canvas, so
+# the cameras frame the canvas at every output and text scales with it; on a
+# wider canvas the game's layouts, the battle HUD's too, stay in its 16:9
+# middle, unstretched. add610's own perspective path
 # (callers outside the setup, e.g. b2c1f4 on a size change) gets the same size.
 # 2D primitives (map icons, minimap markers) are handled by the af42dc sites below.
 set hwaoi_ui_canvas TOTK_UI_CANVAS 1
@@ -76,12 +82,15 @@ site hwaoi_ui_canvas main 00add874 2d400a81 @page:x9 2d550921
 # The game's own 2D primitive recorder (renderer vtable at main+275fb28; quads via main+af38c0 from the widget
 # draw call main+15f2ca4: map icons, minimap markers) takes positions in canvas units and, for batches with a
 # target (+0x428), copies the four corners unchanged at main+af42dc; they are drawn with the window's pixel
-# projection. Page +0xb8 holds f32 output_w/1920: the corners are scaled into output pixels there.
+# projection. Page +0xb8 holds f32 output_h/1080 (= output_w / canvas_w): the corners are scaled into output pixels there.
+# The game places these corners for a 1920-wide screen, not for the canvas: on a canvas wider than 16:9 the map's icons
+# landed (canvas_w - 1920) / 2 units left of the map they belong to (440 px at 3440x1440). Page +0xc0 holds
+# {dx, 0, dx, 0} f32, dx = (output_w - 1920 * scale) / 2 (0 at every 16:9 size), added to both corner pairs after the scale.
 # A set of its own since 2026-11-26, on only with hwaoi_ui_canvas (runtime/patches.c), so a test can turn it off alone
 # (`ui_quads = 0` keeps the canvas and leaves the quads at their 1080p place). GitHub #23 at 3840x2160 (the Music list's
 # lines mixed up) looks the same without it: that comes from the layer's camera size at 576ff8 / add844 / add874.
 set hwaoi_ui_quads TOTK_UI_QUADS 1
-site hwaoi_ui_quads main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 4f829000 4f829021 ad000420
+site hwaoi_ui_quads main 00af42e4 a9402448 ad400440 @page:x9 bd40b922 3dc03123 4f829000 4f829021 4e23d400 4e23d421 ad000420
 site hwaoi_ui_quads main 00af42e8 a9412c4a d503201f
 site hwaoi_ui_quads main 00af42ec a9012c2a d503201f
 site hwaoi_ui_quads main 00af42f0 a9002428 d503201f
@@ -161,3 +170,55 @@ site hwaoi_display main 01c97190 52841942 52841942 @page:x16 29504610 4b090210 1
 # 1600x900 (2560x1440 traced: scene-sized, 1280x720, 640x360, shadow maps, 2x1, 1x1). Flag-free (main+1c900's flags are
 # dead); x9..x12 are dead after the call and written before any read.
 site hwaoi_display main 019d4234 f9407b57 b85f43a9 b85f03aa 5119012b 510e114c 2a0c016b 5ac0116b 53057d6b 1b0ba529 1b0ba94a b81f43a9 b81f03aa f9407b57
+
+# Field of view (set fov; Age of Decomp, GitHub #21). runtime/resolution.c res_fov_live writes TOTK_FOV / 100 to page +60
+# (1.0 from the start) and switches the set while the game runs. The camera keeps its vertical view angle in radians at
+# +0x1f1c and its aspect at +0x1f20. The picture follows the camera update main+2e29e0 (also what the camera's virtual
+# +0x478 runs): it copies the angle into the camera's matrix block at +0x2ff8 (load at main+2e74bc, store at 2e7510; the
+# aspect goes to +0x2ffc), and main+84acd0 builds the projection there from it (the tan of half of it). The virtual +0x4a8
+# hands that block out, and main+2cda00 reads the same copy. The angle times the factor is stored there instead, for the
+# battle's cameras only (the gate is described below). The frustum (main+2cf204, a
+# virtual of the camera classes: extents from near +0x14 times the tan of the angle, read at main+2cf234 just before its
+# tanf) gets the same factor, so the culling widens with the view; x8 and s1 are free there (both are caller-saved
+# across the tanf call, and the code after it writes s1 before reading it). Tested 2026-11-26 on an RTX 5070 Ti: the
+# frustum site alone left the picture as it was; with both, the scene measures 0.75 times its size at 130 % and 1.47
+# times at 70 %, and a switch while playing moves the picture at once with no drift after it.
+# The camera's FOV setter main+2cf3a0 (vtable +0x480) stores the angle to +0x1f1c and +0x2ff8 and rebuilds the
+# projection block at once (main+84aaf4 / 84acd0) with the angle as it is, so whatever reads the block before the next
+# update would get 100 %. The third site scales s8 there, after its store to +0x1f1c and before the one to +0x2ff8 (at
+# main+2cf474, in the perspective branch; x9 is written at main+2cf4d8, s16 is free by a scan that also counts a call as
+# a possible reader of x0..x8 / v0..v7). Run on 2026-11-27 with the others: the picture and 100 % as before.
+# The units' name labels (Raul, Soniah) and the other world markers use a projection of their own (the fourth site,
+# below). Reads of +0x1f1c scaled one at a time on 2026-11-26 that did not move them: main+2f52ac (the camera's render
+# copy), 1e99d90, 1e9afe8, 38ee40, the getter 1150b6c, dae8a0, eb7f64, 24235c, 2d66f8, 155050, the setter above; the
+# camera-framing reads 518c44, 5192d4, 51b5ac, 51e2e4, 521ad8, 52f200 move the camera closer instead.
+# The scene view update main+1e93c4c turns the view's angle in degrees (+0x2f4) into radians at +0x148 and has
+# main+84aa34 build its projection (the call at main+1e93e5c) through main+84acd0, which reads the angle at
+# main+84acf8. Found by scaling that read only for callers whose return address was in a range (the labels followed for
+# main+84aa34 / 84ae48 alone; scaling it for every caller also shrinks the Plus menu's 3D model). Storing the scaled
+# angle at main+1e93de8 instead scaled the picture twice (0.54 at 130 %): +0x148 is read back. So the builder scales
+# the angle it reads for that view only: when [[x29] + 8], the return address of main+84aa34's frame, is main+1e93e60
+# (page +0xd0; every one of main+84acd0's 42 callers sets up x29). No flags: bit 63 of (x ^ t) | -(x ^ t) is 0 only when
+# they are equal, and it picks the factor at page +0xe0 or 1.0 at +0xe4. x9..x13 and s17 are free there (a call to
+# tanf comes before any of them is read). Tested 2026-11-27 (RTX 5070 Ti): the labels, the captain's marker and the
+# lock-on ring on their units at 130 % and 70 % in a story battle at 1080p and 2560x1080 and on the training field,
+# live switches too; the picture 0.74-0.75 at 130 %, steady; 100 % as before.
+# The Plus menu's 3D model has a camera of the same class (vtable main+26ea420) and the same update, so with every
+# update scaled it was drawn smaller at 130 %: test sets on 2026-11-27 showed that the update site alone does that (the
+# frustum and the setter sites change nothing there). The cameras differ in who calls the virtual +0x478 (main+2cf2c0,
+# which locks and runs the update), traced at the update site on 2026-11-27: the battle view main+1e98f9c updates the
+# cameras of a battle (the training field's and a story battle's) from six calls between main+1e99bc8 and main+1e9a32c,
+# the Plus menu from main+4f283c, the title screen and the world map from main+19cf2e0. So the update site scales the
+# angle only when [[x29] + 8], the return address of main+2cf2c0's frame, is one of those six: d = it - main+1e99bcc
+# (the first, page +0xd8), and bit 63 of d | (0x764 - d) is 0 only for 0 <= d <= 0x764 (main+1e9a330, the last); it
+# picks the factor at page +0xe0 or 1.0 at +0xe4, the labels' table. The update's three callers (main+2cf2c0, 2e1bd4,
+# 2e26e0) set up x29; x9..x12 and s17 are free (the scan above; x8 and s1 are live). Tested 2026-11-27 (RTX 5070 Ti):
+# the Plus menu's model at its size at 130 % and 70 % (0.77 at 130 % before); the battle as before (0.74-0.75 at 130 %,
+# 1.47 at 70 %, from the start and live, the labels on their units, 2560x1080 too); the world map, the Gallery and the
+# mission preparation as at 100 %. The real-time scene that opens the story mission "Dove riposa l'antica saggezza"
+# (after its movie) is drawn by the battle's cameras and widens with them (0.75 at 130 %).
+set fov TOTK_FOV_PATCH 0
+site fov main 002cf234 bd5f1e80 bd5f1e80 @page:x8 bd403d01 1e210800
+site fov main 002e74bc bd5f1e60 bd5f1e60 @page:x9 f94003aa f940054a f9406d2b cb0b014a d280ec8c cb0a018c aa0a018c d37ffd8c 91038129 bc6c7931 1e310800
+site fov main 002cf474 bd5f2260 bd5f2260 @page:x9 bd403d30 1e300908
+site fov main 0084acf8 bd414a60 bd414a60 @page:x9 f94003aa f940054a f940692b ca0b014c cb0c03ed aa0d018c d37ffd8c 91038129 bc6c7931 1e310800

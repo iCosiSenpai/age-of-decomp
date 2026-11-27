@@ -8,9 +8,9 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 
 | Key | Setting | Values | Default | Restart |
 |---|---|---|---|---|
-| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K | `auto` | yes |
+| `output_res` | Game resolution — The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p and 2560 × 1080, 16 GB for 4K, 3440 × 1440 and 3840 × 1600. A 21:9 size shows more of the world at the sides, while the HUD and menus stay in the 16:9 middle. A size your card has too little memory for can stop the game while it loads. | `auto` Automatic, `1280x720` 720p, `1920x1080` 1080p, `2560x1440` 1440p, `3840x2160` 4K, `2560x1080` 2560 × 1080 (21:9), `3440x1440` 3440 × 1440 (21:9), `3840x1600` 3840 × 1600 (21:9) | `auto` | yes |
 | `fullscreen` | Fullscreen — Fills the screen with a borderless window. F11 switches it while you play. | `0` off, `1` on | `0` |  |
-| `window_size` | Window size — The size of the window when not in fullscreen. | `1280x720` 1280 × 720, `1600x900` 1600 × 900, `1920x1080` 1920 × 1080, `2560x1440` 2560 × 1440 | `1280x720` |  |
+| `window_size` | Window size — The size of the window when not in fullscreen. | `1280x720` 1280 × 720, `1600x900` 1600 × 900, `1920x1080` 1920 × 1080, `2560x1440` 2560 × 1440, `2560x1080` 2560 × 1080, `3440x1440` 3440 × 1440 | `1280x720` |  |
 | `fps_limit` | Frame rate — 60 is the game's normal speed. 30 saves power. | `30` 30 FPS, `60` 60 FPS | `60` |  |
 | `vk_present` | Screen sync — How finished frames reach the screen. Fast shows the newest frame without tearing. V-Sync waits for the screen. Off has the least delay and can tear. | `mailbox` Fast, `fifo` V-Sync, `immediate` Off | `mailbox` |  |
 | `render_scale` | 3D rendering — Native draws the 3D scene at the game resolution: the sharpest picture. As on the console runs the game's own path, a 1600×900 scene scaled to 1080p: softer and lighter, and the game resolution is then 1080p. | `100` Native, `game` As on the console | `100` | yes |
@@ -21,7 +21,8 @@ from `hwaoi.ini` next to `hwaoi.exe` (`<game folder>/work/build/hwaoi196608/`); 
 | `antialiasing` | Edge smoothing — SMAA smooths jagged edges in the finished picture on any graphics card, at a small cost. With FSR or DLSS it is not needed. | `off` Off, `smaa` SMAA | `off` |  |
 | `upscaler` | Fit to the window — How the finished picture is scaled when the window is larger than the game resolution. AMD FSR 1 keeps edges sharper than Bilinear. | `fsr` AMD FSR 1, `bilinear` Bilinear | `fsr` |  |
 | `sharpness` | Sharpness — Sharpening after the picture is scaled. 0 turns it off. | 0 – 100 (step 5) | `80` |  |
-| `aspect` | Picture shape — The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same. | `fit` Black bars, `stretch` Stretch | `fit` |  |
+| `aspect` | Picture shape — When the game resolution and the screen have different shapes (a 16:9 picture on a 21:9 screen), keep the picture's shape with black bars or stretch it over the whole window. When they have the same shape the two look the same. | `fit` Black bars, `stretch` Stretch | `fit` |  |
+| `fov` | Field of view — How much of the world the camera shows, in percent of the game's own. | 70 – 140 (step 5) | `100` |  |
 | `perf_overlay` | Performance overlay — Frame rate and timings in a corner of the game. F10 cycles it while you play. | `off` Off, `fps` FPS, `full` Full | `off` |  |
 | `gpu_index` | Graphics card — Which graphics card runs the game. Automatic takes a dedicated card before an integrated one. | empty = automatic, or the Vulkan device index | `(empty)` | yes |
 | `device_profile` | Device profile — Steam Deck starts with lighter settings for handheld PCs. Automatic chooses it on a Steam Deck. | `auto` Automatic, `desktop` Desktop, `deck` Steam Deck | `auto` | yes |
