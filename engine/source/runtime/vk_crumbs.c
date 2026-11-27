@@ -14,7 +14,8 @@
 // (word 0) or that everything before draw N had finished (word 1): when both name N, the hang lies in draw N or in what
 // was recorded after it and before the next crumb. Two more marker writes per draw, so it is off unless asked for.
 // TOTK_DRAW_CRUMBS_TEST=<frame> writes that list once, at the first draw of that frame, as if the GPU had stopped six
-// draws before it, and then says when a code the GPU itself wrote names a draw. Each draw's line also says what came
+// draws before it, then how many dispatches were marked and the line of the last one (a frame of this game begins with
+// a draw, so the six before it are draws), and then says when a code the GPU itself wrote names a draw. Each draw's line also says what came
 // between it and the draw before (a feedback barrier, a pass that ended and began again, a batch of GPU QUADS
 // conversions, which has crumbs of its own) and which of its pass's targets its fragment shader samples: a hang right
 // after a draw can lie in those commands (GitHub #16). A dispatch's line gives its work groups and its compute stage.
@@ -36,6 +37,7 @@ static VkDrawNote *notes;      // notes[n % NOTES] is draw n while its no is n
 static uint32_t draw_no;
 static uint64_t test_frame;
 static uint32_t test_watch;    // the test: draws left in which a draw code of the GPU's own is looked for
+static uint32_t dispatches, last_dispatch;   // dispatches marked, and the number of the last one (for the test)
 
 void vk_crumbs_init(VkCtx *c) {
     if (!c->has_buffer_marker) {
@@ -71,7 +73,7 @@ void vk_crumbs_release(void) {
     if (buf && c) vmaDestroyBuffer(c->vma, buf, alloc);
     buf = VK_NULL_HANDLE, alloc = NULL, words = NULL, write_marker = NULL;
     free(notes);
-    notes = NULL, draw_no = 0, test_frame = 0, test_watch = 0;
+    notes = NULL, draw_no = 0, test_frame = 0, test_watch = 0, dispatches = 0, last_dispatch = 0;
 }
 
 void vk_crumb(VkCommandBuffer cb, int kind, uint64_t n) {
@@ -224,12 +226,17 @@ uint32_t vk_crumbs_draw(const VkDrawNote *n) {
     *slot = *n;
     slot->no = draw_no;
     if (!n->dispatch && (!prev || prev->pass != n->pass || prev->sub != n->sub)) slot->after |= VK_DRAW_AFTER_NEW_PASS;
+    if (n->dispatch) dispatches++, last_dispatch = draw_no;
     if (test_frame && n->frame >= test_frame && draw_no > 6) {
         test_frame = 0;
         rt_log("vk: GPU breadcrumbs: TOTK_DRAW_CRUMBS_TEST: the report of a lost device, with the GPU's own two codes "
                "first and then as if it had stopped six draws or dispatches before %s %u", note_kind(slot), draw_no);
         vk_crumbs_report();
         report_draws((uint32_t)VK_CRUMB_DRAW << 28 | draw_no, (uint32_t)VK_CRUMB_DRAW << 28 | (draw_no - 6));
+        const VkDrawNote *d = last_dispatch ? note_of(last_dispatch) : NULL;
+        rt_log("vk: GPU breadcrumbs: test: %u dispatch%s marked so far%s", dispatches, dispatches == 1 ? "" : "es",
+               d ? "; the last one:" : "");
+        if (d) draw_line(d);
         test_watch = 100000;
     }
     if (test_watch) {   // the test goes on until a code the GPU itself wrote names a draw: the markers do run there

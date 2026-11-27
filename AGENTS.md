@@ -177,7 +177,8 @@ generation and an `sfence` before it publishes its progress (`runtime/vk_rec.c`:
 breadcrumb per draw and per compute dispatch for the report of a lost device (`DRAW_CRUMBS=1`, catalogue `draw_crumbs`;
 `runtime/vk_crumbs.c` keeps a note of the last 65536 and the report lists the unfinished ones with their shaders; a
 crumb goes before its command, so one that names N for both codes puts the hang in N or right after it;
-`TOTK_DRAW_CRUMBS_TEST=<frame>` writes that list once; VK_AMD_buffer_marker is there on NVIDIA's driver too, so it
+`TOTK_DRAW_CRUMBS_TEST=<frame>` writes that list once, with the count of marked dispatches and the last one's line
+(`DRAW_CRUMBS_TEST=<frame>` to `smoke_game.py`, which adds `HWAOI_`); VK_AMD_buffer_marker is there on NVIDIA's driver too, so it
 runs on this PC). Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder
 default) and #22 to #26 (@ripps818: 1440p/4K layout, SMAA, HDR10, FSR 3.1/4, Linux client).
 
