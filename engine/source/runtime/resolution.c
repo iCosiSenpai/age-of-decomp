@@ -256,11 +256,14 @@ static uint64_t pack(unsigned w, unsigned h) { return (uint64_t)h << 32 | w; }
 
 // Set fov, the scene view's projection (main+84acf8; the units' labels): the return address of main+84aa34's frame that
 // marks it (main+1e93e60, after the scene view update's call at main+1e93e5c) and the factor table {factor, 1.0}, 1.0
-// until res_fov_live writes the setting's factor.
+// until res_fov_live writes the setting's factor. The camera update (main+2e74bc) scales only the cameras the battle
+// view updates: the first of its six return addresses (main+1e99bcc; the last is 0x764 after it, in the site's code).
 static void fov_view_page(uint8_t *page) {
     uint64_t scene_view_return = 0x7001e93e60ull;
+    uint64_t battle_view_first = 0x7001e99bccull;
     float view_factor[2] = {1.0f, 1.0f};
     memcpy(page + 0xd0, &scene_view_return, sizeof scene_view_return);
+    memcpy(page + 0xd8, &battle_view_first, sizeof battle_view_first);
     memcpy(page + 0xe0, view_factor, sizeof view_factor);
 }
 
@@ -458,7 +461,8 @@ void res_fov_live(void) {
     }
     float k = pct / 100.0f;
     memcpy((uint8_t *)rt_patch_page() + 60, &k, sizeof k);   // before the switch: a site that sees it on reads k
-    float view_factor[2] = {k, 1.0f};   // the scene view's projection (the units' labels): main+84acf8
+    float view_factor[2] = {k, 1.0f};   // the battle's camera updates (main+2e74bc) and the scene view's projection
+                                        // (the units' labels, main+84acf8)
     memcpy((uint8_t *)rt_patch_page() + 0xe0, view_factor, sizeof view_factor);
     rt_patch_switch(set, pct != 100);
     rt_log("resolution: field of view %d%% of the game's", pct);

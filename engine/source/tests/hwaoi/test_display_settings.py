@@ -265,9 +265,9 @@ class DisplaySettingsTests(unittest.TestCase):
 
     def test_field_of_view_scales_the_angle_where_it_is_read(self):
         # GitHub #21: the camera keeps its vertical view angle at +0x1f1c. Each site keeps the original load, loads the
-        # f32 at page +0x3c (res_fov_live: TOTK_FOV / 100, 1.0 from res_init) into a free register through a scratch
-        # register and multiplies: the camera update's copy for the projection main+2e74bc (ldr s0, [x19, #0x1f1c], x9
-        # and s3) and the frustum main+2cf234 (ldr s0, [x20, #0x1f1c], x8 and s1).
+        # factor (res_fov_live: TOTK_FOV / 100, 1.0 from res_init) into a free register through a scratch register and
+        # multiplies: the frustum main+2cf234 (ldr s0, [x20, #0x1f1c], x8 and s1, the f32 at page +0x3c) and the camera
+        # update's copy for the projection main+2e74bc (ldr s0, [x19, #0x1f1c]) for the battle view's cameras only.
         table = self.table()
         rows = table.for_module("main", 0x7000000000)
         named = {name: env for name, env, _ in table.sets}
@@ -304,7 +304,33 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual(((0x7000000000 + 0x2cf474) & ~0xfff) + (imm << 12), table.page)
         self.assertEqual(words[2], 0xbd400000 | (0x3c // 4) << 10 | 9 << 5 | 16)   # LDR s16, [x9, #0x3c]
         self.assertEqual(words[3], 0x1e200800 | 16 << 16 | 8 << 5 | 8)              # FMUL s8, s8, s16
-        for off, (base, scratch, factor) in {0x2cf234: (20, 8, 1), 0x2e74bc: (19, 9, 3)}.items():
+        # The camera update main+2e74bc: scaled when [[x29] + 8], the return address of the virtual +0x478's frame, is
+        # one of the battle view's six calls (main+1e99bcc at page +0xd8 .. +0x764), without flags: the factor at page
+        # +0xe0 or 1.0 at +0xe4 (the Plus menu's 3D model and the world map have cameras of the same class).
+        k, words, original = table.sites["main"][0x2e74bc]
+        self.assertEqual(original, 0xbd400000 | (0x1f1c // 4) << 10 | 19 << 5)   # LDR s0, [x19, #0x1f1c]
+        words = rows[0x7000000000 + 0x2e74bc][1]
+        self.assertEqual(words[0], original)
+        self.assertEqual((words[1] & 0x9f000000, words[1] & 31), (0x90000000, 9))
+        imm = ((words[1] >> 5) & 0x7ffff) << 2 | (words[1] >> 29) & 3
+        imm -= (1 << 21) if imm & (1 << 20) else 0
+        self.assertEqual(((0x7000000000 + 0x2e74bc) & ~0xfff) + (imm << 12), table.page)
+        self.assertEqual(words[2:], [0xf94003aa, 0xf940054a, 0xf9406d2b,   # ldr x10, [x29]; ldr x10, [x10, #8]; ldr x11, [x9, #0xd8]
+                                     0xcb0b014a, 0xd280ec8c, 0xcb0a018c,   # sub x10, x10, x11; mov x12, #0x764; sub x12, x12, x10
+                                     0xaa0a018c, 0xd37ffd8c, 0x91038129,   # orr x12, x12, x10; lsr x12, x12, #63; add x9, x9, #0xe0
+                                     0xbc6c7931, 0x1e310800])              # ldr s17, [x9, x12, lsl #2]; fmul s0, s0, s17
+        mask = (1 << 64) - 1
+
+        def row(ret):   # the table row those instructions pick for a return address: 0 = the factor, 1 = 1.0
+            d = (ret - 0x7001e99bcc) & mask
+            return ((0x764 - d) & mask | d) >> 63
+        self.assertEqual([row(r) for r in (0x7001e99bcc, 0x7001e99d68, 0x7001e99f50, 0x7001e9a008, 0x7001e9a208,
+                                           0x7001e9a330)], [0] * 6)                     # the battle view's six calls
+        self.assertEqual([row(r) for r in (0x70004f2840, 0x70019cf2e4, 0x7001e99bc8, 0x7001e9a334, 0, mask)],
+                         [1] * 6)                     # the Plus menu, the world map, just outside, nonsense
+        self.assertIn("battle_view_first = 0x7001e99bccull", source)
+        self.assertIn("memcpy(page + 0xd8, &battle_view_first, sizeof battle_view_first);", source)
+        for off, (base, scratch, factor) in {0x2cf234: (20, 8, 1)}.items():
             k, words, original = table.sites["main"][off]
             self.assertEqual(original, 0xbd400000 | (0x1f1c // 4) << 10 | base << 5)     # LDR s0, [x<base>, #0x1f1c]
             words = rows[0x7000000000 + off][1]

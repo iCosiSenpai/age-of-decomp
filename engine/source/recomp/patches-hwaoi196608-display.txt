@@ -176,8 +176,8 @@ site hwaoi_display main 019d4234 f9407b57 b85f43a9 b85f03aa 5119012b 510e114c 2a
 # +0x1f1c and its aspect at +0x1f20. The picture follows the camera update main+2e29e0 (also what the camera's virtual
 # +0x478 runs): it copies the angle into the camera's matrix block at +0x2ff8 (load at main+2e74bc, store at 2e7510; the
 # aspect goes to +0x2ffc), and main+84acd0 builds the projection there from it (the tan of half of it). The virtual +0x4a8
-# hands that block out, and main+2cda00 reads the same copy. The angle times the factor is stored there instead; x9 and
-# s3 are free (x9 is written at main+2e7518 and s3 at 2e7550 before either is read; x8 and s1 are live). The frustum (main+2cf204, a
+# hands that block out, and main+2cda00 reads the same copy. The angle times the factor is stored there instead, for the
+# battle's cameras only (the gate is described below). The frustum (main+2cf204, a
 # virtual of the camera classes: extents from near +0x14 times the tan of the angle, read at main+2cf234 just before its
 # tanf) gets the same factor, so the culling widens with the view; x8 and s1 are free there (both are caller-saved
 # across the tanf call, and the code after it writes s1 before reading it). Tested 2026-11-26 on an RTX 5070 Ti: the
@@ -202,10 +202,23 @@ site hwaoi_display main 019d4234 f9407b57 b85f43a9 b85f03aa 5119012b 510e114c 2a
 # they are equal, and it picks the factor at page +0xe0 or 1.0 at +0xe4. x9..x13 and s17 are free there (a call to
 # tanf comes before any of them is read). Tested 2026-11-27 (RTX 5070 Ti): the labels, the captain's marker and the
 # lock-on ring on their units at 130 % and 70 % in a story battle at 1080p and 2560x1080 and on the training field,
-# live switches too; the picture 0.74-0.75 at 130 %, steady; 100 % as before. Left as it is: at 130 % the Plus menu's
-# 3D model is smaller (the camera sites above do that, not this one).
+# live switches too; the picture 0.74-0.75 at 130 %, steady; 100 % as before.
+# The Plus menu's 3D model has a camera of the same class (vtable main+26ea420) and the same update, so with every
+# update scaled it was drawn smaller at 130 %: test sets on 2026-11-27 showed that the update site alone does that (the
+# frustum and the setter sites change nothing there). The cameras differ in who calls the virtual +0x478 (main+2cf2c0,
+# which locks and runs the update), traced at the update site on 2026-11-27: the battle view main+1e98f9c updates the
+# cameras of a battle (the training field's and a story battle's) from six calls between main+1e99bc8 and main+1e9a32c,
+# the Plus menu from main+4f283c, the title screen and the world map from main+19cf2e0. So the update site scales the
+# angle only when [[x29] + 8], the return address of main+2cf2c0's frame, is one of those six: d = it - main+1e99bcc
+# (the first, page +0xd8), and bit 63 of d | (0x764 - d) is 0 only for 0 <= d <= 0x764 (main+1e9a330, the last); it
+# picks the factor at page +0xe0 or 1.0 at +0xe4, the labels' table. The update's three callers (main+2cf2c0, 2e1bd4,
+# 2e26e0) set up x29; x9..x12 and s17 are free (the scan above; x8 and s1 are live). Tested 2026-11-27 (RTX 5070 Ti):
+# the Plus menu's model at its size at 130 % and 70 % (0.77 at 130 % before); the battle as before (0.74-0.75 at 130 %,
+# 1.47 at 70 %, from the start and live, the labels on their units, 2560x1080 too); the world map, the Gallery and the
+# mission preparation as at 100 %. The real-time scene that opens the story mission "Dove riposa l'antica saggezza"
+# (after its movie) is drawn by the battle's cameras and widens with them (0.75 at 130 %).
 set fov TOTK_FOV_PATCH 0
 site fov main 002cf234 bd5f1e80 bd5f1e80 @page:x8 bd403d01 1e210800
-site fov main 002e74bc bd5f1e60 bd5f1e60 @page:x9 bd403d23 1e230800
+site fov main 002e74bc bd5f1e60 bd5f1e60 @page:x9 f94003aa f940054a f9406d2b cb0b014a d280ec8c cb0a018c aa0a018c d37ffd8c 91038129 bc6c7931 1e310800
 site fov main 002cf474 bd5f2260 bd5f2260 @page:x9 bd403d30 1e300908
 site fov main 0084acf8 bd414a60 bd414a60 @page:x9 f94003aa f940054a f940692b ca0b014c cb0c03ed aa0d018c d37ffd8c 91038129 bc6c7931 1e310800
