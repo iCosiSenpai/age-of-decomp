@@ -27,11 +27,6 @@ keeps your settings and saves.
   right after it. For the Radeon crashes reported by @hellknight0000 (#10) and @benkra66 (#16), and @copy1857's runs
   on a Radeon 8060S (#10).
 
-### Requirements
-- The README now says that the game wants a graphics card with 8 GB of video memory. On a 6 GB card the game's
-  4.6 GB block of graphics data does not fit there and the game runs at about 10 fps. Thanks to @FredericVincent0 for
-  the report and the log (#33).
-
 ## 0.3.5 (2026-11-26)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
