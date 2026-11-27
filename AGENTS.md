@@ -83,6 +83,13 @@ don't read `refs/` trees wholesale; prefer one precise command over exploration.
    catalogue + `py tools/release.py manifest`, keys/exit codes/done marker/`RECOMPLAUNCHER_*` handling never break
    silently, `packaging/prepare-version.txt` is bumped only when players must rebuild, and
    `py tools/recomplauncher_check.py` (level 3, 0 errors) passes before every release.
+10. **A problem gets a real fix, never a workaround in its place** (the maintainer's rule since 2026-11-27). When the
+   cause cannot be fixed with what is in this repository, look for how others solved it before settling: the upstream
+   engine and DKB Recomp, other static recompilations and decompilation projects, emulators (Ryujinx and others),
+   graphics drivers' and SDKs' own sources, documentation and issue trackers. Read them within hard rule 4 (behaviour
+   only for AGPL and proprietary code, credit what is ported). A setting to change or a feature to turn off may be
+   offered to a player until the fix lands, never instead of it, and the problem stays open in `TASKS.md` until it is
+   fixed.
 
 ## Layout
 
