@@ -308,9 +308,18 @@ int cfg_load(const char *path) {
 // romfs-patches-1280x800 overlay the HUD's);
 // fullscreen and vsync, as gamescope composes Game Mode; 40 fps, which divides 40 Hz (and 120 Hz on the OLED).
 // Starting points to replace with measured ones (docs/tester-guide.md, Steam Deck).
+// HWAoI (Age of Decomp): only values its own rows above accept. Its game resolutions are 16:9 presets, so 720p, which
+// fits the 1280x800 screen with bars (ASPECT fit), as OUTPUT_RES=auto picks there; 1280x800 stopped the game at every
+// start with code 70 (resolution.c res_init). Its frame rate is 30 or 60, so the row's 60: 40 played at 60 anyway, and
+// ended the game with code 70 under the experimental frame-rate profile (frame_rate.c limit_parse).
 static const struct { const char *key, *value; } DECK[] = {
+#if RT_TARGET_HWAOI
+    {"FULLSCREEN", "1"}, {"WINDOW_SIZE", "1280x800"}, {"OUTPUT_RES", "1280x720"}, {"RENDER_SCALE", "game"},
+    {"VK_PRESENT", "fifo"},
+#else
     {"FULLSCREEN", "1"}, {"WINDOW_SIZE", "1280x800"}, {"OUTPUT_RES", "1280x800"}, {"RENDER_SCALE", "game"},
     {"VK_PRESENT", "fifo"}, {"FPS_LIMIT", "40"},
+#endif
 };
 static int profile = -1;   // 0 none, 1 Steam Deck
 

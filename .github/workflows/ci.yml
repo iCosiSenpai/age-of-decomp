@@ -28,13 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Check GPU recorder policy, the input focus gate, the save's account and the button pictures without a game
+      - name: Check GPU recorder policy, the input focus gate, the save's account, the Steam Deck profile and the button pictures without a game
         run: |
           sudo apt-get update
           sudo apt-get install -y clang libvulkan-dev
           python3 engine/source/tests/hwaoi/test_amd_recorder_default.py
           python3 engine/source/tests/hwaoi/test_input_focus_gate.py
           python3 engine/source/tests/hwaoi/test_save_identity.py
+          python3 engine/source/tests/hwaoi/test_device_profile.py
           python3 engine/source/tests/hwaoi/test_hud_prompts.py
       - name: Catalogue layout
         run: python3 tools/catalog_fmt.py --check

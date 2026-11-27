@@ -891,7 +891,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_NEEDS_HDR] = "请先开启“HDR 输出”。",
     [UI_MENU_FPS_LIMIT] = "目标帧率",
 #if RT_TARGET_HWAOI
-    [UI_MENU_FPS_LIMIT_DESC] = "90 和 120 FPS 会将游戏速度提高到 1.5 倍和 2 倍，因为游戏每帧推进固定步长。正常速度请选 60 FPS。要让画面更流畅，可以在 60 FPS 基础上使用插帧。",
+    [UI_MENU_FPS_LIMIT_DESC] = "60 FPS 是游戏的正常速度。30 FPS 更省电。",
 #else
     [UI_MENU_FPS_LIMIT_DESC] = "游戏每秒最多绘制的帧数。超过 60 FPS 属于实验功能，并且需要开启按实际时间推进游戏。",
 #endif
