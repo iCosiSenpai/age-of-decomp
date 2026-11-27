@@ -174,8 +174,9 @@ a block-compressed texture's own bytes as `..._blocks.bin`; `TOTK_SWAPCHAIN_TEST
 swapchain is made, to check that case in the log; the recorder thread off on AMD's own driver for every card
 generation and an `sfence` before it publishes its progress (`runtime/vk_rec.c`: `VK_RECORDER=auto|0|1`, catalogue
 `vk_recorder`; the fence is MKW Recomp's pull request #281, the default DKB Recomp's; not run on a Radeon here); a GPU
-breadcrumb per draw for the report of a lost device (`DRAW_CRUMBS=1`, catalogue `draw_crumbs`; `runtime/vk_crumbs.c`
-keeps a note of the last 65536 draws and the report lists the unfinished ones with their shaders;
+breadcrumb per draw and per compute dispatch for the report of a lost device (`DRAW_CRUMBS=1`, catalogue `draw_crumbs`;
+`runtime/vk_crumbs.c` keeps a note of the last 65536 and the report lists the unfinished ones with their shaders; a
+crumb goes before its command, so one that names N for both codes puts the hang in N or right after it;
 `TOTK_DRAW_CRUMBS_TEST=<frame>` writes that list once; VK_AMD_buffer_marker is there on NVIDIA's driver too, so it
 runs on this PC). Imported from upstream pull requests: #20 (@PrimeWalkerVN, AMD RDNA 3 recorder
 default) and #22 to #26 (@ripps818: 1440p/4K layout, SMAA, HDR10, FSR 3.1/4, Linux client).

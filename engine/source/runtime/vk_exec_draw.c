@@ -3184,6 +3184,19 @@ static void draw_crumb(VkExec *ex, int32_t count, uint8_t after, uint32_t sample
     rec_crumb(ex->cb, VK_CRUMB_DRAW, vk_crumbs_draw(&n));
 }
 
+// The crumb of a compute dispatch (draw crumbs on), right before it: groups NULL for an indirect one. Without it a hang
+// in one of the game's compute passes between two draws would be reported as the draw before it (GitHub #10, #16).
+static void dispatch_crumb(VkExec *ex, const int32_t *groups) {
+    VkDrawNote n = {.sub = (uint32_t)((vk_sync_issued() + 1) & 0x0fffffff), .dispatch = groups ? 1 : 2,
+                    .pass = ex->pass_serial, .frame = __atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED) + 1};
+    if (groups)
+        for (int i = 0; i < 3; i++) n.groups[i] = (uint32_t)groups[i];
+    const uint8_t *ctl, *code;
+    uint32_t len;
+    if (ex->prog) n.vs = bound_stage(ex, NVN_STAGE_CS, &ctl, &code, &len) ? nvn2_origin(code) : 0;
+    rec_crumb(ex->cb, VK_CRUMB_DISPATCH, vk_crumbs_draw(&n));
+}
+
 // A one-shot pass that looks like a camera view: a colour and a depth target of 640x360 or more. The Sync Strike's
 // cut-in draws into a new 1600x900 colour + depth pair, and on its first frame each of its draws waited in turn for its
 // shaders and pipeline: 20 new pipelines stopped the game for 3 s (2026-11-22, RTX 5070 Ti). Such waits share
@@ -3848,6 +3861,7 @@ static void op_dispatch(VkExec *ex, const p_dispatch *d) {
     twin_dispatch = 1;
     bind_resources(ex, info);
     twin_dispatch = 0;
+    if (vk_crumbs_draws()) dispatch_crumb(ex, groups);
     vkCmdDispatch(ex->cb, (uint32_t)d->x, (uint32_t)d->y, (uint32_t)d->z);
     ex->recorded++;
     note_work(ex, 2, (uint64_t)d->x * (uint64_t)d->y * (uint64_t)d->z);
@@ -3884,6 +3898,7 @@ static void op_dispatch_ind(VkExec *ex, const p_dispatch_ind *d) {
         vk_exec_barrier(ex);
         B.c0_valid[2] = 0;   // the range no longer holds B.c0[2]
     }
+    if (vk_crumbs_draws()) dispatch_crumb(ex, NULL);
     vkCmdDispatchIndirect(ex->cb, ip.buffer, ip.offset);
     ex->recorded++;
     note_work(ex, 3, 0);
