@@ -150,6 +150,7 @@ void sl_log(sl::LogType type, const char *msg) {
 const char *result_name(sl::Result r) {
     switch (r) {
     case sl::Result::eOk: return "ok";
+    case sl::Result::eWarnOutOfVRAM: return "VRAM budget exceeded";
     case sl::Result::eErrorIO: return "I/O error";
     case sl::Result::eErrorDriverOutOfDate: return "the NVIDIA driver is too old";
     case sl::Result::eErrorOSOutOfDate: return "Windows is too old";
@@ -852,7 +853,16 @@ extern "C" int aod_dlss_evaluate(VkCommandBuffer cb, const AodDlssFrame *f) {
         if (bias_fails++ < 3) rt_log("dlss: the history mask was not taken: %s (%d)", result_name(r), (int)r);
     }
     const sl::BaseStructure *inputs[] = {&g_view_sr};
-    if ((r = sl_evaluate(sl::kFeatureDLSS, *token, inputs, 1, (sl::CommandBuffer *)cb)) != sl::Result::eOk) {
+    r = sl_evaluate(sl::kFeatureDLSS, *token, inputs, 1, (sl::CommandBuffer *)cb);
+    // Streamline 2.14.16 reports this budget warning after a successful evaluation.
+    // Keep the completed output and temporal history. Real evaluation errors still fall back.
+    if (r == sl::Result::eWarnOutOfVRAM) {
+        static bool reported;
+        if (!reported) rt_log("dlss: evaluated successfully above the VRAM budget; using the output");
+        reported = true;
+        return 1;
+    }
+    if (r != sl::Result::eOk) {
         if (fails++ < 5) rt_log("dlss: slEvaluateFeature: %s (%d)", result_name(r), (int)r);
         return 0;
     }
