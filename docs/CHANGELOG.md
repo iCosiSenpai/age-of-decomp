@@ -14,10 +14,18 @@ keeps your settings and saves.
 
 ### Graphics
 - DLSS and DLAA now keep the image they rendered when NVIDIA Streamline warns that the video memory budget was exceeded.
-  Thanks to @satoshi-banjiu for reporting and testing this on an RTX 4060 Laptop GPU.
+  Before, the first warning turned DLSS off for the rest of the session. Thanks to @satoshi-banjiu for the fix and for
+  testing it on an RTX 4060 Laptop GPU (#37).
 - At 3840x2160 the Gallery's Music list showed every title mixed with the others. The game draws those titles through
   one texture of its own, and at that size they no longer fit in it. They are now laid out there at the menus' own
   size and scaled with the rest of the screen. Thanks to @The-Gaymer for the report and the screenshots (#23).
+
+### Diagnostics
+- With *Draw call markers* on, the log of a graphics card that stops answering (code 70) also names the game's compute
+  passes, not only its draws, so a crash in one of them is no longer put on the draw before it. When the card stopped
+  right after a draw, the log no longer says that draw had finished: it says the crash is in that draw or in what came
+  right after it. For the Radeon crashes reported by @hellknight0000 (#10) and @benkra66 (#16), and @copy1857's runs
+  on a Radeon 8060S (#10).
 
 ## 0.3.5 (2026-11-26)
 

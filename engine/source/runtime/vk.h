@@ -84,20 +84,23 @@ void vk_device_fault_report(VkResult r);
 // twice, when the command processor reaches it and when all work before it has finished. After a lost device the two
 // codes bracket the work that hung. Without the extension every call returns at once.
 // VK_CRUMB_QUADS / _QUADS_END bracket a batch of GPU QUADS conversions (vk_quad.c, with draw crumbs only); their
-// number is the draw recorded before the batch.
+// number is the draw or dispatch recorded before the batch. VK_CRUMB_DISPATCH marks the game's compute dispatches with
+// draw crumbs on: they are numbered with the draws, in one sequence.
 enum { VK_CRUMB_SUBMIT = 1, VK_CRUMB_SUBMIT_END, VK_CRUMB_UPLOAD, VK_CRUMB_UPLOAD_END, VK_CRUMB_ASTC, VK_CRUMB_PRESENT,
-       VK_CRUMB_PRESENT_END, VK_CRUMB_DRAW, VK_CRUMB_QUADS, VK_CRUMB_QUADS_END };
+       VK_CRUMB_PRESENT_END, VK_CRUMB_DRAW, VK_CRUMB_QUADS, VK_CRUMB_QUADS_END, VK_CRUMB_DISPATCH };
 void vk_crumbs_init(VkCtx *c);       // after the allocator exists
 void vk_crumbs_release(void);
 // Records crumb kind with number n (a timeline value, a batch number; the low 28 bits are kept) into cb. Only the
 // thread that records cb may call it: never into a replay part while the recorder thread owns it (vk_rec.h).
 void vk_crumb(VkCommandBuffer cb, int kind, uint64_t n);
 void vk_crumbs_report(void);         // logs the two codes and what they name, and with draw crumbs the draws between
-// A crumb per draw (TOTK_DRAW_CRUMBS=1): what one draw is, kept for that report.
+// A crumb per draw and per compute dispatch (TOTK_DRAW_CRUMBS=1): what one of them is, kept for that report.
 typedef struct {
     uint32_t no;                     // the draw's number (vk_crumbs_draw sets it)
     uint32_t sub;                    // the submission it is recorded into (its VK_CRUMB_SUBMIT number)
     uint32_t vertices;
+    uint32_t groups[3];              // a dispatch's work groups; all 0 for an indirect one (the GPU reads them)
+    uint8_t dispatch;                // 0: a draw, 1: a dispatch, 2: an indirect dispatch (vs holds its compute stage)
     uint16_t w, h;                   // the pass's render area
     uint16_t fmt[9];                 // VkFormat of the colour targets 0-7 and of the depth target; 0: none
     uint16_t sampled;                // the pass's targets the fragment shader samples (bit 8: depth), feedback_scan
@@ -105,14 +108,16 @@ typedef struct {
     uint32_t pass;                   // the pass it is in (VkExec.pass_serial)
     uint64_t frame;                  // the frame being drawn
     uint64_t vs, fs;                 // the NVN 2 names of the vertex and the fragment stage (nvn2_origin); 0: not NVN 2
+                                     // (a dispatch: its compute stage in vs)
 } VkDrawNote;
 enum { VK_DRAW_AFTER_FB_BARRIER = 1,   // the by-region feedback barrier (vk_exec_draw.c feedback_barrier)
        VK_DRAW_AFTER_FB_RESTART = 2,   // the pass ended and began again for a feedback loop (feedback_prepare)
        VK_DRAW_AFTER_QUADS = 4,        // a batch of GPU QUADS conversions, which ends the pass (vk_quad.c)
        VK_DRAW_AFTER_NEW_PASS = 8 };   // set by vk_crumbs_draw: the first draw of its pass or submission
 int vk_crumbs_draws(void);                       // 1: draws are marked too
-uint32_t vk_crumbs_draw(const VkDrawNote *n);    // keeps the note and returns the number for the draw's VK_CRUMB_DRAW
-uint32_t vk_crumbs_last_draw(void);              // the number of the newest draw note (0: none yet)
+uint32_t vk_crumbs_draw(const VkDrawNote *n);    // keeps the note and returns the number for its VK_CRUMB_DRAW
+                                                 // (VK_CRUMB_DISPATCH for a dispatch)
+uint32_t vk_crumbs_last_draw(void);              // the number of the newest draw or dispatch note (0: none yet)
 
 // ---- window and present (gfx_present.c). Host threads only.
 // vk_present_image: blits the crop rectangle {x, y, w, h} of src (NULL, or w/h <= 0: the whole w x h image), scaled
