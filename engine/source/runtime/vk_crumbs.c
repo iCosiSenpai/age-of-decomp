@@ -234,8 +234,12 @@ uint32_t vk_crumbs_draw(const VkDrawNote *n) {
         vk_crumbs_report();
         report_draws((uint32_t)VK_CRUMB_DRAW << 28 | draw_no, (uint32_t)VK_CRUMB_DRAW << 28 | (draw_no - 6));
         const VkDrawNote *d = last_dispatch ? note_of(last_dispatch) : NULL;
-        rt_log("vk: GPU breadcrumbs: test: %u dispatch%s marked so far%s", dispatches, dispatches == 1 ? "" : "es",
-               d ? "; the last one:" : "");
+        if (d || !last_dispatch)
+            rt_log("vk: GPU breadcrumbs: test: %u dispatch%s marked so far%s", dispatches, dispatches == 1 ? "" : "es",
+                   d ? "; the last one:" : "");
+        else
+            rt_log("vk: GPU breadcrumbs: test: %u dispatch%s marked so far; the last one, %u, is older than the notes kept",
+                   dispatches, dispatches == 1 ? "" : "es", last_dispatch);
         if (d) draw_line(d);
         test_watch = 100000;
     }
