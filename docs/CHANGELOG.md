@@ -14,7 +14,8 @@ keeps your settings and saves.
 
 ### Graphics
 - DLSS and DLAA now keep the image they rendered when NVIDIA Streamline warns that the video memory budget was exceeded.
-  Thanks to @satoshi-banjiu for reporting and testing this on an RTX 4060 Laptop GPU.
+  Before, the first warning turned DLSS off for the rest of the session. Thanks to @satoshi-banjiu for the fix and for
+  testing it on an RTX 4060 Laptop GPU (#37).
 - At 3840x2160 the Gallery's Music list showed every title mixed with the others. The game draws those titles through
   one texture of its own, and at that size they no longer fit in it. They are now laid out there at the menus' own
   size and scaled with the rest of the screen. Thanks to @The-Gaymer for the report and the screenshots (#23).
