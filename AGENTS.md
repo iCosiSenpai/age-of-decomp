@@ -174,9 +174,17 @@ glyph set, the battle HUD's sheet, the skill wheel's sheet, whose letters are co
 changes; our own drawings and Roboto Medium only; `tests/hwaoi/test_hud_prompts.py` draws them without the game, and
 `TOTK_TEST_PAD=0,0,0,0` gives a real start a gamepad; the rules are in `docs/CONTROLLERS.md`); the 2D layer above
 1080p (`recomp/patches-hwaoi196608-display.txt`, set `hwaoi_ui_canvas`: the game's 2D recorder gets its quads,
-rectangles and lines scaled by the output's width over 1920 (sets `hwaoi_ui_quads`, `hwaoi_ui_shapes`), and the text
+rectangles and lines scaled by the output's height over 1080 (sets `hwaoi_ui_quads`, `hwaoi_ui_shapes`), and the text
 texture the menus share is laid out at the canvas's own scale (set `hwaoi_ui_text`, GitHub #23: main+b2cedc / b2cee4);
-`docs/hwaoi/ui-canvas-notes.md`); `TOTK_DUMP_TEX` writes
+`docs/hwaoi/ui-canvas-notes.md`); 21:9 game resolutions (2560x1080, 3440x1440, 3840x1600; GitHub #8: the canvas is
+1080 high and of the output's shape, `hwaoi_display_canvas`, the map's quads move right by `hwaoi_display_quad_offset`
+at page +0xc0, the HUD stays in the 16:9 middle; 32:9 needs the game's 3840x2160 present texture made wider); the field
+of view (set `fov`, GitHub #21: the factor at page +0x3c times the angle where the frustum reads it, main+2cf234, and in
+the FOV setter, main+2cf474; the camera update's copy for the projection, main+2e74bc, is scaled only for the cameras
+the battle view main+1e98f9c updates (the return address of the update's caller's frame in main+1e99bcc..1e9a330,
+page +0xd8), so the Plus menu's 3D model keeps its size; the units' labels have a projection of their own, scaled at
+main+84acf8 only when the caller's frame returns to the scene view update, page +0xd0; both take {factor, 1.0} at page
++0xe0); `TOTK_DUMP_TEX` writes
 a block-compressed texture's own bytes as `..._blocks.bin`; `TOTK_SWAPCHAIN_TEST=1` resizes the window while its
 swapchain is made, to check that case in the log; the recorder thread off on AMD's own driver for every card
 generation and an `sfence` before it publishes its progress (`runtime/vk_rec.c`: `VK_RECORDER=auto|0|1`, catalogue

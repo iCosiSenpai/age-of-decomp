@@ -66,8 +66,9 @@ static const char *const text_en[UI_TEXT_COUNT] = {
 #if RT_TARGET_HWAOI
     [UI_MENU_OUTPUT_RES_DESC] = "The size the game draws its picture and interface in. Automatic takes your screen's "
                                 "size when the graphics card has the memory for it. Higher sizes use more GPU time and "
-                                "video memory; Upscaling (below) is the lighter way to a sharp 4K picture. The window's "
-                                "size is a separate setting.",
+                                "video memory; Upscaling (below) is the lighter way to a sharp 4K picture. A 21:9 size "
+                                "shows more of the world at the sides, while the HUD and menus stay in the 16:9 middle. "
+                                "The window's size is a separate setting.",
     [UI_MENU_OUTPUT_RES_AUTO] = "Automatic (%u × %u)",
 #else
     [UI_MENU_OUTPUT_RES_DESC] = "The size the game draws its picture and interface in. Above 1920 x 1080 the game needs "
@@ -118,7 +119,11 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_AA_DESC] = "SMAA smooths jagged edges in the final picture at a small GPU cost.",
     [UI_MENU_AA_OFF] = "Off", [UI_MENU_AA_SMAA] = "SMAA",
     [UI_MENU_FOV] = "Field of view",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "How much of the world the camera shows, in percent of the game's own.",
+#else
     [UI_MENU_FOV_DESC] = "How much of the world the camera shows, in percent of the game's own. Game version 1.4.3 only.",
+#endif
     [UI_MENU_SHARPNESS] = "Sharpness",
     [UI_MENU_SHARPNESS_DESC] = "Sharpening after FSR scaling, also used by FSR 4; 0 turns it off.",
     [UI_MENU_COLOR] = "Colour",
@@ -431,10 +436,18 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_PERF_LINE_FPS_GEN] = "%.0f к/с (нарисовано %.0f)",
     [UI_MENU_GRAPHICS] = "Изображение",
     [UI_MENU_OUTPUT_RES] = "Разрешение игры",
+#if RT_TARGET_HWAOI
+    [UI_MENU_OUTPUT_RES_DESC] = "Размер, в котором игра рисует картинку и интерфейс. «Автоматически» берёт размер вашего "
+                                "экрана, если у видеокарты хватает памяти. Большие размеры требуют больше времени GPU и "
+                                "видеопамяти; «Апскейлинг» (ниже) — более лёгкий путь к чёткой картинке 4K. Размер 21:9 "
+                                "показывает больше мира по бокам, а HUD и меню остаются в центральной части 16:9. "
+                                "Размер окна задаётся отдельно.",
+#else
     [UI_MENU_OUTPUT_RES_DESC] = "Размер, в котором игра рисует картинку и интерфейс. Выше 1920 × 1080 игре нужно больше "
                                 "видеопамяти и времени GPU. Более широкий размер (21:9) расширяет обзор камеры и "
                                 "переносит интерфейс в углы экрана, более высокий (16:10, Steam Deck) переносит его к "
                                 "верхнему и нижнему краям.",
+#endif
     [UI_MENU_RENDER_SCALE] = "Масштаб 3D-отрисовки",
     [UI_MENU_RENDER_SCALE_DESC] = "Размер 3D-сцены относительно разрешения игры; FSR игры доводит её до этого размера. "
                                   "Выше 100 % сглаживает лесенки на краях (суперсэмплинг) ценой большой нагрузки на GPU.",
@@ -462,7 +475,11 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_AA_DESC] = "SMAA сглаживает неровные края итоговой картинки при небольшой нагрузке на GPU.",
     [UI_MENU_AA_OFF] = "Выкл.", [UI_MENU_AA_SMAA] = "SMAA",
     [UI_MENU_FOV] = "Поле зрения",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "Сколько мира показывает камера, в процентах от игрового.",
+#else
     [UI_MENU_FOV_DESC] = "Сколько мира показывает камера, в процентах от игрового. Только для версии игры 1.4.3.",
+#endif
     [UI_MENU_SHARPNESS] = "Резкость",
     [UI_MENU_SHARPNESS_DESC] = "Повышение резкости после масштабирования FSR, также для FSR 4; 0 выключает его.",
     [UI_MENU_COLOR] = "Цвет",
@@ -802,7 +819,9 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_GRAPHICS] = "图像",
     [UI_MENU_OUTPUT_RES] = "游戏分辨率",
 #if RT_TARGET_HWAOI
-    [UI_MENU_OUTPUT_RES_DESC] = "同时设置 3D 场景和游戏画面的原生分辨率，重启后生效。1440p 与 4K 属于实验选项，可能增加 GPU 和内存开销。高分辨率下的界面与影片仍待验证。可用下方的 FSR 放大画面。窗口大小可单独设置。",
+    [UI_MENU_OUTPUT_RES_DESC] = "游戏绘制画面与界面的尺寸。“自动”会在显卡显存足够时采用屏幕的尺寸。更高的尺寸会占用更多 "
+                                "GPU 时间和显存；下方的“超分辨率”是获得清晰 4K 画面更省资源的方式。21:9 尺寸会在两侧显示"
+                                "更多场景，HUD 与菜单保持在中间的 16:9 区域。窗口大小可单独设置。",
 #else
     [UI_MENU_OUTPUT_RES_DESC] = "设置游戏画面与界面的绘制尺寸。高于 1920 x 1080 会增加显存与 GPU 开销。21:9 等宽屏比例会扩大视野并将 HUD 移到屏幕角落，16:10 等较高比例会将 HUD 移向上下边缘。",
 #endif
@@ -836,7 +855,11 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_AA_OFF] = "关闭",
     [UI_MENU_AA_SMAA] = "SMAA",
     [UI_MENU_FOV] = "视野范围",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "调整镜头视野相对游戏原版的比例。",
+#else
     [UI_MENU_FOV_DESC] = "调整镜头视野相对游戏原版的比例。仅适用于 1.4.3 版游戏。",
+#endif
     [UI_MENU_SHARPNESS] = "锐化强度",
     [UI_MENU_SHARPNESS_DESC] = "调整 FSR 缩放后的锐化，FSR 4 也使用这个数值。设为 0 可关闭。",
     [UI_MENU_COLOR] = "色彩",
@@ -1291,10 +1314,11 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_PERF_LINE_FPS_GEN] = "%.0f fps (%.0f disegnati)",
     [UI_MENU_GRAPHICS] = "Immagine", [UI_MENU_OUTPUT_RES] = "Risoluzione del gioco",
 #if RT_TARGET_HWAOI
-    [UI_MENU_OUTPUT_RES_DESC] = "Dimensione nativa della scena 3D e dell'immagine del gioco. Riavvia per applicarla. "
-                                "Risoluzioni più alte sono instabili e richiedono più tempo GPU e memoria. "
-                                "Il ridimensionamento di interfaccia e video fuori da 1080p è ancora in adattamento. "
-                                "La dimensione della finestra è separata.",
+    [UI_MENU_OUTPUT_RES_DESC] = "Dimensione a cui il gioco disegna immagine e interfaccia. Automatica usa quella del tuo "
+                                "schermo se la scheda video ha la memoria che serve. Dimensioni maggiori usano più tempo "
+                                "GPU e memoria video; Upscaling (sotto) è il modo più leggero per un'immagine 4K nitida. "
+                                "Una dimensione 21:9 mostra più mondo ai lati, mentre HUD e menu restano nella parte "
+                                "centrale 16:9. La dimensione della finestra è un'impostazione a parte.",
 #else
     [UI_MENU_OUTPUT_RES_DESC] = "Dimensione a cui il gioco disegna immagine e interfaccia. Oltre 1920 x 1080 serve più "
                                 "memoria video e tempo GPU. Un formato più largo (21:9) amplia la visuale e sposta "
@@ -1313,7 +1337,11 @@ static const char *const text_it[UI_TEXT_COUNT] = {
                             "16:9 su uno schermo 21:9, mantiene le proporzioni con bande nere oppure allunga l'immagine.",
     [UI_MENU_ASPECT_FIT] = "Bande nere", [UI_MENU_ASPECT_STRETCH] = "Allunga",
     [UI_MENU_FOV] = "Campo visivo",
+#if RT_TARGET_HWAOI
+    [UI_MENU_FOV_DESC] = "Quanto mondo mostra la telecamera, in percentuale rispetto al gioco originale.",
+#else
     [UI_MENU_FOV_DESC] = "Quanto mondo mostra la telecamera, in percentuale rispetto al gioco originale. Solo versione 1.4.3.",
+#endif
     [UI_MENU_SHARPNESS] = "Nitidezza FSR",
     [UI_MENU_SHARPNESS_DESC] = "Nitidezza dopo il ridimensionamento FSR; 0 la disattiva.",
     [UI_MENU_COLOR] = "Colore", [UI_MENU_COLOR_PRESET] = "Profilo colore",

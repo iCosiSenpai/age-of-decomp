@@ -146,12 +146,13 @@ class DisplaySettingsTests(unittest.TestCase):
 
     def test_ui_canvas_primitive_corners_scale_by_page_factor(self):
         # main+af42dc copies a 2D primitive's four corners (ldp/stp of x8..x11). The patch loads them as two q
-        # registers, multiplies by the f32 at page +0xb8 and stores them; the displaced copies become nops.
+        # registers, multiplies by the f32 at page +0xb8, adds {dx, 0, dx, 0} from page +0xc0 (the corners are placed
+        # for a 1920-wide screen: res_init's hwaoi_display_quad_offset) and stores them; the displaced copies become nops.
         table = self.table()
         rows = table.for_module("main", 0x7000000000)
         words = rows[0x7000000000 + 0xaf42e4][1]
         self.assertEqual(table.sites["main"][0xaf42e4][2], 0xa9402448)
-        ldp, adrp, ldr, mul0, mul1, stp = words
+        ldp, adrp, ldr, ldq, mul0, mul1, add0, add1, stp = words
         self.assertEqual(ldp & 0xffc00000, 0xad400000)                       # LDP q, q, [x2]
         self.assertEqual(((ldp >> 5) & 31, ldp & 31, (ldp >> 10) & 31, (ldp >> 15) & 0x7f), (2, 0, 1, 0))
         self.assertEqual(adrp & 0x9f00001f, 0x90000009)
@@ -160,10 +161,15 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual(((0x7000000000 + 0xaf42e4) & ~0xfff) + (imm << 12), table.page)
         self.assertEqual(ldr & 0xffc00000, 0xbd400000)                       # LDR s, [x9, #imm]
         self.assertEqual(((ldr >> 5) & 31, ldr & 31, ((ldr >> 10) & 0xfff) * 4), (9, 2, 0xb8))
+        self.assertEqual(ldq & 0xffc00000, 0x3dc00000)                       # LDR q3, [x9, #0xc0]
+        self.assertEqual(((ldq >> 5) & 31, ldq & 31, ((ldq >> 10) & 0xfff) * 16), (9, 3, 0xc0))
         for word, reg in ((mul0, 0), (mul1, 1)):                             # FMUL v.4s, v.4s, v2.s[0]
             self.assertEqual(word & 0xffe0fc00, 0x4f809000)
             self.assertEqual((word & 31, (word >> 5) & 31, (word >> 16) & 15, (word >> 11) & 1, (word >> 21) & 1),
                              (reg, reg, 2, 0, 0))
+        for word, reg in ((add0, 0), (add1, 1)):                             # FADD v.4s, v.4s, v3.4s
+            self.assertEqual(word & 0xffe0fc00, 0x4e20d400)
+            self.assertEqual((word & 31, (word >> 5) & 31, (word >> 16) & 31), (reg, reg, 3))
         self.assertEqual(stp & 0xffc00000, 0xad000000)                       # STP q, q, [x1]
         self.assertEqual(((stp >> 5) & 31, stp & 31, (stp >> 10) & 31, (stp >> 15) & 0x7f), (1, 0, 1, 0))
         for off, original in ((0xaf42e8, 0xa9412c4a), (0xaf42ec, 0xa9012c2a), (0xaf42f0, 0xa9002428)):
@@ -257,6 +263,90 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual([shown(1, 16), shown(0, 62)], [1, 0])                                   # Dodge, Special attack
         self.assertEqual([shown(c, 18) for c in (2, 3, 0x0a, 0x3a, 0xff)], [2, 3, 0x0a, 0x3a, 0xff])
 
+    def test_field_of_view_scales_the_angle_where_it_is_read(self):
+        # GitHub #21: the camera keeps its vertical view angle at +0x1f1c. Each site keeps the original load, loads the
+        # factor (res_fov_live: TOTK_FOV / 100, 1.0 from res_init) into a free register through a scratch register and
+        # multiplies: the frustum main+2cf234 (ldr s0, [x20, #0x1f1c], x8 and s1, the f32 at page +0x3c) and the camera
+        # update's copy for the projection main+2e74bc (ldr s0, [x19, #0x1f1c]) for the battle view's cameras only.
+        table = self.table()
+        rows = table.for_module("main", 0x7000000000)
+        named = {name: env for name, env, _ in table.sets}
+        self.assertEqual(named.get("fov"), "TOTK_FOV_PATCH")
+        self.assertNotIn("fov_view", named)
+        fov_sites = sorted(off for off, (k, _, _) in table.sites["main"].items() if table.sets[k][0] == "fov")
+        self.assertEqual(fov_sites, [0x2cf234, 0x2cf474, 0x2e74bc, 0x84acf8])
+        # The scene view's projection (the units' labels): main+84acd0's read of the angle, ldr s0, [x19, #0x148], scaled
+        # when [[x29] + 8] is the return address at page +0xd0, without flags: the factor at page +0xe0 or 1.0 at +0xe4.
+        k, words, original = table.sites["main"][0x84acf8]
+        self.assertEqual(original, 0xbd400000 | (0x148 // 4) << 10 | 19 << 5)
+        words = rows[0x7000000000 + 0x84acf8][1]
+        self.assertEqual(words[0], original)
+        self.assertEqual((words[1] & 0x9f000000, words[1] & 31), (0x90000000, 9))
+        imm = ((words[1] >> 5) & 0x7ffff) << 2 | (words[1] >> 29) & 3
+        imm -= (1 << 21) if imm & (1 << 20) else 0
+        self.assertEqual(((0x7000000000 + 0x84acf8) & ~0xfff) + (imm << 12), table.page)
+        self.assertEqual(words[2:], [0xf94003aa, 0xf940054a, 0xf940692b,   # ldr x10, [x29]; ldr x10, [x10, #8]; ldr x11, [x9, #0xd0]
+                                     0xca0b014c, 0xcb0c03ed, 0xaa0d018c,   # eor x12, x10, x11; neg x13, x12; orr x12, x12, x13
+                                     0xd37ffd8c, 0x91038129, 0xbc6c7931,   # lsr x12, x12, #63; add x9, x9, #0xe0; ldr s17, [x9, x12, lsl #2]
+                                     0x1e310800])                          # fmul s0, s0, s17
+        source = (ROOT / "runtime/resolution.c").read_text(encoding="utf-8")
+        self.assertIn("uint64_t scene_view_return = 0x7001e93e60ull;", source)
+        self.assertGreaterEqual(source.count("fov_view_page("), 3)
+        self.assertIn("float view_factor[2] = {k, 1.0f};", source)
+        # The setter main+2cf3a0: the original reads the aspect (ldr s0, [x19, #0x1f20]) and the angle in s8 is scaled.
+        k, words, original = table.sites["main"][0x2cf474]
+        self.assertEqual(original, 0xbd400000 | (0x1f20 // 4) << 10 | 19 << 5)
+        words = rows[0x7000000000 + 0x2cf474][1]
+        self.assertEqual((len(words), words[0]), (4, original))
+        self.assertEqual((words[1] & 0x9f000000, words[1] & 31), (0x90000000, 9))
+        imm = ((words[1] >> 5) & 0x7ffff) << 2 | (words[1] >> 29) & 3
+        imm -= (1 << 21) if imm & (1 << 20) else 0
+        self.assertEqual(((0x7000000000 + 0x2cf474) & ~0xfff) + (imm << 12), table.page)
+        self.assertEqual(words[2], 0xbd400000 | (0x3c // 4) << 10 | 9 << 5 | 16)   # LDR s16, [x9, #0x3c]
+        self.assertEqual(words[3], 0x1e200800 | 16 << 16 | 8 << 5 | 8)              # FMUL s8, s8, s16
+        # The camera update main+2e74bc: scaled when [[x29] + 8], the return address of the virtual +0x478's frame, is
+        # one of the battle view's six calls (main+1e99bcc at page +0xd8 .. +0x764), without flags: the factor at page
+        # +0xe0 or 1.0 at +0xe4 (the Plus menu's 3D model and the world map have cameras of the same class).
+        k, words, original = table.sites["main"][0x2e74bc]
+        self.assertEqual(original, 0xbd400000 | (0x1f1c // 4) << 10 | 19 << 5)   # LDR s0, [x19, #0x1f1c]
+        words = rows[0x7000000000 + 0x2e74bc][1]
+        self.assertEqual(words[0], original)
+        self.assertEqual((words[1] & 0x9f000000, words[1] & 31), (0x90000000, 9))
+        imm = ((words[1] >> 5) & 0x7ffff) << 2 | (words[1] >> 29) & 3
+        imm -= (1 << 21) if imm & (1 << 20) else 0
+        self.assertEqual(((0x7000000000 + 0x2e74bc) & ~0xfff) + (imm << 12), table.page)
+        self.assertEqual(words[2:], [0xf94003aa, 0xf940054a, 0xf9406d2b,   # ldr x10, [x29]; ldr x10, [x10, #8]; ldr x11, [x9, #0xd8]
+                                     0xcb0b014a, 0xd280ec8c, 0xcb0a018c,   # sub x10, x10, x11; mov x12, #0x764; sub x12, x12, x10
+                                     0xaa0a018c, 0xd37ffd8c, 0x91038129,   # orr x12, x12, x10; lsr x12, x12, #63; add x9, x9, #0xe0
+                                     0xbc6c7931, 0x1e310800])              # ldr s17, [x9, x12, lsl #2]; fmul s0, s0, s17
+        mask = (1 << 64) - 1
+
+        def row(ret):   # the table row those instructions pick for a return address: 0 = the factor, 1 = 1.0
+            d = (ret - 0x7001e99bcc) & mask
+            return ((0x764 - d) & mask | d) >> 63
+        self.assertEqual([row(r) for r in (0x7001e99bcc, 0x7001e99d68, 0x7001e99f50, 0x7001e9a008, 0x7001e9a208,
+                                           0x7001e9a330)], [0] * 6)                     # the battle view's six calls
+        self.assertEqual([row(r) for r in (0x70004f2840, 0x70019cf2e4, 0x7001e99bc8, 0x7001e9a334, 0, mask)],
+                         [1] * 6)                     # the Plus menu, the world map, just outside, nonsense
+        self.assertIn("battle_view_first = 0x7001e99bccull", source)
+        self.assertIn("memcpy(page + 0xd8, &battle_view_first, sizeof battle_view_first);", source)
+        for off, (base, scratch, factor) in {0x2cf234: (20, 8, 1)}.items():
+            k, words, original = table.sites["main"][off]
+            self.assertEqual(original, 0xbd400000 | (0x1f1c // 4) << 10 | base << 5)     # LDR s0, [x<base>, #0x1f1c]
+            words = rows[0x7000000000 + off][1]
+            self.assertEqual(len(words), 4)
+            self.assertEqual(words[0], original)
+            adrp = words[1]
+            self.assertEqual((adrp & 0x9f000000, adrp & 31), (0x90000000, scratch))
+            imm = ((adrp >> 5) & 0x7ffff) << 2 | (adrp >> 29) & 3
+            imm -= (1 << 21) if imm & (1 << 20) else 0
+            self.assertEqual(((0x7000000000 + off) & ~0xfff) + (imm << 12), table.page)
+            self.assertEqual(words[2], 0xbd400000 | (0x3c // 4) << 10 | scratch << 5 | factor)  # LDR s<f>, [x<sc>, #0x3c]
+            self.assertEqual(words[3], 0x1e200800 | factor << 16)                               # FMUL s0, s0, s<f>
+        text = (ROOT / "runtime/resolution.c").read_text(encoding="utf-8")
+        self.assertIn("memcpy((uint8_t *)rt_patch_page() + 60, &k, sizeof k)", text)
+        self.assertGreaterEqual(text.count("memcpy(page + 60, &fov_factor") + text.count("memcpy(own_page + 60, &fov_factor"), 2)
+
     def test_native_presets_and_invalid_forms(self):
         cc = compiler()
         if not cc:
@@ -265,11 +355,22 @@ class DisplaySettingsTests(unittest.TestCase):
 #include <assert.h>
 #include "hwaoi_display.h"
 int main(void) {
- const char *names[]={"1280x720","1920x1080","2560x1440","3840x2160"};
- unsigned widths[]={1280,1920,2560,3840}, heights[]={720,1080,1440,2160};
- unsigned size[2];
- for(unsigned i=0;i<4;i++) { assert(hwaoi_display_size(names[i],size));
-  assert(size[0]==widths[i] && size[1]==heights[i]); }
+ const char *names[]={"1280x720","1920x1080","2560x1440","3840x2160","2560x1080","3440x1440","3840x1600"};
+ unsigned widths[]={1280,1920,2560,3840,2560,3440,3840}, heights[]={720,1080,1440,2160,1080,1440,1600};
+ unsigned canvas_widths[]={1920,1920,1920,1920,2560,2580,2592};   // 1080 high, the output's shape
+ unsigned size[2], canvas[2]; float scale;
+ for(unsigned i=0;i<7;i++) { assert(hwaoi_display_size(names[i],size));
+  assert(size[0]==widths[i] && size[1]==heights[i]);
+  hwaoi_display_canvas(size,canvas,&scale);
+  assert(canvas[0]==canvas_widths[i] && canvas[1]==1080);
+  assert(scale==(float)heights[i]/1080.0f);   // canvas units to pixels, the same on both axes
+  assert(canvas[0]*scale>size[0]-1.0f && canvas[0]*scale<size[0]+1.0f);
+  float dx=hwaoi_display_quad_offset(size,scale), want=i<4?0.0f:(size[0]-1920.0f*scale)/2;   // quads placed for 1920
+  assert(dx>want-0.01f && dx<want+0.01f); }
+ { unsigned uw[2]={2560,1080},uw3[2]={3440,1440}; assert(hwaoi_display_quad_offset(uw,1.0f)==320.0f);
+   float d3=hwaoi_display_quad_offset(uw3,1440.0f/1080.0f); assert(d3>439.9f&&d3<440.1f); }
+ unsigned odd[2]={2561,1080}; hwaoi_display_canvas(odd,canvas,&scale); assert(canvas[0]==2562);   // even widths
+ unsigned none[2]={0,0}; hwaoi_display_canvas(none,canvas,&scale); assert(canvas[0]==1920&&canvas[1]==1080&&scale==1.0f);
  const char *bad[]={0,"","1920X1080","1920x1080extra","3840x2161","5120x1440","-1920x1080"," 1920x1080"};
  for(unsigned i=0;i<sizeof bad/sizeof *bad;i++) {size[0]=111;size[1]=222;
   assert(!hwaoi_display_size(bad[i],size));assert(size[0]==111&&size[1]==222);}

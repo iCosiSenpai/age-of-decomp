@@ -557,18 +557,28 @@ static void list_gpus(VkInstance inst) {
     g_gpu_n = (int)n;
 }
 
-// Window sizes: the common 16:9 sizes that fit the monitor, the 1920x1080 default and the current size.
+// Window sizes: the common 16:9 sizes that fit the monitor, the 1920x1080 default and the current size; on a monitor
+// wider than 16:9 also the 21:9 sizes that fit it (kWide), for a 21:9 game resolution in a window.
 static const int kSizes[][2] = {{1280, 720}, {1366, 768}, {1600, 900}, {1920, 1080}, {2560, 1440}, {3200, 1800},
                                 {3840, 2160}};
-enum { MAX_SIZES = sizeof kSizes / sizeof *kSizes + 1 };
+static const int kWide[][2] = {{1720, 720}, {2560, 1080}, {3440, 1440}, {3840, 1600}};
+enum { MAX_SIZES = sizeof kSizes / sizeof *kSizes + sizeof kWide / sizeof *kWide + 1 };
 
 static void row_window_size(void) {
     int sz[MAX_SIZES][2], n = 0, mw = 0, mh = 0, cw = 0, ch = 0;
     int have = gfx_window_monitor_size(&mw, &mh);
     int cur_ok = sscanf(cfg_value("TOTK_WINDOW_SIZE"), "%dx%d", &cw, &ch) == 2;
-    bool listed = false;
-    for (size_t i = 0; i < sizeof kSizes / sizeof *kSizes; i++) {
-        int w = kSizes[i][0], h = kSizes[i][1];
+    bool listed = false, wide = have && (long)mw * 9 > (long)mh * 16 * 21 / 20;   // 5 % wider than 16:9
+    int cand[MAX_SIZES][2], nc = 0;   // the 16:9 sizes, then the 21:9 ones on a wide monitor, in area order
+    for (size_t i = 0; i < sizeof kSizes / sizeof *kSizes; i++) cand[nc][0] = kSizes[i][0], cand[nc][1] = kSizes[i][1], nc++;
+    for (size_t i = 0; wide && i < sizeof kWide / sizeof *kWide; i++) {
+        int at = nc;
+        while (at > 0 && (long)cand[at - 1][0] * cand[at - 1][1] > (long)kWide[i][0] * kWide[i][1]) at--;
+        memmove(cand[at + 1], cand[at], sizeof cand[0] * (nc - at));
+        cand[at][0] = kWide[i][0], cand[at][1] = kWide[i][1], nc++;
+    }
+    for (int i = 0; i < nc; i++) {
+        int w = cand[i][0], h = cand[i][1];
         bool cur = cur_ok && w == cw && h == ch;
         if (have && (w > mw || h > mh) && !cur && !(w == 1920 && h == 1080)) continue;
         listed |= cur;
@@ -611,13 +621,16 @@ static void row_window_size(void) {
 static void row_output_res(void) {
     if (RT_TARGET_HWAOI) {
         // auto: the screen's size as far as the graphics card's memory allows (resolution.c); the row names what it is
-        static const char *const vals[] = {"auto", "1280x720", "1920x1080", "2560x1440", "3840x2160"};
+        // and the 21:9 monitor sizes (hwaoi_display.h): the camera shows more at the sides, the interface keeps its shape
+        static const char *const vals[] = {"auto", "1280x720", "1920x1080", "2560x1440", "3840x2160",
+                                           "2560x1080", "3440x1440", "3840x1600"};
         static char automatic[64];
         unsigned a[2];
         res_auto_size(a);
         snprintf(automatic, sizeof automatic, menu_text(UI_MENU_OUTPUT_RES_AUTO), a[0], a[1]);
-        const char *names[] = {automatic, "1280 × 720", "1920 × 1080", "2560 × 1440", "3840 × 2160"};
-        opt_choice_list("TOTK_OUTPUT_RES", UI_MENU_OUTPUT_RES, vals, names, 5, UI_MENU_OUTPUT_RES_DESC);
+        const char *names[] = {automatic, "1280 × 720", "1920 × 1080", "2560 × 1440", "3840 × 2160",
+                               "2560 × 1080 (21:9)", "3440 × 1440 (21:9)", "3840 × 1600 (21:9)"};
+        opt_choice_list("TOTK_OUTPUT_RES", UI_MENU_OUTPUT_RES, vals, names, 8, UI_MENU_OUTPUT_RES_DESC);
         return;
     }
     static const char *const vals[] = {"1280x720", "1600x900", "1920x1080", "2560x1440", "3200x1800", "3840x2160",

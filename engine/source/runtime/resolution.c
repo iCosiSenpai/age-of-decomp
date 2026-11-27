@@ -61,7 +61,9 @@ static struct {
 // HWAoI: what OUTPUT_RES=auto gives on this PC: the preset of the screen's size, held back by the graphics card's
 // memory, since the render targets and the texture pool grow with the picture (2560x1440 with DLAA used about
 // 8.4 GiB of video memory on a 16 GiB card). 2560x1440 wants a discrete card with 12 GiB, 3840x2160 one with
-// 16 GiB; a screen smaller than 1920x1080 gets 1280x720; everything else 1920x1080, the game's own. Found once: the
+// 16 GiB; a 21:9 screen of a preset's size gets that preset with the memory of the next 16:9 size above its pixel
+// count (2560x1080 as 2560x1440, 3440x1440 and 3840x1600 as 3840x2160), else what a 16:9 screen of its height gets;
+// a screen smaller than 1920x1080 gets 1280x720; everything else 1920x1080, the game's own. Found once: the
 // allocations are made at start.
 static const char *auto_output(void) {
     static char pick[16];
@@ -70,7 +72,11 @@ static const char *auto_output(void) {
     uint64_t mib = 0;
     int card = vk_probe_memory(&mib, &discrete);
     const char *p = "1920x1080";
+    int wide21 = screen && ((w == 2560 && h == 1080) || (w == 3440 && h == 1440) || (w == 3840 && h == 1600));
     if (screen && (w < 1920 || h < 1080)) p = "1280x720";
+    else if (wide21 && w == 2560 && card && discrete && mib >= 11000) p = "2560x1080";
+    else if (wide21 && w == 3440 && card && discrete && mib >= 15000) p = "3440x1440";
+    else if (wide21 && w == 3840 && card && discrete && mib >= 15000) p = "3840x1600";
     else if (screen && w >= 3840 && h >= 2160 && card && discrete && mib >= 15000) p = "3840x2160";
     else if (screen && w >= 2560 && h >= 1440 && card && discrete && mib >= 11000) p = "2560x1440";
     snprintf(pick, sizeof pick, "%s", p);
@@ -248,6 +254,19 @@ void res_heapdef_served(void) { R.heapdef_ok = 1; }
 // ---- start: the patch page and the sets
 static uint64_t pack(unsigned w, unsigned h) { return (uint64_t)h << 32 | w; }
 
+// Set fov, the scene view's projection (main+84acf8; the units' labels): the return address of main+84aa34's frame that
+// marks it (main+1e93e60, after the scene view update's call at main+1e93e5c) and the factor table {factor, 1.0}, 1.0
+// until res_fov_live writes the setting's factor. The camera update (main+2e74bc) scales only the cameras the battle
+// view updates: the first of its six return addresses (main+1e99bcc; the last is 0x764 after it, in the site's code).
+static void fov_view_page(uint8_t *page) {
+    uint64_t scene_view_return = 0x7001e93e60ull;
+    uint64_t battle_view_first = 0x7001e99bccull;
+    float view_factor[2] = {1.0f, 1.0f};
+    memcpy(page + 0xd0, &scene_view_return, sizeof scene_view_return);
+    memcpy(page + 0xd8, &battle_view_first, sizeof battle_view_first);
+    memcpy(page + 0xe0, view_factor, sizeof view_factor);
+}
+
 void res_init(void) {
     if (RT_TARGET_HWAOI) {
         int display = rt_patch_set("hwaoi_display");
@@ -255,8 +274,8 @@ void res_init(void) {
             unsigned size[2], scene[2];
             const char *value = output_setting();
             if (!hwaoi_display_dimensions(value, cfg_get("TOTK_SCENE_RES"), size, scene))
-                rt_fatal("resolution: HWAoI OUTPUT_RES=%s unsupported; choose auto, 1280x720, 1920x1080, 2560x1440 or "
-                         "3840x2160", value);
+                rt_fatal("resolution: HWAoI OUTPUT_RES=%s unsupported; choose auto, 1280x720, 1920x1080, 2560x1440, "
+                         "3840x2160, 2560x1080, 3440x1440 or 3840x1600", value);
             // Temporal upscaling: the scene below the output by HWAOI_FSR_QUALITY, scaled back by FSR in place of the
             // game's FSR 1 EASU (vk_temporal.c). An explicit SCENE_RES wins. The pool plan stays the output's
             // (res_heap_extra_bytes), which a smaller scene never exceeds.
@@ -312,15 +331,26 @@ void res_init(void) {
                 rt_fatal("resolution: enlarged native scene requires a larger application pool; remove the APP_POOL override");
             memcpy(page + 0x98, &texture_pool, sizeof texture_pool);
             memcpy(page + 0xa0, &texture_parent, sizeof texture_parent);
-            uint64_t canvas = pack(1920, 1080);   // set hwaoi_ui_canvas: the screen cameras frame the game's 2D canvas
+            // set hwaoi_ui_canvas: the screen cameras frame the game's 2D canvas, 1080 high and of the output's shape;
+            // +0xb8 turns canvas units into output pixels (2D primitive corners)
+            unsigned canvas_size[2];
+            float canvas_scale;
+            hwaoi_display_canvas(size, canvas_size, &canvas_scale);
+            uint64_t canvas = pack(canvas_size[0], canvas_size[1]);
             memcpy(page + 0xa8, &canvas, sizeof canvas);
-            float canvas_scale = (float)size[0] / 1920.0f;   // canvas units to output pixels (2D primitive corners)
             memcpy(page + 0xb8, &canvas_scale, sizeof canvas_scale);
+            // set hwaoi_ui_quads: the quads' corners, placed by the game for a 1920-wide screen, move right by half the
+            // canvas's extra width (x of both corner pairs; 0 at 16:9)
+            float dx = hwaoi_display_quad_offset(size, canvas_scale), quad_offset[4] = {dx, 0.0f, dx, 0.0f};
+            memcpy(page + 0xc0, quad_offset, sizeof quad_offset);
+            float fov_factor = 1.0f;   // set fov reads it from the start; res_fov_live writes the setting's factor
+            memcpy(page + 60, &fov_factor, sizeof fov_factor);
+            fov_view_page(page);
             if (application_extra)
                 rt_log("resolution: experimental texture pool %llu MiB, matching parent %llu MiB plus bookkeeping",
                        (unsigned long long)(texture_pool >> 20), (unsigned long long)(texture_parent >> 20));
-            rt_log("resolution: HWAoI native output %ux%u, scene %ux%u; restart required to change allocations",
-                   R.ow, R.oh, R.sw, R.sh);
+            rt_log("resolution: HWAoI native output %ux%u, scene %ux%u, 2D canvas %ux%u, 2D quads +%.0f px; restart "
+                   "required to change allocations", R.ow, R.oh, R.sw, R.sh, canvas_size[0], canvas_size[1], dx);
             return;
         }
         // Set hwaoi_ui_canvas reads the canvas and its scale from the page whatever the 3D resolution is: at the game's
@@ -331,6 +361,11 @@ void res_init(void) {
             float canvas_scale = 1.0f;
             memcpy(own_page + 0xa8, &canvas, sizeof canvas);
             memcpy(own_page + 0xb8, &canvas_scale, sizeof canvas_scale);
+            float quad_offset[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            memcpy(own_page + 0xc0, quad_offset, sizeof quad_offset);
+            float fov_factor = 1.0f;
+            memcpy(own_page + 60, &fov_factor, sizeof fov_factor);
+            fov_view_page(own_page);
         }
         int native = rt_patch_set("hwaoi_native1080");
         const char *requested = cfg_get("TOTK_NATIVE_1080");
@@ -407,9 +442,10 @@ int res_wants_wide_overlay(const unsigned out[2]) {
 }
 
 // Field of view (TOTK_FOV, percent of the game's own, 70..140, live): the camera's vertical view angle times the
-// factor on page +60 (recomp/patches-v143.txt, set fov). The horizontal angle follows through the aspect ratio. 100
-// switches the set off, so the camera code is the game's own. Runs on a settings change (gfx_present.c
-// window_settings_live), the first time at the first present.
+// factor on page +60 (set fov: recomp/patches-v143.txt for TotK 1.4.3, recomp/patches-hwaoi196608-display.txt for
+// HWAoI, where res_init puts 1.0 there first). The horizontal angle follows through the aspect ratio. 100 switches the
+// set off, so the camera code is the game's own. Runs on a settings change (gfx_present.c window_settings_live), the
+// first time at the first present.
 #define FOV_MIN 70
 #define FOV_MAX 140
 void res_fov_live(void) {
@@ -425,6 +461,9 @@ void res_fov_live(void) {
     }
     float k = pct / 100.0f;
     memcpy((uint8_t *)rt_patch_page() + 60, &k, sizeof k);   // before the switch: a site that sees it on reads k
+    float view_factor[2] = {k, 1.0f};   // the battle's camera updates (main+2e74bc) and the scene view's projection
+                                        // (the units' labels, main+84acf8)
+    memcpy((uint8_t *)rt_patch_page() + 0xe0, view_factor, sizeof view_factor);
     rt_patch_switch(set, pct != 100);
     rt_log("resolution: field of view %d%% of the game's", pct);
 }

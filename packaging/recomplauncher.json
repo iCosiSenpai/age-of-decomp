@@ -127,7 +127,7 @@
     {
       "id": "output_res",
       "label": "Game resolution",
-      "help": "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p, 16 GB for 4K. A size your card has too little memory for can stop the game while it loads.",
+      "help": "The size the game draws its picture in. Automatic takes your screen's size when a dedicated graphics card has the memory for it: 12 GB for 1440p and 2560 × 1080, 16 GB for 4K, 3440 × 1440 and 3840 × 1600. A 21:9 size shows more of the world at the sides, while the HUD and menus stay in the 16:9 middle. A size your card has too little memory for can stop the game while it loads.",
       "group": "Display",
       "choices": [
         {
@@ -158,6 +158,24 @@
           "label": "4K",
           "set": {
             "output_res": "3840x2160"
+          }
+        },
+        {
+          "label": "2560 × 1080 (21:9)",
+          "set": {
+            "output_res": "2560x1080"
+          }
+        },
+        {
+          "label": "3440 × 1440 (21:9)",
+          "set": {
+            "output_res": "3440x1440"
+          }
+        },
+        {
+          "label": "3840 × 1600 (21:9)",
+          "set": {
+            "output_res": "3840x1600"
           }
         }
       ],
@@ -216,6 +234,18 @@
           "label": "2560 × 1440",
           "set": {
             "window_size": "2560x1440"
+          }
+        },
+        {
+          "label": "2560 × 1080",
+          "set": {
+            "window_size": "2560x1080"
+          }
+        },
+        {
+          "label": "3440 × 1440",
+          "set": {
+            "window_size": "3440x1440"
           }
         }
       ],
@@ -531,7 +561,7 @@
     {
       "id": "aspect",
       "label": "Picture shape",
-      "help": "The game's picture is 16:9. On a screen of another shape, keep it with black bars or stretch it over the whole window. On a 16:9 screen the two look the same.",
+      "help": "When the game resolution and the screen have different shapes (a 16:9 picture on a 21:9 screen), keep the picture's shape with black bars or stretch it over the whole window. When they have the same shape the two look the same.",
       "group": "Display",
       "choices": [
         {
@@ -549,6 +579,22 @@
       ],
       "defaults": {
         "aspect": "fit"
+      }
+    },
+    {
+      "id": "fov",
+      "label": "Field of view",
+      "help": "How much of the world the camera shows, in percent of the game's own.",
+      "group": "Display",
+      "slider": {
+        "key": "fov",
+        "min": 70,
+        "max": 140,
+        "step": 5,
+        "format": "%.0f"
+      },
+      "defaults": {
+        "fov": "100"
       }
     },
     {

@@ -19,6 +19,14 @@ keeps your settings and saves.
 - At 3840x2160 the Gallery's Music list showed every title mixed with the others. The game draws those titles through
   one texture of its own, and at that size they no longer fit in it. They are now laid out there at the menus' own
   size and scaled with the rest of the screen. Thanks to @The-Gaymer for the report and the screenshots (#23).
+- Game resolutions for 21:9 screens: 2560 × 1080, 3440 × 1440 and 3840 × 1600. Battles show more of the world at the
+  sides, not stretched; the HUD and the menus keep their shape and stay in the 16:9 middle, and movies have black bars
+  at the sides. Automatic picks them on a 21:9 screen of that size when a dedicated graphics card has the memory: 12 GB
+  for 2560 × 1080, 16 GB for the other two. The window size list has 2560 × 1080 and 3440 × 1440 too. 32:9 screens are
+  not supported yet. Thanks to @ahmadsultan1990 for the request (#8).
+- Field of view: a new setting (Display in the launcher, Picture in the game's menu) from 70 % to 140 % of the game's
+  own view in battle. The names and markers over the units stay on them, and the character model in the Plus menu keeps
+  its size. Thanks to @The-Gaymer for the request (#21).
 
 ### Diagnostics
 - With *Draw call markers* on, the log of a graphics card that stops answering (code 70) also names the game's compute

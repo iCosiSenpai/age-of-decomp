@@ -13,10 +13,15 @@ static inline int hwaoi_native_wanted(const char *native_1080, const char *rende
     return !render_scale || strcmp(render_scale, "game") != 0;
 }
 
+// The game resolutions: 16:9 from 1280x720 to 3840x2160, and the 21:9 monitor sizes (GitHub #8). Every one fits in the
+// 3840x2160 texture the game presents from (its window crop is the output), and the camera takes the scene's own shape
+// (the renderer's +0x664 / +0x668), so a wider output shows more of the world at the sides; the 2D canvas follows the
+// output's shape at a height of 1080 (hwaoi_display_canvas), so the interface keeps its proportions.
 static inline int hwaoi_display_size(const char *value, unsigned size[2]) {
     static const struct { const char *name; unsigned w, h; } presets[] = {
         {"1280x720", 1280, 720}, {"1920x1080", 1920, 1080},
         {"2560x1440", 2560, 1440}, {"3840x2160", 3840, 2160},
+        {"2560x1080", 2560, 1080}, {"3440x1440", 3440, 1440}, {"3840x1600", 3840, 1600},
     };
     for (unsigned i = 0; i < sizeof presets / sizeof *presets; i++) {
         if (value && !strcmp(value, presets[i].name)) {
@@ -35,6 +40,24 @@ static inline int hwaoi_display_dimensions(const char *output, const char *scene
     if (scene_override && (!hwaoi_display_size(scene_override, s) || s[0] > o[0] || s[1] > o[1])) return 0;
     out[0] = o[0]; out[1] = o[1]; scene[0] = s[0]; scene[1] = s[1];
     return 1;
+}
+
+// The 2D canvas the game lays its interface out on (set hwaoi_ui_canvas, page +0xa8) and the factor from canvas units to
+// output pixels (page +0xb8): 1080 units high and as wide as the output's shape, so 1920x1080 at every 16:9 size and
+// 2560x1080 at 2560x1080 or 2580x1080 at 3440x1440. Its screen cameras frame the whole canvas and one factor scales
+// both axes, so nothing is stretched; the game's layouts, the battle HUD's too, stay in the 16:9 middle of a wider
+// canvas (seen at 2560x1080, 3440x1440 and 3840x1600 on 2026-11-26). Even widths only.
+static inline void hwaoi_display_canvas(const unsigned out[2], unsigned canvas[2], float *scale) {
+    canvas[1] = 1080;
+    canvas[0] = out[1] ? ((unsigned)(((uint64_t)out[0] * 1080 + out[1] / 2) / out[1]) + 1) & ~1u : 1920;
+    *scale = out[1] ? (float)out[1] / 1080.0f : 1.0f;
+}
+
+// The 2D recorder's quads (the map's icons) are placed for a 1920-wide screen: on a wider canvas they move right by half
+// the extra width, in output pixels (page +0xc0, set hwaoi_ui_quads). 0 at every 16:9 size.
+static inline float hwaoi_display_quad_offset(const unsigned out[2], float scale) {
+    float dx = ((float)out[0] - 1920.0f * scale) / 2.0f;
+    return dx > 0.5f ? dx : 0.0f;
 }
 
 // The scene for the temporal upscaler (HWAOI_TEMPORAL=fsr, HWAOI_FSR_QUALITY): the output divided by 1.5 (quality),

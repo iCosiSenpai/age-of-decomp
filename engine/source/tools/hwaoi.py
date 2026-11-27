@@ -108,14 +108,14 @@ def display_profile(exefs):
             continue
         need(6 <= len(fields) <= 18 and fields[0] == "site"
              and fields[1] in ("hwaoi_display", "hwaoi_ui_canvas", "hwaoi_ui_quads", "hwaoi_ui_shapes",
-                               "hwaoi_ui_text", "hwaoi_confirm")
+                               "hwaoi_ui_text", "hwaoi_confirm", "fov")
              and fields[2] == "main", "display profile: unexpected patch entry")
         address, original = int(fields[3], 16), int(fields[4], 16)
         need(address not in sites, "display profile: duplicate site")
         need(struct.unpack("<I", module.code(address, 4))[0] == original,
              f"display profile: instruction mismatch at main+{address:#x}")
         sites.add(address)
-    need(len(sites) == 56, "display profile must contain the 56 verified sites")
+    need(len(sites) == 60, "display profile must contain the 60 verified sites")
     return patch
 
 
@@ -434,7 +434,7 @@ def build_parser():
     launch.add_argument("--no-captures", action="store_true", help="disable automatic diagnostic screenshots for normal play")
     launch.add_argument("--scene-sharpness", type=scene_sharpness, help="experimental 3D sharpening strength 0..100, or game for original parameters (default)")
     launch.add_argument("--experimental-rate-control", action="store_true", help="opt-in unqualified 30/60/90/120 presentation-rate experiments")
-    launch.add_argument("--resolution", choices=("1280x720", "1920x1080", "2560x1440", "3840x2160"), help="native game resolution; non-1080p modes remain experimental; requires display-settings generation")
+    launch.add_argument("--resolution", choices=("1280x720", "1920x1080", "2560x1440", "3840x2160", "2560x1080", "3440x1440", "3840x1600"), help="native game resolution; non-1080p modes remain experimental; requires display-settings generation")
     launch.add_argument("--fps", choices=("30", "60", "90", "120"), help="presentation target; 90/120 remain experimental")
     launch.add_argument("--input-script", type=Path, help="opt-in startup diagnostic script under work/reports")
     launch.add_argument("--profile-dir", type=Path, default=ROOT / "work/saves/hwaoi196608", help="local save profile under work/saves")

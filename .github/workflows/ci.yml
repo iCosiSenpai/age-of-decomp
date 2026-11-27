@@ -83,10 +83,16 @@ jobs:
         working-directory: crates/aod-nup
 
   launcher:
+    # The check keeps its name; the Linux runner is pinned to 24.04: on 2026-11-27 ubuntu-latest (26.04) read only
+    # Microsoft's repository in apt-get update, and the WebKitGTK packages below were not found.
+    name: launcher (${{ matrix.os }})
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - os: ubuntu-latest
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner || matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
