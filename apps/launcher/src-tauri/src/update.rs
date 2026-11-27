@@ -181,6 +181,7 @@ pub fn stage(mut progress: impl FnMut(f64)) -> Result<(), String> {
     let (release, version) = newest(&list).ok_or("No compatible release is available")?;
     if version <= Version::parse(crate::VERSION).map_err(|e| e.to_string())? { return Err("The compiler is already up to date.".into()); }
     let asset = release.assets.iter().find(|a| a.name == asset_name(&release.tag_name)).unwrap();
+    remove_finished_stages(&destination);
     let stage = destination.join(format!(".aod-update-{}-{}", crate::paths::stamp(), std::process::id()));
     fs::create_dir(&stage).map_err(|e| format!("Cannot write the update beside the compiler ({e})"))?;
     let started = (|| -> Result<(), String> {
@@ -202,6 +203,27 @@ pub fn stage(mut progress: impl FnMut(f64)) -> Result<(), String> {
         let _ = fs::remove_dir_all(&stage);   // the download and whatever was unpacked, not left beside the launcher
     }
     started
+}
+
+/// What `apply` writes into a staging folder's `result.log` when nothing in it is needed any more: the update went in
+/// (its `backup` holds the release before it), or another start had already installed it (only `new` was left).
+const INSTALLED: &str = "Update installed";
+const ALREADY_INSTALLED: &str = "Already installed";
+
+/// Removes the staging folders of earlier updates that ended well. Each one keeps the whole release it replaced in
+/// `backup` (0.3.5's Windows release is 807 MiB unpacked), and nothing else ever removed them, so every update left one
+/// more beside the launcher. Called when the next update starts: the last one stays until then, for a manual rollback.
+/// A folder whose update failed (its backup may hold files a rollback could not put back), one still at work (no
+/// `result.log` yet) and anything that is not a plain folder named `.aod-update-…` are left alone.
+fn remove_finished_stages(destination: &Path) {
+    for entry in fs::read_dir(destination).into_iter().flatten().flatten() {
+        let done = entry.file_name().to_str().is_some_and(|n| n.starts_with(".aod-update-") && n != ".aod-update.lock")
+            && entry.file_type().is_ok_and(|t| t.is_dir() && !t.is_symlink())
+            && fs::read_to_string(entry.path().join("result.log")).is_ok_and(|r| r == INSTALLED || r == ALREADY_INSTALLED);
+        if done {
+            let _ = fs::remove_dir_all(entry.path());
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -281,13 +303,16 @@ pub fn apply(stage: &Path) -> Result<(), String> {
     let _lock = install_lock(&destination)?;
     let candidate = installed_version(&stage.join("new"))?;
     if installed_version(&destination).is_ok_and(|current| current >= candidate) {
-        // Another instance already installed this release or a newer one while this package downloaded.
+        // Another instance already installed this release or a newer one while this package downloaded: the unpacked
+        // package goes, and the next update removes the rest of the folder (remove_finished_stages).
+        let _ = fs::remove_dir_all(stage.join("new"));
+        let _ = fs::write(stage.join("result.log"), ALREADY_INSTALLED);
         Command::new(destination.join("AgeOfDecomp.exe")).current_dir(&destination).spawn().map_err(|e| e.to_string())?;
         return Ok(());
     }
     let result = swap(&stage, &destination);
     // Only a record: the launcher must start again whether or not it can be written (a full drive).
-    let _ = fs::write(stage.join("result.log"), match &result { Ok(()) => "Update installed".into(), Err(e) => e.clone() });
+    let _ = fs::write(stage.join("result.log"), match &result { Ok(()) => INSTALLED.into(), Err(e) => e.clone() });
     let mut restart = Command::new(destination.join("AgeOfDecomp.exe"));
     restart.current_dir(&destination).env_remove("AOD_UPDATE_ERROR");
     if let Err(error) = &result { restart.env("AOD_UPDATE_ERROR", error); }
@@ -326,6 +351,31 @@ mod tests {
         assert_eq!(fs::read_to_string(stage.join("backup/AgeOfDecomp.exe")).unwrap(), "old");
         assert_eq!(fs::read_to_string(dest.join("game.nup")).unwrap(), "player data");
         fs::remove_dir_all(stage).unwrap();
+    }
+
+    #[test]
+    fn a_new_update_removes_only_the_staging_folders_of_updates_that_ended_well() {
+        let dest = std::env::temp_dir().join(format!("aod-stages-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dest);
+        let stage = |name: &str, result: Option<&str>| {
+            let dir = dest.join(name);
+            fs::create_dir_all(dir.join("backup/engine")).unwrap();
+            fs::write(dir.join("backup/engine/bundle.json"), "{}").unwrap();
+            if let Some(r) = result { fs::write(dir.join("result.log"), r).unwrap(); }
+            dir
+        };
+        let installed = stage(".aod-update-100-1", Some(INSTALLED));
+        let already = stage(".aod-update-101-2", Some(ALREADY_INSTALLED));
+        let failed = stage(".aod-update-102-3", Some("Update failed (access denied). Rollback errors: []. Backup: x"));
+        let running = stage(".aod-update-103-4", None);
+        let player = stage("saves", Some(INSTALLED));
+        fs::write(dest.join(".aod-update.lock"), "").unwrap();
+        remove_finished_stages(&dest);
+        assert!(!installed.exists() && !already.exists());
+        assert!(failed.join("backup/engine/bundle.json").is_file(), "a failed update keeps its backup");
+        assert!(running.join("backup").is_dir(), "an update still at work is left alone");
+        assert!(player.join("result.log").is_file() && dest.join(".aod-update.lock").is_file());
+        fs::remove_dir_all(dest).unwrap();
     }
 
     #[cfg(windows)]

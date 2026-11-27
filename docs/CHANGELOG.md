@@ -12,6 +12,22 @@ logs to find and fix problems: please report what you see, with the newest `game
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
 keeps your settings and saves.
 
+### Steam Deck
+- On a Steam Deck, or with *Device profile* set to *Steam Deck*, the game stopped at every start with code 70 unless a
+  game resolution had been chosen: the profile asked for 1280 × 800, which is not one of Age of Decomp's game
+  resolutions. It now gives 720p, which the Deck's screen shows with black bars above and below, as *Automatic* does
+  there. It also no longer asks for 40 FPS, which plays at 60 anyway and stopped the game with the experimental
+  frame-rate profile. Found in a code audit; not run on a Steam Deck here.
+
+### Launcher
+- Every update installed from *System → Updates* left the whole previous version beside the launcher, about 800 MB
+  each time, in a hidden `.aod-update-…` folder. The next update now removes the folders of updates that went in,
+  so only the version before the one you play is kept.
+
+### In-game menu
+- In Simplified Chinese, the frame rate's description spoke of 90 and 120 FPS, which the menu does not offer. It now
+  says what the English one says: 60 FPS is the game's normal speed, 30 FPS saves power.
+
 ### Graphics
 - At 3840x2160 the Gallery's Music list showed every title mixed with the others. The game draws those titles through
   one texture of its own, and at that size they no longer fit in it. They are now laid out there at the menus' own

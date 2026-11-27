@@ -80,10 +80,9 @@ class CompilerFrontendTests(unittest.TestCase):
     TOOL = "bin/ninja.exe" if os.name == "nt" else "translator/totk_xlate"
 
     def bundle(self, root):
-        names = (("python/python.exe", "llvm/bin/clang.exe", "bin/ninja.exe", "bin/zlib1.dll",
-                  "translator/totk_xlate.exe", "translator/totk_xlate.id", "deps/include/vma/vk_mem_alloc.h")
-                 if os.name == "nt" else ("translator/totk_xlate", "translator/totk_xlate.id")) + (
-                 "source/tools/hwaoi.py", "source/tools/hwaoi_romfs.py")
+        # The files bundle_check requires on this system (backend.REQUIRED: on Linux the bundle's own Python, clang,
+        # ld.lld, Ninja and SDL too) and the two validators it always hashes.
+        names = (*backend.REQUIRED, "source/tools/hwaoi.py", "source/tools/hwaoi_romfs.py")
         files = {}
         for name in names:
             path = root / name
