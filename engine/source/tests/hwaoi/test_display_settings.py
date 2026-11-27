@@ -274,7 +274,25 @@ class DisplaySettingsTests(unittest.TestCase):
         self.assertEqual(named.get("fov"), "TOTK_FOV_PATCH")
         self.assertNotIn("fov_view", named)
         fov_sites = sorted(off for off, (k, _, _) in table.sites["main"].items() if table.sets[k][0] == "fov")
-        self.assertEqual(fov_sites, [0x2cf234, 0x2cf474, 0x2e74bc])
+        self.assertEqual(fov_sites, [0x2cf234, 0x2cf474, 0x2e74bc, 0x84acf8])
+        # The scene view's projection (the units' labels): main+84acd0's read of the angle, ldr s0, [x19, #0x148], scaled
+        # when [[x29] + 8] is the return address at page +0xd0, without flags: the factor at page +0xe0 or 1.0 at +0xe4.
+        k, words, original = table.sites["main"][0x84acf8]
+        self.assertEqual(original, 0xbd400000 | (0x148 // 4) << 10 | 19 << 5)
+        words = rows[0x7000000000 + 0x84acf8][1]
+        self.assertEqual(words[0], original)
+        self.assertEqual((words[1] & 0x9f000000, words[1] & 31), (0x90000000, 9))
+        imm = ((words[1] >> 5) & 0x7ffff) << 2 | (words[1] >> 29) & 3
+        imm -= (1 << 21) if imm & (1 << 20) else 0
+        self.assertEqual(((0x7000000000 + 0x84acf8) & ~0xfff) + (imm << 12), table.page)
+        self.assertEqual(words[2:], [0xf94003aa, 0xf940054a, 0xf940692b,   # ldr x10, [x29]; ldr x10, [x10, #8]; ldr x11, [x9, #0xd0]
+                                     0xca0b014c, 0xcb0c03ed, 0xaa0d018c,   # eor x12, x10, x11; neg x13, x12; orr x12, x12, x13
+                                     0xd37ffd8c, 0x91038129, 0xbc6c7931,   # lsr x12, x12, #63; add x9, x9, #0xe0; ldr s17, [x9, x12, lsl #2]
+                                     0x1e310800])                          # fmul s0, s0, s17
+        source = (ROOT / "runtime/resolution.c").read_text(encoding="utf-8")
+        self.assertIn("uint64_t scene_view_return = 0x7001e93e60ull;", source)
+        self.assertGreaterEqual(source.count("fov_view_page("), 3)
+        self.assertIn("float view_factor[2] = {k, 1.0f};", source)
         # The setter main+2cf3a0: the original reads the aspect (ldr s0, [x19, #0x1f20]) and the angle in s8 is scaled.
         k, words, original = table.sites["main"][0x2cf474]
         self.assertEqual(original, 0xbd400000 | (0x1f20 // 4) << 10 | 19 << 5)

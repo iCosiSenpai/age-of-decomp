@@ -173,7 +173,9 @@ texture the menus share is laid out at the canvas's own scale (set `hwaoi_ui_tex
 1080 high and of the output's shape, `hwaoi_display_canvas`, the map's quads move right by `hwaoi_display_quad_offset`
 at page +0xc0, the HUD stays in the 16:9 middle; 32:9 needs the game's 3840x2160 present texture made wider); the field
 of view (set `fov`, GitHub #21: the factor at page +0x3c times the angle where the camera update copies it for the
-projection, main+2e74bc, and where the frustum reads it, main+2cf234); `TOTK_DUMP_TEX` writes
+projection, main+2e74bc, where the frustum reads it, main+2cf234, and in the FOV setter, main+2cf474; the units' labels
+have a projection of their own, scaled at main+84acf8 only when the caller's frame returns to the scene view update,
+page +0xd0 / +0xe0); `TOTK_DUMP_TEX` writes
 a block-compressed texture's own bytes as `..._blocks.bin`; `TOTK_SWAPCHAIN_TEST=1` resizes the window while its
 swapchain is made, to check that case in the log; the recorder thread off on AMD's own driver for every card
 generation and an `sfence` before it publishes its progress (`runtime/vk_rec.c`: `VK_RECORDER=auto|0|1`, catalogue

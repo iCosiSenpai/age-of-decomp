@@ -1,7 +1,9 @@
 # HWAoI NCM 196608, exact main SHA256 checked by tools/hwaoi.py.
 # Configurable native output (16:9 and 21:9) and scene. Patch page +0x80: scene {u32 w,h},
 # +0x88: output {u32 w,h}, +0xa8: the 2D canvas {u32 w,1080} of the output's shape, +0xb8: f32 output_h/1080
-# (set hwaoi_ui_canvas; +0xb0 is hwaoi_rate's u32), +0x3c: f32 the field-of-view factor (set fov).
+# (set hwaoi_ui_canvas; +0xb0 is hwaoi_rate's u32), +0x3c: f32 the field-of-view factor (set fov), +0xc0: f32
+# {dx, 0, dx, 0} (set hwaoi_ui_quads), +0xd0: u64 the return address that marks the scene view's projection and
+# +0xe0: f32 {factor, 1.0} (set fov, the units' labels).
 # Initialized before guest execution by resolution.c.
 # Original NUP/NSO remain unchanged. Both scale policies must stay at 1.0.
 set hwaoi_display TOTK_NATIVE_1080 1
@@ -180,16 +182,30 @@ site hwaoi_display main 019d4234 f9407b57 b85f43a9 b85f03aa 5119012b 510e114c 2a
 # tanf) gets the same factor, so the culling widens with the view; x8 and s1 are free there (both are caller-saved
 # across the tanf call, and the code after it writes s1 before reading it). Tested 2026-11-26 on an RTX 5070 Ti: the
 # frustum site alone left the picture as it was; with both, the scene measures 0.75 times its size at 130 % and 1.47
-# times at 70 %, and a switch while playing moves the picture at once with no drift after it. Not yet right: the units'
-# name labels (Raul, Soniah) stay where they are at 100 %. These reads of +0x1f1c, each scaled in a test, did not move
-# them: main+2f52ac (the render copy), 1e99d90, 1e9afe8, 38ee40, the getter 1150b6c, dae8a0, eb7f64, 24235c, 2d66f8,
-# 155050; the camera-framing reads 518c44, 5192d4, 51b5ac, 51e2e4, 521ad8, 52f200 move the camera closer instead.
+# times at 70 %, and a switch while playing moves the picture at once with no drift after it.
 # The camera's FOV setter main+2cf3a0 (vtable +0x480) stores the angle to +0x1f1c and +0x2ff8 and rebuilds the
 # projection block at once (main+84aaf4 / 84acd0) with the angle as it is, so whatever reads the block before the next
-# update gets 100 %. The third site scales s8 there, after its store to +0x1f1c and before the one to +0x2ff8 (at
+# update would get 100 %. The third site scales s8 there, after its store to +0x1f1c and before the one to +0x2ff8 (at
 # main+2cf474, in the perspective branch; x9 is written at main+2cf4d8, s16 is free by a scan that also counts a call as
-# a possible reader of x0..x8 / v0..v7). NOT YET RUN: it is here for the next test (labels with FOV 130 and 70).
+# a possible reader of x0..x8 / v0..v7). Run on 2026-11-27 with the others: the picture and 100 % as before.
+# The units' name labels (Raul, Soniah) and the other world markers use a projection of their own (the fourth site,
+# below). Reads of +0x1f1c scaled one at a time on 2026-11-26 that did not move them: main+2f52ac (the camera's render
+# copy), 1e99d90, 1e9afe8, 38ee40, the getter 1150b6c, dae8a0, eb7f64, 24235c, 2d66f8, 155050, the setter above; the
+# camera-framing reads 518c44, 5192d4, 51b5ac, 51e2e4, 521ad8, 52f200 move the camera closer instead.
+# The scene view update main+1e93c4c turns the view's angle in degrees (+0x2f4) into radians at +0x148 and has
+# main+84aa34 build its projection (the call at main+1e93e5c) through main+84acd0, which reads the angle at
+# main+84acf8. Found by scaling that read only for callers whose return address was in a range (the labels followed for
+# main+84aa34 / 84ae48 alone; scaling it for every caller also shrinks the Plus menu's 3D model). Storing the scaled
+# angle at main+1e93de8 instead scaled the picture twice (0.54 at 130 %): +0x148 is read back. So the builder scales
+# the angle it reads for that view only: when [[x29] + 8], the return address of main+84aa34's frame, is main+1e93e60
+# (page +0xd0; every one of main+84acd0's 42 callers sets up x29). No flags: bit 63 of (x ^ t) | -(x ^ t) is 0 only when
+# they are equal, and it picks the factor at page +0xe0 or 1.0 at +0xe4. x9..x13 and s17 are free there (a call to
+# tanf comes before any of them is read). Tested 2026-11-27 (RTX 5070 Ti): the labels, the captain's marker and the
+# lock-on ring on their units at 130 % and 70 % in a story battle at 1080p and 2560x1080 and on the training field,
+# live switches too; the picture 0.74-0.75 at 130 %, steady; 100 % as before. Left as it is: at 130 % the Plus menu's
+# 3D model is smaller (the camera sites above do that, not this one).
 set fov TOTK_FOV_PATCH 0
 site fov main 002cf234 bd5f1e80 bd5f1e80 @page:x8 bd403d01 1e210800
 site fov main 002e74bc bd5f1e60 bd5f1e60 @page:x9 bd403d23 1e230800
 site fov main 002cf474 bd5f2260 bd5f2260 @page:x9 bd403d30 1e300908
+site fov main 0084acf8 bd414a60 bd414a60 @page:x9 f94003aa f940054a f940692b ca0b014c cb0c03ed aa0d018c d37ffd8c 91038129 bc6c7931 1e310800

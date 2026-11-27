@@ -22,7 +22,8 @@ keeps your settings and saves.
   for 2560 × 1080, 16 GB for the other two. The window size list has 2560 × 1080 and 3440 × 1440 too. 32:9 screens are
   not supported yet. Thanks to @ahmadsultan1990 for the request (#8).
 - Field of view: a new setting (Display in the launcher, Picture in the game's menu) from 70 % to 140 % of the game's
-  own view. Thanks to @The-Gaymer for the request (#21).
+  own view. The names and markers over the units stay on them. With a wider view the character model in the Plus menu
+  is drawn smaller too. Thanks to @The-Gaymer for the request (#21).
 
 ## 0.3.5 (2026-11-26)
 
