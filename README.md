@@ -114,7 +114,9 @@ yet: a report helps.
 ## Requirements
 
 Windows 10/11 x64 or Linux x86-64, a CPU with **AVX2**, a **Vulkan 1.3** GPU with `VK_EXT_external_memory_host`
-(recent NVIDIA, AMD, Intel drivers), 16 GB RAM (32 GB recommended), about **25 GB** free for the build.
+(recent NVIDIA, AMD, Intel drivers) with **8 GB of video memory**, 16 GB RAM (32 GB recommended), about **25 GB** free
+for the build. On a 6 GB card the game's 4.6 GB block of graphics data does not fit in video memory, so the card reads
+it from system memory and the game runs at about 10 fps ([#33](https://github.com/iCosiSenpai/age-of-decomp/issues/33)).
 On Linux: glibc 2.34 or newer (SteamOS 3, Ubuntu 22.04, Debian 12, Fedora 36 or newer); kernel 6.7 or later is
 faster. Nothing to install to build the game: the compiler is inside the AppImage. Only the launcher's own window needs
 WebKitGTK 4.1 from the system; RecompLauncher needs no window from us.
