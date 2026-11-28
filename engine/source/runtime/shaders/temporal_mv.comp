@@ -81,7 +81,12 @@ void main() {
             if (ch) {
                 float on_screen = char_err(win + pc.prev_jitter, d);   // stayed on the screen: the same depth
                 float in_world = char_err(q, zexp);                    // stood in the world: the camera's change
-                if (on_screen < in_world) mv = vec2(0.0);
+                // The camera's motion stands wherever last frame's picture confirms it. A character the camera turns
+                // around stands in the world and keeps its place on the screen at once, so both candidates find it;
+                // taking the smaller error there gave its pixels no motion while the camera turned them, and DLSS left
+                // trails on the player and the units around it (GitHub #35). Only a character the world motion misses
+                // (one the camera follows) takes "stayed on the screen".
+                if (in_world > pc.tolerance && on_screen < in_world) mv = vec2(0.0);
                 if (min(on_screen, in_world) > 2.0 * pc.tolerance) bias = 1.0;
             } else if (q.x >= 0.0 && q.y >= 0.0 && q.x < pc.size.x && q.y < pc.size.y) {
                 float v = texelFetch(prev_hist, ivec2(q), 0).r;

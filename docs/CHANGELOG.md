@@ -7,7 +7,7 @@ report names who reported it: thank you all for testing and writing in.
 controller, so I cannot see whether Age of Decomp really works with them. For those I count on your tests and your
 logs to find and fix problems: please report what you see, with the newest `game-*.log`. Every release's notes say so.
 
-## 0.3.6 (not released yet)
+## 0.3.6 (2026-11-28)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
 keeps your settings and saves.
@@ -29,6 +29,10 @@ keeps your settings and saves.
   says what the English one says: 60 FPS is the game's normal speed, 30 FPS saves power.
 
 ### Graphics
+- With DLSS or DLAA, turning the camera around your character no longer leaves see-through copies of it and of the
+  units around it. Thanks to @Shiko-Tre for the report, the logs and the tests (#35).
+- The game no longer stops with code 70 after a long session when a texture it had to drop for video memory was drawn
+  again. Thanks to a player on RecompLauncher for the crash log (2026-11-27).
 - DLSS and DLAA now keep the image they rendered when NVIDIA Streamline warns that the video memory budget was exceeded.
   Before, the first warning turned DLSS off for the rest of the session. Thanks to @satoshi-banjiu for the fix and for
   testing it on an RTX 4060 Laptop GPU (#37).

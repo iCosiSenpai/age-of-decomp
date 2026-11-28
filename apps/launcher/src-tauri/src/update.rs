@@ -100,12 +100,18 @@ fn asset_name(tag: &str) -> String {
     format!("AgeOfDecomp-{tag}-Windows-x64.zip")
 }
 
+/// RecompLauncher installs its games' updates and sets `RECOMPLAUNCHER` in what it starts: a program's own updater
+/// stays off there (its developer guide; RecompLauncher's issue #653).
+fn managed_by_recomplauncher() -> bool {
+    std::env::var_os("RECOMPLAUNCHER").is_some()
+}
+
 pub fn check() -> Result<UpdateInfo, String> {
     let (_, list) = release_feed()?;
     let latest = newest(&list);
     let current = Version::parse(crate::VERSION).map_err(|e| e.to_string())?;
     Ok(UpdateInfo { current: crate::VERSION.into(), latest: latest.as_ref().map(|(r, _)| r.tag_name.clone()),
-        available: cfg!(windows) && latest.is_some_and(|(_, v)| v > current),
+        available: cfg!(windows) && !managed_by_recomplauncher() && latest.is_some_and(|(_, v)| v > current),
         previous_error: std::env::var("AOD_UPDATE_ERROR").ok() })
 }
 
@@ -173,6 +179,7 @@ fn extract(zip_path: &Path, dest: &Path, tag: &str) -> Result<(), String> {
 
 pub fn stage(mut progress: impl FnMut(f64)) -> Result<(), String> {
     if !cfg!(windows) { return Err("Automatic installation is currently available for the Windows portable compiler.".into()); }
+    if managed_by_recomplauncher() { return Err("RecompLauncher installs Age of Decomp's updates.".into()); }
     let destination = std::env::current_exe().map_err(|e| e.to_string())?.parent().unwrap().to_path_buf();
     if !destination.join("build-info.json").is_file() || !destination.join("engine/bundle.json").is_file() {
         return Err("Run the compiler from the downloaded release folder to install updates.".into());
