@@ -497,7 +497,10 @@ def cmd_notes(a) -> None:
         Path(a.out).write_text(text, encoding="utf-8", newline="\n")
         print(f"wrote {a.out}")
     else:
-        sys.stdout.write(text)
+        # UTF-8 whatever the console's code page: on Windows stdout is cp1252 and the notes have arrows and dashes.
+        sys.stdout.flush()
+        sys.stdout.buffer.write(text.encode("utf-8"))
+        sys.stdout.buffer.flush()
 
 
 def elf_info(path: Path) -> tuple[list[str], list[str], tuple[int, ...]]:
