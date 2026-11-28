@@ -6,6 +6,7 @@
 #include <string.h>
 
 #if defined(__x86_64__)
+#include <cpuid.h>
 #include <immintrin.h>
 #endif
 
@@ -78,7 +79,14 @@ __attribute__((target("sha,sse4.1"))) static void blocks_ni(uint32_t h[8], const
 static void blocks(uint32_t h[8], const uint8_t *p, size_t n) {
 #if defined(__x86_64__)
     static int ni = -1;
-    if (ni < 0) ni = __builtin_cpu_supports("sha") && __builtin_cpu_supports("sse4.1");
+    if (ni < 0) {
+        // CPUID itself: __builtin_cpu_supports("sha") needs clang 19, and the tests build with the system's clang too.
+        // SHA is leaf 7 EBX bit 29, SSE4.1 leaf 1 ECX bit 19.
+        unsigned a, b, c, d, sha = 0, sse41 = 0;
+        if (__get_cpuid(1, &a, &b, &c, &d)) sse41 = c >> 19 & 1;
+        if (__get_cpuid_count(7, 0, &a, &b, &c, &d)) sha = b >> 29 & 1;
+        ni = sha && sse41;
+    }
     if (ni) return blocks_ni(h, p, n);
 #endif
     blocks_c(h, p, n);

@@ -319,3 +319,19 @@ the tracked files. Each finding was checked in the code before it was changed; s
 | A-49 | `tools/menu_texts.py` looked for the menu's texts in a folder that is gone since the engine moved | Low | Fixed |
 | A-50 | HDR output has rows in the game's menu only, and the language values `zh-CN` / `zh-TW` the runtime accepts are unknown to the launcher | Low | Fixed — four HDR rows in the catalogue (Picture), so in the launcher and in RecompLauncher; `zh-CN` and `zh-TW` are shown and written as `zh-Hans` and `zh-Hant`. The game started on an HDR10 swapchain on an HDR screen here (600 frames, a clean exit); how the picture looks on it was not judged |
 | A-32 | (second audit, checked now) a skipped depth/stencil copy counted as handled | Low | Checked, left as it is — `vk_exec_xfer.c copy_depth_stencil` skips on purpose a copy whose two sides may share memory (Vulkan forbids it), with a warning in the log the first time; the generic copy it would otherwise fall to cannot copy a combined depth/stencil image. Doing it right needs a copy through a temporary image: not done |
+
+## Fourth audit (2026-11-27 and 2026-11-28, before 0.3.6)
+
+A read of the changes since 0.3.5 and of the launcher's backend, the tools and the content guard by hand, with
+vulture over the Python of `tools/` and the engine. Each finding was checked in the code before it was changed.
+
+| ID | Finding | Severity | Status |
+|---|---|---|---|
+| A-51 | The Steam Deck profile (`runtime/cfg.c` DECK, also `device_profile = deck`) asked for a 1280x800 game resolution and 40 FPS, which HWAoI refuses: code 70 at every start unless `output_res` was set | High | Fixed — 1280x720 and the game's own frame rate (PR #38); not run on a Steam Deck |
+| A-52 | Every in-app update kept the whole replaced release in a hidden `.aod-update-*` folder (807 MiB for 0.3.5) | Medium | Fixed — the next update removes the folders of updates that went in (PR #38) |
+| A-53 | The Simplified Chinese menu text of the frame rate spoke of 90 and 120 FPS | Low | Fixed (PR #38) |
+| A-54 | `cli prepare --resolution` with a size the engine does not build for ended with 4 (build failed) instead of 2 (arguments) | Low | Fixed — checked against the catalogue's game resolutions before the build; a test keeps them equal to `compiler/backend.py RESOLUTIONS` |
+| A-55 | A game that ended with the menu's Restart (75) within 3 s, so was not started again, was reported as a crash by the opt-in diagnostics | Low | Fixed — no report for 75 |
+| A-56 | `runtime/sha256.c` asked for SHA-NI with `__builtin_cpu_supports("sha")`, which clang 18 refuses, so `tests/hwaoi/test_hud_prompts.py` failed to build with a system clang before 19 | Low | Fixed — CPUID leaf 7 / leaf 1 directly |
+| A-57 | The content guard refused files under the top's `work/`, `build/`, `generated/` but not under the engine's own (`engine/source/work/` and the others in `engine/source/.gitignore`) | Low | Fixed — both, with a test |
+| A-58 | Developer tools of the engine that nothing calls (`tools/check_platform.py`, `hwaoi_probe.py`, `hwaoi_input.py`, `perf_summary.py`, `fetch_fsr_dlls.py`, `dkb_lower_test.cpp`) ship in the bundle every player's setup copies | Low | Checked, left as they are — each is a tool run by hand and documented in its header; they are small next to the bundle |
