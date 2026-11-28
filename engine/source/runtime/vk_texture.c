@@ -1095,6 +1095,24 @@ void vk_texture_register(const dpool_ref *pool, int id, const tex_t *t, const vi
     unlock();
 }
 
+// The Vulkan format a slot's view asks to sample its texture as; VK_FORMAT_UNDEFINED when the view sets none (the image
+// is then sampled in its own format) or tex_vk_format does not know it.
+static VkFormat slot_view_format(const TexSlot *s) {
+    TexVkFormat f;
+    return s->has_view && s->v.set_format && tex_vk_format(s->v.format, &f) ? f.vk : VK_FORMAT_UNDEFINED;
+}
+
+// A live texture at a slot's storage that the slot's view can read. get_view (vk_exec_draw.c) samples an image through a
+// view of another format only on a mutable-format image and as vk_sampled_format_compatible allows, and stops the game
+// otherwise: RecompLauncher report 146374 (RTX 3080 Ti, four hours in) ended so with code 70, when a slot whose own
+// texture had been dropped under VRAM pressure followed a BC1 texture the game had put at its storage and its view asked
+// for BC3. Such a slot keeps to its own texture, made again from storage when it is gone. A slot whose view sets no
+// format follows any live texture there, as before: textures of another format share storage (alias_compatible).
+static int can_follow(const Tex *p, VkFormat want) {
+    if (want == VK_FORMAT_UNDEFINED || p->pub.format == want) return 1;
+    return (p->pub.create_flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) && vk_sampled_format_compatible(p->pub.format, want);
+}
+
 // The entry slot s resolves to, and the view and has_view a caller gets with it (the slot's, with the descriptor's
 // swizzle when the entry is another descriptor at the same storage). NULL when the slot names no texture.
 static Tex *slot_resolve(TexSlot *s, view_t *view, int *has_view) {
@@ -1107,10 +1125,12 @@ static Tex *slot_resolve(TexSlot *s, view_t *view, int *has_view) {
         // Prefer the live entry that differs from the slot descriptor only in its swizzle: transient render targets
         // share storage, and the newest one at the address is usually another size. The map screen samples its
         // 2250x1080 map target through an (R,G,B,1) descriptor and followed a 960x60 target at the same address.
+        // Only a texture the slot's view can read is followed (can_follow).
         Tex *own = e, *any = NULL;
+        VkFormat want = slot_view_format(s);
         e = NULL;
         for (Tex *p = nvn_hm_get(&by_addr, &k.addr); p; p = p->next_at) {
-            if (p->released) continue;
+            if (p->released || !can_follow(p, want)) continue;
             if (!any) any = p;
             if (same_but_swizzle(&p->key, &k)) { e = p; break; }
         }

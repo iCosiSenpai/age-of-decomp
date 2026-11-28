@@ -573,20 +573,8 @@ static nvn_hmap view_of;                 // ViewKey -> VkImageView
 static nvn_hmap views_by_image;          // VkImage -> its first ViewNode
 
 // An image view of a registered texture for a shader resource of type `rtype` (GfxShaderRes.type); VK_NULL_HANDLE when
-// the image cannot serve it (the caller binds a stand-in). Texture lock held.
-// HWAoI scene-23 pass 0475/0476 requests linear samples of sRGB storage;
-// material draws request the reverse transfer for RGBA8, BC1 RGBA, BC3 and BC7.
-// These pairs are in the same Vulkan format compatibility class: the bytes and
-// addressing stay fixed; only sample-time interpretation changes. No BC2 or
-// arbitrary same-size reinterpretation is inferred from these observations.
-// https://docs.vulkan.org/spec/latest/chapters/formats.html#formats-compatibility
-static int sampled_format_compatible(VkFormat from, VkFormat to) {
-    return (from == VK_FORMAT_R8G8B8A8_SRGB && to == VK_FORMAT_R8G8B8A8_UNORM) ||
-           (from == VK_FORMAT_R8G8B8A8_UNORM && to == VK_FORMAT_R8G8B8A8_SRGB) ||
-           (from == VK_FORMAT_BC1_RGBA_UNORM_BLOCK && to == VK_FORMAT_BC1_RGBA_SRGB_BLOCK) ||
-           (from == VK_FORMAT_BC3_UNORM_BLOCK && to == VK_FORMAT_BC3_SRGB_BLOCK) ||
-           (from == VK_FORMAT_BC7_UNORM_BLOCK && to == VK_FORMAT_BC7_SRGB_BLOCK);
-}
+// the image cannot serve it (the caller binds a stand-in). Texture lock held. A sampled view may reinterpret the
+// image's format only as vk_sampled_format_compatible allows (vk.h).
 
 static VkImageView get_view(VkExec *ex, const VkTexImage *img, const view_t *v, int hv, uint16_t rtype, int storage) {
     (void)ex;
@@ -607,7 +595,7 @@ static VkImageView get_view(VkExec *ex, const VkTexImage *img, const view_t *v, 
             if (requested.vk != requested.ideal || requested.alpha_one || requested.expand_rgb || requested.chan[0] ||
                 img->alpha_one || img->chan[0] || img->aspect != VK_IMAGE_ASPECT_COLOR_BIT || img->samples != 1 ||
                 !(img->create_flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) ||
-                !sampled_format_compatible(img->format, requested.vk))
+                !vk_sampled_format_compatible(img->format, requested.vk))
                 rt_fatal("vk: unsupported sampled view reinterpretation nvn=%u Vulkan %d -> %d "
                          "flags=%#x aspect=%#x samples=%u", v->format, (int)img->format, (int)requested.vk,
                          img->create_flags, img->aspect, img->samples);

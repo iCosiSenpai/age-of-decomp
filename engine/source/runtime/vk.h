@@ -397,6 +397,18 @@ typedef struct {
     uint8_t fb_learned;            // a draw sampled it while it was a written attachment of the open pass: its passes
                                    // attach it in ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT (vk_exec.c vk_exec_pass_begin)
 } VkTexImage;
+// A sampled view of an image of format `from` may read it as `to`: the pairs the game was seen to ask for (HWAoI scene-23
+// pass 0475/0476 samples sRGB storage as linear; material draws ask the reverse for RGBA8, BC1 RGBA, BC3 and BC7). Each
+// pair is in one Vulkan format compatibility class: the bytes and addressing stay fixed, only the sample-time
+// interpretation changes. No BC2 or other same-size reinterpretation is inferred from these observations.
+// https://docs.vulkan.org/spec/latest/chapters/formats.html#formats-compatibility
+static inline int vk_sampled_format_compatible(VkFormat from, VkFormat to) {
+    return (from == VK_FORMAT_R8G8B8A8_SRGB && to == VK_FORMAT_R8G8B8A8_UNORM) ||
+           (from == VK_FORMAT_R8G8B8A8_UNORM && to == VK_FORMAT_R8G8B8A8_SRGB) ||
+           (from == VK_FORMAT_BC1_RGBA_UNORM_BLOCK && to == VK_FORMAT_BC1_RGBA_SRGB_BLOCK) ||
+           (from == VK_FORMAT_BC3_UNORM_BLOCK && to == VK_FORMAT_BC3_SRGB_BLOCK) ||
+           (from == VK_FORMAT_BC7_UNORM_BLOCK && to == VK_FORMAT_BC7_SRGB_BLOCK);
+}
 const VkTexImage *vk_texture_get(const tex_t *t);   // created and made current; NULL for BUFFER or unmapped formats
 // A texture slot; a slot whose texture was finalized follows the live texture at the same storage (hle_nvn.c).
 const VkTexImage *vk_texture_by_id(const dpool_ref *pool, int id, view_t *view, int *has_view);
