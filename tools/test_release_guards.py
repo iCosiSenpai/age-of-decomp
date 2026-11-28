@@ -140,6 +140,16 @@ class ReleaseGuardTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             release.release_notes("# Changelog\n\n## 9.9.9 (2026-01-01)\n- A fix.\n", "9.9.9")
 
+    def test_release_notes_print_as_utf8_on_a_cp1252_console(self):
+        # Windows' console is cp1252 when Python is not run with -X utf8, and the notes have "→" and "…".
+        import io
+        raw = io.BytesIO()
+        console = io.TextIOWrapper(raw, encoding="cp1252", errors="strict")
+        with patch.object(release, "release_notes", return_value="System → Updates …\n"), \
+                patch.object(sys, "stdout", console):
+            release.cmd_notes(SimpleNamespace(out=None))
+        self.assertEqual(raw.getvalue().decode("utf-8"), "System → Updates …\n")
+
     def test_apprun_sends_the_headless_starts_to_aod_cli(self):
         # RecompLauncher's setup step (`cli prepare …`) and its start (`--play …`) must not need the launcher's window
         # (WebKitGTK): a Steam Deck has none. The AppRun hands both to aod-cli, which takes both (lib.rs headless).
