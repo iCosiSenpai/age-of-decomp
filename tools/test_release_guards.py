@@ -9,6 +9,7 @@ import zipfile
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import check_content
 import engine
 import release
 
@@ -277,6 +278,18 @@ class ReleaseGuardTests(unittest.TestCase):
                 zf.writestr(f"{folder.name}/extra.log", "not in the folder")
             with self.assertRaises(SystemExit):
                 release.verify_zip(z, folder, folder.name)
+
+
+
+class ContentGuardTests(unittest.TestCase):
+    def test_build_folders_are_refused_at_the_top_and_in_the_engine(self):
+        # A name alone (no blob): only the path rules run.
+        for name in ("work/game/main_0001.c", "out/release/a.zip", "engine/source/work/build/hwaoi.ini",
+                     "engine/source/generated/main.c", "engine/source/game/hwaoi.exe.txt",
+                     "engine/source/toolchain/bin/x"):
+            self.assertIn("file inside an ignored build/dump folder", check_content.problems(name, None, None), name)
+        for name in ("engine/source/runtime/vk_rec.c", "engine/source/tools/hwaoi.py", "docs/CHANGELOG.md"):
+            self.assertEqual(check_content.problems(name, None, None), [], name)
 
 
 if __name__ == "__main__":

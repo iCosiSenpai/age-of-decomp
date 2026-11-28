@@ -179,13 +179,26 @@ fn failure_kind(code: i32, text: &str) -> &'static str {
 
 pub fn game_finished(paths: &Paths, code: i32, fps: Option<f64>, log: &Path) {
     if !enabled(paths) { return; }
-    if code != 0 {
-        write_report(paths, "game_crash", game_failure(code, log), None, VERSION);
-    } else if let Some(value) = fps.filter(|f| f.is_finite() && (1.0..=300.0).contains(f)) {
-        let band = ((value / 5.0).round() as u32 * 5).max(5);
-        write_report(paths, "game_session", "completed", Some(band), VERSION);
+    match finished_report(code, fps) {
+        Some(("game_crash", _)) => write_report(paths, "game_crash", game_failure(code, log), None, VERSION),
+        Some((event, band)) => write_report(paths, event, "completed", band, VERSION),
+        None => {}
     }
     flush(paths);
+}
+
+/// What a finished game reports: a crash for an error code, a session with its frame rate band for a clean end.
+/// The menu's Restart is the game's own ending, also when it came too soon to be started again
+/// (game::Launched::wants_restart): no crash.
+fn finished_report(code: i32, fps: Option<f64>) -> Option<(&'static str, Option<u32>)> {
+    if code == crate::game::RESTART_EXIT {
+        None
+    } else if code != 0 {
+        Some(("game_crash", None))
+    } else {
+        let value = fps.filter(|f| f.is_finite() && (1.0..=300.0).contains(f))?;
+        Some(("game_session", Some(((value / 5.0).round() as u32 * 5).max(5))))
+    }
 }
 
 pub fn flush(paths: &Paths) {
@@ -261,6 +274,14 @@ mod tests {
         assert_eq!(failure_kind(70, "audio: open failed (-4)\n"), "unexpected_exit");
         assert_eq!(failure_kind(0xc0000005u32 as i32, ""), "access_violation");
         assert_eq!(failure_kind(71, "host: fault at 0x1234\n"), "unexpected_exit");
+    }
+
+    #[test]
+    fn a_restart_too_soon_is_not_a_crash() {
+        assert_eq!(finished_report(crate::game::RESTART_EXIT, Some(60.0)), None);
+        assert_eq!(finished_report(70, Some(60.0)), Some(("game_crash", None)));
+        assert_eq!(finished_report(0, Some(58.4)), Some(("game_session", Some(60))));
+        assert_eq!(finished_report(0, None), None);
     }
 
     #[test]

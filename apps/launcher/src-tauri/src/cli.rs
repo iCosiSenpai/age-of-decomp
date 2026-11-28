@@ -18,7 +18,7 @@
 //! On Windows the launcher is a program without a console: its output reaches the pipes of whoever started it
 //! (RecompLauncher reads them), not a console window; aod-cli.exe is the one to run in a console.
 
-use crate::{config::Config, dlss, paths::Paths, prepare};
+use crate::{config::Config, dlss, paths::Paths, prepare, settings};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -122,6 +122,12 @@ fn prepare_cmd(args: &[String]) -> i32 {
         (Ok(update), Ok(dlc)) => (update, dlc),
         _ => { eprintln!("Could not resolve the update or DLC path"); return 2; }
     };
+    // A size the engine does not build for is a wrong argument (2), not a failed build (4).
+    let resolution = arg(args, "--resolution").unwrap_or_else(|| "auto".into());
+    if let Err(e) = settings::validate("output_res", &resolution) {
+        eprintln!("--resolution: {e}");
+        return 2;
+    }
     if let Err(e) = fetch_frame_gen(args, &paths) {
         eprintln!("{e}");
         return 2;
@@ -147,7 +153,7 @@ fn prepare_cmd(args: &[String]) -> i32 {
         dlc: dlc.as_ref().map(PathBuf::from),
         output: PathBuf::from(&out),
         jobs,
-        resolution: arg(args, "--resolution").unwrap_or_else(|| "auto".into()),
+        resolution,
         unlock: args.iter().any(|a| a == "--unlock"),
     };
     let control = Arc::new(prepare::Control::default());
@@ -207,6 +213,19 @@ mod tests {
         assert_eq!(fetch_frame_gen(&args(&["prepare", "--fetch-frame-gen", "--accept-nvidia-license"]), &paths), Ok(()));
         assert_eq!(std::fs::read(&file).unwrap(), b"kept");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn resolutions_are_the_engines() {
+        // The catalogue's game resolutions are the sizes the engine's builder takes (compiler/backend.py RESOLUTIONS).
+        let backend = include_str!("../../../../engine/source/compiler/backend.py");
+        let line = backend.lines().find(|l| l.starts_with("RESOLUTIONS = (")).expect("RESOLUTIONS in backend.py");
+        let engine: Vec<&str> = line.split('"').skip(1).step_by(2).collect();
+        let output = settings::catalog().iter().find(|s| s.key == "output_res").expect("output_res");
+        let catalogue: Vec<&str> = output.choices.iter().map(|c| c.value.as_str()).collect();
+        assert_eq!(catalogue, engine);
+        let args = |values: &[&str]| values.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(prepare_cmd(&args(&["prepare", "--game", "a.nup", "--out", "out", "--resolution", "1366x768"])), 2);
     }
 
     #[test]

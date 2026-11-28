@@ -109,9 +109,12 @@ packaging/         recomplauncher.json (generated), linux/ (AppRun: `cli …` an
                    licenses/ (licence texts of bundled parts whose package has none, libvpx and Ninja: `engine.py
                    toolchain` adds them to the bundle's licences and stops when one is missing)
 tools/             engine.py, release.py, fetch_refs.py, check_content.py, catalog_fmt.py, menu_texts.py,
-                   make_game_icon.py, capture_window.ps1, smoke_game.py, recomplauncher_check.py (+ .rs harness)
-docs/              SETTINGS.md (generated: `release.py docs`), CONTROLLERS.md, CHANGELOG.md (release notes + credits);
-                   assets/icon.svg (source of all app icons)
+                   make_game_icon.py, capture_window.ps1, smoke_game.py, recomplauncher_check.py (+ .rs harness),
+                   provenance.py (docs/CODE_PROVENANCE.md), requirements-engine.txt (the bundle's Python packages),
+                   diagnostics/ (the opt-in reports' endpoint), test_release_guards.py, test_nintendo_transport.py
+docs/              SETTINGS.md (generated: `release.py docs`), CONTROLLERS.md, CHANGELOG.md (release notes + credits),
+                   AUDIT.md (every audit's findings and what became of them), CODE_PROVENANCE.md, DIAGNOSTICS.md,
+                   RECOMPLAUNCHER.md; assets/icon.svg (source of all app icons), assets/screenshots/ (README)
 plan&activity/     agent notebook (gitignored) — see above
 refs/              read-only upstream checkouts (gitignored, `py tools/fetch_refs.py` recreates them)
 .cache/ build/ out/ work/   gitignored: toolchains, build trees, staged bundles, releases (engine/source/work too)
