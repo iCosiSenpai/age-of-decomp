@@ -7,7 +7,7 @@ report names who reported it: thank you all for testing and writing in.
 controller, so I cannot see whether Age of Decomp really works with them. For those I count on your tests and your
 logs to find and fix problems: please report what you see, with the newest `game-*.log`. Every release's notes say so.
 
-## 0.3.6 (not released yet)
+## 0.3.6 (2026-11-28)
 
 Build the game again once after installing this version (RecompLauncher does it by itself at the first start). Setup
 keeps your settings and saves.
